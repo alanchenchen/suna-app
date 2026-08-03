@@ -9,15 +9,18 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
-# Go output, coverage, staged frontend assets, and local development state
+# Go output, coverage, and local development state
 bin/
 coverage/
-gateway/internal/webassets/dist/*
-!gateway/internal/webassets/dist/.gitkeep
 *.test
 *.out
 *.prof
 *.coverprofile
+
+# Staged frontend assets are generated for release builds. Keep the tracked
+# placeholder so the go:embed pattern remains valid in clean checkouts.
+gateway/internal/webassets/dist/*
+!gateway/internal/webassets/dist/.gitkeep
 
 # Gateway local state, logs, and development certificates
 .gateway/
@@ -42,6 +45,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Desktop packaging output
+# Release and desktop packaging output
+/dist/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/

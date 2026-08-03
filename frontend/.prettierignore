@@ -1,0 +1,6 @@
+# Generated output is not source formatting input. The existing working-tree
+# files below are intentionally retained until their owning change formats them.
+dist/
+src/features/chat/ChatTimeline.tsx
+src/features/run/RunDetails.tsx
+src/styles/app.css

@@ -1,15 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-
-function App() {
-  return <main>Suna App development shell</main>;
-}
+import { App } from "./App";
 
 const root = document.getElementById("root");
-
-if (root === null) {
-  throw new Error("missing root element");
-}
+if (root === null) throw new Error("missing root element");
 
 createRoot(root).render(
   <StrictMode>

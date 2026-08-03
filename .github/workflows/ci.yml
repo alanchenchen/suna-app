@@ -54,6 +54,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Check formatting after build
+        run: pnpm format:check
+
   gateway:
     name: Gateway
     runs-on: ubuntu-latest

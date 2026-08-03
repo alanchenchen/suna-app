@@ -49,6 +49,7 @@ jobs:
           pnpm typecheck
           pnpm test
           pnpm build
+          pnpm format:check
 
       - name: Verify Gateway
         working-directory: gateway

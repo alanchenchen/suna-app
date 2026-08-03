@@ -3,17 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${1:?release version is required}"
-FRONTEND_DIR="$ROOT_DIR/frontend"
 GATEWAY_DIR="$ROOT_DIR/gateway"
-STAGED_ASSETS="$GATEWAY_DIR/internal/webassets/dist"
 DIST_DIR="$ROOT_DIR/dist"
 PACKAGE="github.com/alanchenchen/suna-app/gateway/cmd/suna-app"
-
-stage_frontend() {
-  rm -rf "$STAGED_ASSETS"
-  mkdir -p "$STAGED_ASSETS"
-  cp -R "$FRONTEND_DIR/dist/." "$STAGED_ASSETS/"
-}
 
 build_one() {
   local goos="$1"
@@ -46,14 +38,15 @@ build_one() {
   )
 }
 
-if [ ! -f "$FRONTEND_DIR/dist/index.html" ]; then
-  printf '%s\n' "frontend build output is missing; run pnpm build in frontend first" >&2
-  exit 1
-fi
+"$ROOT_DIR/scripts/stage-frontend.sh"
+
+(
+  cd "$GATEWAY_DIR"
+  go test -tags=integration ./internal/webassets
+)
 
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
-stage_frontend
 
 (
   cd "$GATEWAY_DIR"

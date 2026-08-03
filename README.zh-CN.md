@@ -1,16 +1,12 @@
 # Suna App
 
-Suna App 是 [Suna Runtime](https://github.com/alanchenchen/suna) 的官方 GUI 客户端。它将提供响应式 Web / PWA 体验，并在后续承载桌面 launcher。
-
-Suna App 是独立应用和独立发版线，通过 Suna 的公开本地 protocol 连接已安装的 Suna Runtime；它不包含第二套 Agent runtime。
-
-> **状态：** 项目脚手架。当前尚未实现 Runtime bridge 或产品 UI。
+Suna App 是 [Suna Runtime](https://github.com/alanchenchen/suna) 的官方 GUI 客户端，提供响应式 Web / PWA 体验。它通过 Suna 的公开本地 protocol 连接已安装的 Suna Runtime，不包含第二套 Agent runtime。
 
 ## 架构
 
 ```text
 Browser / PWA
-      │ HTTP + WebSocket
+      │ HTTP + SSE
 Suna App Gateway
       │ public TCP NDJSON protocol
 Installed Suna Runtime daemon
@@ -29,30 +25,45 @@ frontend/                 React + TypeScript + Vite PWA
 
 gateway/                  独立 Go module
   cmd/suna-app/           Gateway 二进制入口
-  internal/               Runtime 发现、protocol client、HTTP/WS bridge
+  internal/               Runtime 发现、protocol client、HTTP/SSE bridge
 
 docs/                     架构、开发与部署说明
 scripts/                  确定性的本地与 release 构建脚本
 .github/workflows/        CI 与独立发版自动化
 ```
 
-## 规划开发方式
+## 开发流程
 
-Suna App 开发使用本机已安装的 Suna Runtime release，而不是依赖 Runtime 源码 checkout：
+本地 HMR 开发请使用两个终端。Gateway 和 Vite 都只监听 loopback；Vite 会将 `/api` 与 `/healthz` 代理到 `http://127.0.0.1:7633` 的 Gateway。Gateway 的实时更新通过 API 路由上的 SSE 提供。
 
-```text
-installed suna release
-        ↑
-Suna App Gateway --dev
-        ↑
-Vite development server with HMR
-        ↑
-browser
+```bash
+# 终端 1
+cd gateway
+go run ./cmd/suna-app
 ```
 
-项目初始命令直接在各组件目录中执行。Gateway 与 UI 实现开始后，使用 `docs/development.md` 中的项目专用命令。
+```bash
+# 终端 2
+cd frontend
+pnpm install
+pnpm dev
+```
 
-## 发版模型
+打开 Vite 输出的地址即可。完整的检查命令、Runtime 要求和开发约定见[开发文档](docs/development.md)。
+
+## 发版流程
+
+发版会先构建前端，将产物暂存到 Gateway 的 `go:embed` 目录，校验暂存后的嵌入资源，然后交叉编译 Gateway 并打包：
+
+```bash
+cd frontend
+pnpm build
+
+cd ..
+./scripts/build-release.sh v0.0.0
+```
+
+`build-release.sh` 会调用 `scripts/stage-frontend.sh`，并在打包前运行带 tag 的嵌入资源 smoke test；归档文件生成在 `dist/`。受追踪的 `gateway/internal/webassets/dist/.gitkeep` 让干净 checkout 中的普通 Go 构建仍可通过；默认 Gateway 测试不依赖前端构建产物。
 
 Suna App 与 Suna Runtime 独立版本化、独立发版：
 

@@ -1,16 +1,12 @@
 # Suna App
 
-Suna App is the official GUI client for the [Suna Runtime](https://github.com/alanchenchen/suna). It will provide a responsive Web / PWA experience and, later, a desktop launcher.
-
-Suna App is a separate application and release line. It connects to an already installed Suna Runtime through Suna's public local protocol; it does not contain a second Agent runtime.
-
-> **Status:** project scaffold. No Runtime bridge or product UI has been implemented yet.
+Suna App is the official GUI client for the [Suna Runtime](https://github.com/alanchenchen/suna). It provides a responsive Web / PWA experience and connects to an already installed Runtime through Suna's public local protocol; it does not contain a second Agent runtime.
 
 ## Architecture
 
 ```text
 Browser / PWA
-      │ HTTP + WebSocket
+      │ HTTP + SSE
 Suna App Gateway
       │ public TCP NDJSON protocol
 Installed Suna Runtime daemon
@@ -29,30 +25,45 @@ frontend/                 React + TypeScript + Vite PWA
 
 gateway/                  independent Go module
   cmd/suna-app/           Gateway binary entry point
-  internal/               Runtime discovery, protocol client, HTTP/WS bridge
+  internal/               Runtime discovery, protocol client, HTTP/SSE bridge
 
 docs/                     architecture, development and deployment notes
 scripts/                  deterministic local and release build helpers
 .github/workflows/        CI and independent release automation
 ```
 
-## Planned development workflow
+## Development workflow
 
-Suna App development uses an installed Suna Runtime release rather than a checkout of the Runtime source:
+Use two terminals for local HMR development. The Gateway and Vite are both loopback-only. Vite proxies `/api` and `/healthz` to the Gateway at `http://127.0.0.1:7633`; live Gateway updates use SSE on the API routes.
 
-```text
-installed suna release
-        ↑
-Suna App Gateway --dev
-        ↑
-Vite development server with HMR
-        ↑
-browser
+```bash
+# Terminal 1
+cd gateway
+go run ./cmd/suna-app
 ```
 
-The initial project commands are run directly from each component directory. Once Gateway and UI work begins, use the project-specific commands documented in `docs/development.md`.
+```bash
+# Terminal 2
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Open the URL printed by Vite. See [development.md](docs/development.md) for checks, Runtime requirements, and the complete development contract.
 
 ## Release model
+
+A release first builds the frontend, stages it into the Gateway's `go:embed` directory, validates the staged embedded assets, and then cross-compiles the Gateway archives:
+
+```bash
+cd frontend
+pnpm build
+
+cd ..
+./scripts/build-release.sh v0.0.0
+```
+
+`build-release.sh` calls `scripts/stage-frontend.sh` and runs the tagged embedded-asset smoke test before creating archives in `dist/`. The tracked `gateway/internal/webassets/dist/.gitkeep` keeps ordinary Go builds valid in a clean checkout; normal Gateway tests do not require a frontend build.
 
 Suna App is versioned and released independently from Suna Runtime:
 

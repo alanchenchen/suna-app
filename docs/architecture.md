@@ -33,7 +33,7 @@ The Gateway follows the documented third-party client flow:
 2. read the returned authoritative `tcp_endpoint`;
 3. open a TCP connection and send `runtime.hello` as the first request;
 4. verify the supported protocol version and capabilities;
-5. use public session, agent, Guard and AskUser methods and notifications.
+5. expose approved public session, agent, Guard and AskUser methods and notifications through local HTTP and SSE.
 
 The endpoint is loopback-only. The browser only talks to Gateway; it never accesses Runtime TCP directly.
 
@@ -64,14 +64,14 @@ Development uses a locally installed Suna Runtime release, not the Runtime sourc
 ```text
 installed suna release
         ↑
-Gateway --dev
+Gateway
         ↑
 Vite dev server / HMR
         ↑
 browser
 ```
 
-Vite proxies browser API and WebSocket traffic to Gateway. Browser code must not use a separate direct Runtime connection in development.
+Vite proxies browser HTTP and SSE traffic to Gateway. Browser code must not use a separate direct Runtime connection in development.
 
 ## Release topology
 
