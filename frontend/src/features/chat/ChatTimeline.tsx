@@ -24,6 +24,8 @@ type ChatTimelineProps = {
   activeTool?: ActiveTool;
   /** Changes when Runtime attaches another session, resetting scroll anchoring. */
   sessionId?: string;
+  /** Show skeleton placeholders while a session snapshot is loading. */
+  loading?: boolean;
 };
 
 function activityCopy(
@@ -138,6 +140,7 @@ export function ChatTimeline({
   pending,
   activeTool,
   sessionId,
+  loading = false,
 }: ChatTimelineProps) {
   const [historyWindow, setHistoryWindow] = useState(80);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -209,23 +212,58 @@ export function ChatTimeline({
         className="animate-[message-in_300ms_cubic-bezier(0.2,0.8,0.2,1)_both] mx-auto w-[min(720px,calc(100%-48px))] px-0 pt-8 pb-12 max-[720px]:w-[min(100%-28px,640px)] max-[720px]:pt-6 max-[720px]:pb-7"
         key={sessionId ?? "none"}
       >
-        {messages.length === 0 &&
+        {loading && (
+          <div aria-busy="true" className="space-y-7">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <div className="h-[21px] w-[21px] rounded-[7px] bg-surface-subtle" />
+                  <div className="h-2.5 w-14 rounded bg-surface-subtle" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 w-full max-w-[420px] rounded bg-surface-subtle" />
+                  <div className="h-3 w-3/4 max-w-[320px] rounded bg-surface-subtle" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {!loading &&
+          messages.length === 0 &&
           !assistantBuffer &&
           !showActivityCard &&
           !reasoningBuffer && (
-            <div className="flex min-h-[280px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white shadow-[0_4px_11px_rgba(83,109,222,0.28)]">
-                <Icon name="sparkle" size={16} />
+            <div className="flex min-h-[300px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white shadow-[0_8px_24px_rgba(83,109,222,0.35)]">
+                <Icon name="sparkle" size={22} />
               </span>
-              <h2 className="mt-3 mb-0.5 text-[18px] font-extrabold text-ink">
+              <h2 className="mt-4 mb-1.5 text-[17px] font-extrabold tracking-tight text-ink">
                 开始一个任务
               </h2>
-              <p className="m-0 max-w-[270px] text-[13px] text-ink-muted">
-                告诉 Suna 你想在这个工作目录中完成什么。
+              <p className="m-0 max-w-[300px] text-[12.5px] leading-relaxed text-ink-muted">
+                告诉 Suna 你想在这个工作目录中完成什么，它会负责执行与推进。
               </p>
+              <div className="mt-6 grid gap-2 text-left">
+                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-blue-soft text-blue-strong">
+                    <Icon name="search" size={14} />
+                  </span>
+                  <span className="text-[12px] text-ink-soft">
+                    让 Suna 分析代码、查找问题并解释架构
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-green-soft text-green">
+                    <Icon name="check" size={14} />
+                  </span>
+                  <span className="text-[12px] text-ink-soft">
+                    让它修改文件、运行测试并汇报结果
+                  </span>
+                </div>
+              </div>
             </div>
           )}
-        {messages.length > historyWindow && (
+        {!loading && messages.length > historyWindow && (
           <button
             className="mb-6 block cursor-pointer rounded-full bg-blue-soft px-3 py-2 text-[11px] font-extrabold text-blue-strong transition-[transform,background] duration-160 hover:bg-blue/20 hover:-translate-y-px mx-auto"
             onClick={() => {
@@ -242,43 +280,44 @@ export function ChatTimeline({
             显示更早的 {Math.min(80, messages.length - historyWindow)} 条消息
           </button>
         )}
-        {messages.slice(-historyWindow).map((message, index) => (
-          <article
-            className={`mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-6`}
-            key={`${messages.length - historyWindow + index}-${message.role}`}
-          >
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
-              <span
-                className={
-                  message.role === "user"
-                    ? "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-[7px] font-bold text-blue-strong"
-                    : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white"
-                }
-              >
-                {message.role === "user" ? (
-                  "你"
-                ) : (
-                  <Icon name="sparkle" size={14} />
-                )}
-              </span>
-              <strong className="text-ink">
-                {message.role === "user" ? "你" : "Suna"}
-              </strong>
-            </div>
-            <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76]">
-              {message.role === "assistant" ? (
-                <Markdown remarkPlugins={[remarkGfm]}>
-                  {message.content}
-                </Markdown>
-              ) : (
-                <span className="inline-block max-w-[min(640px,100%)] rounded-[4px_15px_15px_15px] border border-line bg-surface-solid px-3.5 py-3 text-ink leading-[1.7] shadow-sm">
-                  {message.content}
+        {!loading &&
+          messages.slice(-historyWindow).map((message, index) => (
+            <article
+              className={`mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-6`}
+              key={`${messages.length - historyWindow + index}-${message.role}`}
+            >
+              <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
+                <span
+                  className={
+                    message.role === "user"
+                      ? "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-[7px] font-bold text-blue-strong"
+                      : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white"
+                  }
+                >
+                  {message.role === "user" ? (
+                    "你"
+                  ) : (
+                    <Icon name="sparkle" size={14} />
+                  )}
                 </span>
-              )}
-            </div>
-          </article>
-        ))}
-        {showActivityCard && (
+                <strong className="text-ink">
+                  {message.role === "user" ? "你" : "Suna"}
+                </strong>
+              </div>
+              <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76]">
+                {message.role === "assistant" ? (
+                  <Markdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </Markdown>
+                ) : (
+                  <span className="inline-block max-w-[min(640px,100%)] rounded-[4px_15px_15px_15px] border border-line bg-surface-solid px-3.5 py-3 text-ink leading-[1.7] shadow-sm">
+                    {message.content}
+                  </span>
+                )}
+              </div>
+            </article>
+          ))}
+        {!loading && showActivityCard && (
           <section
             aria-atomic="true"
             aria-live="polite"
@@ -302,7 +341,7 @@ export function ChatTimeline({
             <ActivityDots />
           </section>
         )}
-        {reasoningBuffer && (
+        {!loading && reasoningBuffer && (
           <article className="mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
             <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
               <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
@@ -316,7 +355,7 @@ export function ChatTimeline({
             </div>
           </article>
         )}
-        {assistantBuffer && (
+        {!loading && assistantBuffer && (
           <article className="arriving mb-7 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]">
             <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
               <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">

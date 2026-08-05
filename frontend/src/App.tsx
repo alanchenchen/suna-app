@@ -3,6 +3,7 @@ import { Icon, IconButton } from "./components/Icon";
 import { Dialog } from "./components/ui/Dialog";
 import { Select } from "./components/ui/Select";
 import { Switch } from "./components/ui/Switch";
+import { useToast } from "./components/ui/Toast";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer } from "./features/chat/Composer";
 import { RunDetails } from "./features/run/RunDetails";
@@ -53,6 +54,7 @@ function messageId() {
 }
 
 export function App() {
+  const { toast } = useToast();
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = window.localStorage.getItem("suna-theme");
     return saved === "light" || saved === "dark"
@@ -72,6 +74,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [composerFocus, setComposerFocus] = useState(0);
   const selectedIdRef = useRef<string | undefined>(undefined);
   const restoreRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const attachIntentRef = useRef(0);
@@ -561,6 +564,17 @@ export function App() {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem("suna-theme", theme);
   }, [theme]);
+  // Cmd/Ctrl+K 聚焦输入框：桌面快速开始输入。
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setComposerFocus((value) => value + 1);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
   // 主题切换用 View Transition 做平滑淡入淡出；不支持的浏览器直接切换。
   const toggleTheme = useCallback(() => {
     const next = theme === "dark" ? "light" : "dark";
@@ -623,6 +637,7 @@ export function App() {
           pendingUsers: [],
         });
         mergeSession(snapshot.session);
+        toast("success", "会话已创建");
       });
     } catch (reason) {
       if (intent === attachIntentRef.current)
@@ -703,6 +718,7 @@ export function App() {
     }));
     mergeSession(snapshot.session);
     await loadSessions();
+    toast("success", `已切换模型：${model_ref}`);
   }
   async function rename() {
     const scope = scopeRef.current;
@@ -722,6 +738,7 @@ export function App() {
       mergeSession(snapshot.session);
       await loadSessions();
       setEditingTitle(false);
+      toast("success", "会话标题已更新");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "无法更新会话标题。");
     }
@@ -738,6 +755,7 @@ export function App() {
         if (intent !== attachIntentRef.current) return;
         setSelectedId(undefined);
         setActive(blankActive());
+        toast("info", "已离开当前会话");
       });
     } catch (reason) {
       if (intent === attachIntentRef.current)
@@ -746,10 +764,9 @@ export function App() {
       if (intent === attachIntentRef.current) setSyncBoundary(false);
     }
   }
-  async function remove() {
-    if (syncing || !selectedId || !canDelete) return;
+  async function remove(id: string) {
+    if (syncing || !canDelete) return;
     if (!window.confirm("删除此会话？此操作无法撤销。")) return;
-    const id = selectedId;
     const intent = ++attachIntentRef.current;
     resetQueuedDeltas();
     scopeRef.current = undefined;
@@ -785,6 +802,7 @@ export function App() {
           });
           mergeSession(snapshot.session);
         }
+        toast("success", "会话已删除");
       });
     } catch (reason) {
       if (intent === attachIntentRef.current)
@@ -863,6 +881,9 @@ export function App() {
         disabled={syncing}
         selectedId={selectedId}
         sessions={sessions}
+        onDetach={selectedId ? () => void detach() : undefined}
+        onDelete={canDelete ? (id) => void remove(id) : undefined}
+        onClose={() => setMobileMenuOpen(false)}
       />
       {mobileMenuOpen && (
         <button
@@ -937,26 +958,6 @@ export function App() {
             >
               <Icon name="ellipsis" />
             </IconButton>
-            {selectedId && cap("session") && (
-              <button
-                className="icon-button text-[11px] font-bold max-[720px]:hidden"
-                disabled={sessionActionsFrozen || observer}
-                onClick={() => void detach()}
-                type="button"
-              >
-                分离
-              </button>
-            )}
-            {canDelete && selectedId && (
-              <button
-                className="icon-button text-[11px] font-bold max-[720px]:hidden"
-                disabled={sessionActionsFrozen || observer}
-                onClick={() => void remove()}
-                type="button"
-              >
-                删除
-              </button>
-            )}
             {running && canControl && !syncing && (
               <button
                 className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-rose/10 px-2.5 text-[11px] font-bold text-rose transition-colors duration-150 hover:bg-rose/15 active:scale-95 max-[720px]:h-8 max-[720px]:px-2"
@@ -1019,15 +1020,6 @@ export function App() {
             </div>
           </form>
         </Dialog>
-        {syncing && (
-          <div
-            aria-live="polite"
-            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center gap-3 border-b border-blue/25 bg-blue-soft/60 px-5 py-2 text-[13px] text-ink-soft"
-          >
-            <span className="h-[7px] w-[7px] animate-[breathe_1.35s_ease-in-out_infinite] rounded-full bg-blue" />
-            正在切换会话，等待 Runtime 确认…
-          </div>
-        )}
         {observer && (
           <div
             aria-live="polite"
@@ -1063,6 +1055,7 @@ export function App() {
         <ChatTimeline
           activeTool={active.activeTool}
           assistantBuffer={active.assistant}
+          loading={syncing}
           messages={messages}
           pending={active.pendingUsers.length > 0}
           phase={active.run?.phase ?? current?.phase}
@@ -1071,8 +1064,9 @@ export function App() {
           sessionId={active.snapshot?.session.id}
         />
         <Composer
-          disabled={sessionActionsFrozen || observer}
           canAttachImageUrl={Boolean(hello?.content_sources.url)}
+          disabled={sessionActionsFrozen || observer}
+          focusTrigger={composerFocus}
           onSubmit={send}
           observer={observer}
           waiting={selected?.status === "waiting"}

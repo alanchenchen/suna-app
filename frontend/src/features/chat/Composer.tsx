@@ -8,6 +8,8 @@ type ComposerProps = {
   waiting?: boolean;
   observer?: boolean;
   canAttachImageUrl?: boolean;
+  /** Increment to request focus on the composer textarea. */
+  focusTrigger?: number;
 };
 
 export function Composer({
@@ -16,6 +18,7 @@ export function Composer({
   waiting,
   observer = false,
   canAttachImageUrl,
+  focusTrigger = 0,
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -28,6 +31,10 @@ export function Composer({
     // 发送后清空草稿时，把自动增高的高度恢复为初始值。
     if (!draft && textareaRef.current) textareaRef.current.style.height = "";
   }, [draft]);
+
+  useEffect(() => {
+    if (focusTrigger > 0 && !disabled) textareaRef.current?.focus();
+  }, [disabled, focusTrigger]);
 
   async function submit() {
     const message = draft.trim();

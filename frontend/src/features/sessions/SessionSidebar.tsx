@@ -22,6 +22,9 @@ type SessionSidebarProps = {
   onCreate: (cwd: string, title?: string) => Promise<void>;
   onDisconnect: () => void;
   onJoinActive: (id: string) => void;
+  onDetach?: () => void;
+  onDelete?: (id: string) => void;
+  onClose?: () => void;
 };
 
 function relativeTime(value: string) {
@@ -43,12 +46,16 @@ export function SessionSidebar({
   onCreate,
   onDisconnect,
   onJoinActive,
+  onDetach,
+  onDelete,
+  onClose,
 }: SessionSidebarProps) {
   const [creating, setCreating] = useState(false);
   const [cwd, setCwd] = useState("");
   const [title, setTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
+  const [menuFor, setMenuFor] = useState<string>();
 
   async function create() {
     if (!cwd.trim()) {
@@ -84,13 +91,25 @@ export function SessionSidebar({
           </span>
           <span>Suna</span>
         </button>
-        <IconButton
-          disabled={disabled}
-          label="新建会话"
-          onClick={() => setCreating((value) => !value)}
-        >
-          <Icon name="plus" />
-        </IconButton>
+        <div className="flex items-center gap-1">
+          <IconButton
+            disabled={disabled}
+            label="新建会话"
+            onClick={() => setCreating((value) => !value)}
+          >
+            <Icon name="plus" />
+          </IconButton>
+          {/* 移动端抽屉内的关闭按钮。 */}
+          {onClose && (
+            <IconButton
+              className="hidden max-[720px]:inline-grid"
+              label="关闭会话列表"
+              onClick={onClose}
+            >
+              <Icon name="close" />
+            </IconButton>
+          )}
+        </div>
       </div>
       {creating && (
         <form
@@ -151,7 +170,7 @@ export function SessionSidebar({
             session.status === "running" && !selected && !disabled && !joining;
           return (
             <div
-              className={`relative my-0.5 ${selected ? "rounded-xl border border-line bg-surface-solid shadow-sm" : ""} ${joining ? "opacity-60" : ""}`}
+              className={`group relative my-0.5 ${selected ? "rounded-xl border border-line bg-surface-solid shadow-sm" : ""} ${joining ? "opacity-60" : ""}`}
               key={session.id}
             >
               <button
@@ -192,6 +211,54 @@ export function SessionSidebar({
                 >
                   加入
                 </button>
+              )}
+              {selected && (onDetach || onDelete) && (
+                <div className="absolute top-1 right-1.5">
+                  <button
+                    aria-expanded={menuFor === session.id}
+                    aria-label={`会话操作：${session.title || "未命名会话"}`}
+                    className="grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-ink-muted opacity-0 transition-[opacity,background] duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuFor(
+                        menuFor === session.id ? undefined : session.id,
+                      );
+                    }}
+                    type="button"
+                  >
+                    <Icon name="ellipsis" size={15} />
+                  </button>
+                  {menuFor === session.id && (
+                    <div className="absolute top-8 right-0 z-10 w-32 animate-[panel-pop_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-xl border border-line bg-surface-solid py-1 shadow-lg">
+                      {onDetach && (
+                        <button
+                          className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMenuFor(undefined);
+                            onDetach();
+                          }}
+                          type="button"
+                        >
+                          分离会话
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-rose transition-colors duration-100 hover:bg-rose/10"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMenuFor(undefined);
+                            onDelete(session.id);
+                          }}
+                          type="button"
+                        >
+                          删除会话
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           );
