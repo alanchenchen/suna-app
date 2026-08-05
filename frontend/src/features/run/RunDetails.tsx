@@ -327,7 +327,7 @@ export function RunDetails(props: RunDetailsProps) {
               </div>
               <select
                 aria-label="会话模型"
-                disabled={!selectedModel}
+                disabled={!selectedModel || controlsDisabled}
                 onChange={(event) =>
                   void act(() => onUpdateModel(event.target.value))
                 }

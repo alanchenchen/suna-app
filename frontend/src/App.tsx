@@ -129,9 +129,12 @@ export function App() {
       // agent.delta has no session ID. A bridge is attached to only one Runtime
       // session, so the first run ID after a send can establish its active scope.
       // Subsequent deltas must still match that authoritative scope.
-      if (syncingRef.current || !scope || !runId) return;
-      if (scope.runId && scope.runId !== runId) return;
-      if (!scope.runId) scopeRef.current = { ...scope, runId };
+      if (syncingRef.current || !scope) return;
+      // Runtime may omit run_id for notifications on an attached session. The
+      // bridge is session-scoped, so bind those events to the current attach;
+      // when a run_id is present, still reject events from an older run.
+      if (runId && scope.runId && scope.runId !== runId) return;
+      if (runId && !scope.runId) scopeRef.current = { ...scope, runId };
       if (
         deltaRef.current.scope &&
         deltaRef.current.scope.attach !== scope.attach
@@ -170,7 +173,11 @@ export function App() {
   }, []);
   const acceptsRun = useCallback((runId?: string) => {
     const scope = scopeRef.current;
-    return Boolean(!syncingRef.current && runId && scope?.runId === runId);
+    return Boolean(
+      !syncingRef.current &&
+      scope &&
+      (!runId || !scope.runId || scope.runId === runId),
+    );
   }, []);
   const onNotification = useCallback(
     (event: RuntimeNotification) => {
@@ -204,6 +211,9 @@ export function App() {
       }
       if (event.method === "agent.run") {
         if (!acceptsRun(event.params.run_id)) return;
+        // Commit any delta queued in the current animation frame before the
+        // terminal run event, otherwise the last chunk can appear twice.
+        if (event.params.state === "done") flushDeltas();
         setActive((value) => {
           const next: ActiveData = {
             ...value,
@@ -278,13 +288,12 @@ export function App() {
       if (event.method === "agent.tool_end") {
         setActive((value) =>
           value.activeTool?.id === event.params.id
-            ? {
-                ...value,
-                activeTool: {
-                  ...value.activeTool,
-                  status: event.params.error ? "failed" : undefined,
-                },
-              }
+            ? event.params.error
+              ? {
+                  ...value,
+                  activeTool: { ...value.activeTool, status: "failed" },
+                }
+              : { ...value, activeTool: undefined }
             : value,
         );
         return;
@@ -314,10 +323,15 @@ export function App() {
       }
       if (event.method === "session.user_message") {
         if (!acceptsSession(event.params.session_id)) return;
-        const content = event.params.parts
+        const text = event.params.parts
           ?.filter((part) => part.type === "text")
           .map((part) => part.text)
           .join("\n");
+        const content =
+          text ||
+          (event.params.parts?.some((part) => part.type === "image")
+            ? "[图片]"
+            : undefined);
         if (!content) return;
         setActive((value) => {
           const pendingIndex = value.pendingUsers.findIndex(
@@ -334,10 +348,15 @@ export function App() {
             snapshot: value.snapshot
               ? {
                   ...value.snapshot,
-                  messages: [
-                    ...(value.snapshot.messages ?? []),
-                    { role: "user", content },
-                  ],
+                  messages: (value.snapshot.messages ?? []).some(
+                    (message) =>
+                      message.role === "user" && message.content === content,
+                  )
+                    ? value.snapshot.messages
+                    : [
+                        ...(value.snapshot.messages ?? []),
+                        { role: "user", content },
+                      ],
                 }
               : value.snapshot,
           };
@@ -345,7 +364,7 @@ export function App() {
         return;
       }
     },
-    [acceptsRun, acceptsSession, mergeSession, queueDelta],
+    [acceptsRun, acceptsSession, flushDeltas, mergeSession, queueDelta],
   );
   const onEventError = useCallback(
     (reason: Error) => setError(reason.message),
@@ -553,7 +572,7 @@ export function App() {
     ],
     [active.pendingUsers, active.snapshot?.messages],
   );
-  const canDelete = cap("session.delete");
+  const canDelete = cap("session");
   const canConfig = cap("config");
   const current = active.snapshot?.current_run;
   const running =
@@ -633,7 +652,7 @@ export function App() {
           ...value,
           snapshot: {
             ...snapshot,
-            messages: value.snapshot?.messages ?? snapshot.messages,
+            messages: snapshot.messages ?? value.snapshot?.messages,
           },
           assistant: snapshot.current_run?.assistant_buffer ?? "",
           reasoning: snapshot.current_run?.reasoning_buffer ?? "",
@@ -845,10 +864,10 @@ export function App() {
             <div>
               <div className="title-line">
                 <h1>{selected?.title || "选择或创建一个会话"}</h1>
-                {selected && cap("session.update") && (
+                {selected && cap("session") && (
                   <button
                     className="title-edit"
-                    disabled={sessionActionsFrozen}
+                    disabled={sessionActionsFrozen || observer}
                     onClick={() => {
                       setTitleDraft(selected.title ?? "");
                       setEditingTitle(true);
@@ -877,21 +896,23 @@ export function App() {
           </div>
           <div className="topbar-actions">
             <IconButton
+              className="keep-visible"
               label={theme === "dark" ? "切换为浅色主题" : "切换为深色主题"}
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} />
             </IconButton>
             <IconButton
+              className="keep-visible"
               label="Runtime 设置"
               onClick={() => setSettingsOpen((value) => !value)}
             >
               <Icon name="ellipsis" />
             </IconButton>
-            {selectedId && cap("session.detach") && (
+            {selectedId && cap("session") && (
               <button
                 className="icon-button"
-                disabled={sessionActionsFrozen}
+                disabled={sessionActionsFrozen || observer}
                 onClick={() => void detach()}
                 type="button"
               >
@@ -901,7 +922,7 @@ export function App() {
             {canDelete && selectedId && (
               <button
                 className="icon-button"
-                disabled={sessionActionsFrozen}
+                disabled={sessionActionsFrozen || observer}
                 onClick={() => void remove()}
                 type="button"
               >
@@ -923,7 +944,7 @@ export function App() {
             <IconButton
               ariaControls="run-details"
               ariaExpanded={detailsOpen}
-              className="desktop-hide details-toggle"
+              className="details-toggle"
               label={detailsOpen ? "关闭任务详情" : "打开任务详情"}
               onClick={() => setDetailsOpen(!detailsOpen)}
             >
@@ -1004,9 +1025,10 @@ export function App() {
           sessionId={active.snapshot?.session.id}
         />
         <Composer
-          disabled={sessionActionsFrozen}
+          disabled={sessionActionsFrozen || observer}
           canAttachImageUrl={Boolean(hello?.content_sources.url)}
           onSubmit={send}
+          observer={observer}
           waiting={selected?.status === "waiting"}
         />
       </section>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
 import type { MessagePart } from "../../lib/runtimeBridge";
 
@@ -6,6 +6,7 @@ type ComposerProps = {
   onSubmit: (parts: MessagePart[]) => Promise<void>;
   disabled?: boolean;
   waiting?: boolean;
+  observer?: boolean;
   canAttachImageUrl?: boolean;
 };
 
@@ -13,6 +14,7 @@ export function Composer({
   onSubmit,
   disabled,
   waiting,
+  observer = false,
   canAttachImageUrl,
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
@@ -20,6 +22,12 @@ export function Composer({
   const [showImageInput, setShowImageInput] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    // 发送后清空草稿时，把自动增高的高度恢复为初始值。
+    if (!draft && textareaRef.current) textareaRef.current.style.height = "";
+  }, [draft]);
 
   async function submit() {
     const message = draft.trim();
@@ -85,13 +93,31 @@ export function Composer({
           aria-label="给 Suna 发送消息"
           disabled={disabled || sending}
           onChange={(event) => setDraft(event.target.value)}
+          onInput={(event) => {
+            // 随内容自动增高，最多 120px（与 CSS max-height 一致）；超出后内部滚动。
+            const element = event.currentTarget;
+            element.style.height = "auto";
+            element.style.height = `${Math.min(element.scrollHeight, 120)}px`;
+          }}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
+            // isComposing：中文输入法组合输入中的回车用于选词，不能发送。
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
               event.preventDefault();
               void submit();
             }
           }}
-          placeholder={disabled ? "请先选择一个会话…" : "给 Suna 发送消息…"}
+          placeholder={
+            disabled
+              ? observer
+                ? "其他客户端正在运行此会话，当前仅可查看…"
+                : "请先选择一个会话…"
+              : "给 Suna 发送消息…"
+          }
+          ref={textareaRef}
           rows={1}
           value={draft}
         />

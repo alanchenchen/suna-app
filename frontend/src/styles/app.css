@@ -556,7 +556,6 @@ kbd {
 .mobile-only {
   display: none;
 }
-.desktop-hide,
 .details-toggle {
   display: inline-grid;
 }
@@ -1698,10 +1697,9 @@ kbd {
     opacity: 1;
     border-left-color: var(--line);
   }
-  .desktop-hide {
+  .details-toggle {
     display: inline-grid;
   }
-  .details-toggle {
     display: inline-grid;
   }
 }
@@ -1782,7 +1780,9 @@ kbd {
   .topbar-actions {
     gap: 1px;
   }
-  .topbar-actions > .icon-button:not(.desktop-hide) {
+  /* 移动端 topbar 只保留高频按钮：主题、设置、详情开关；
+     分离/删除等低频文本按钮隐藏，避免误触。 */
+  .topbar-actions > .icon-button:not(.keep-visible) {
     display: none;
   }
   .topbar .icon-button,
@@ -1808,7 +1808,6 @@ kbd {
     padding: 0 9px;
     font-size: 10px;
   }
-  .desktop-hide,
   .details-toggle {
     display: inline-grid;
   }
