@@ -68,8 +68,10 @@ function activityCopy(
   }
   if (activeTool || phase === "tool") {
     return {
-      label: activeTool?.status === "running" ? "正在执行工具" : "正在准备工具操作",
-      detail: activeTool?.intent || activeTool?.tool || "正在处理任务中的下一步",
+      label:
+        activeTool?.status === "running" ? "正在执行工具" : "正在准备工具操作",
+      detail:
+        activeTool?.intent || activeTool?.tool || "正在处理任务中的下一步",
       tone: "tool",
     };
   }
@@ -96,29 +98,36 @@ function activityCopy(
 
 function ActivityDots() {
   return (
-    <span aria-hidden="true" className="activity-dots">
-      <i />
-      <i />
-      <i />
+    <span aria-hidden="true" className="inline-flex items-center gap-[3px]">
+      <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current" />
+      <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current [animation-delay:140ms]" />
+      <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current [animation-delay:280ms]" />
     </span>
   );
 }
 
-function StreamActivity({
-  label,
-  detail,
-}: {
-  label: string;
-  detail?: string;
-}) {
+function StreamActivity({ label, detail }: { label: string; detail?: string }) {
   return (
-    <span className="responding">
+    <span className="ml-0.5 inline-flex min-w-0 items-center gap-1.5 text-[10px] font-bold text-blue-strong">
       <ActivityDots />
       <span role="status">{label}</span>
-      {detail && <span className="responding-detail">· {detail}</span>}
+      {detail && (
+        <span className="max-w-[175px] truncate text-[10px] font-semibold text-ink-muted">
+          · {detail}
+        </span>
+      )}
     </span>
   );
 }
+
+const toneClasses: Record<string, string> = {
+  guard:
+    "bg-amber-soft/70 border-amber/30 [&_.agent-activity-icon]:text-amber [&_.activity-dots]:text-amber",
+  failed:
+    "bg-rose/10 border-rose/25 [&_.agent-activity-icon]:text-rose [&_.activity-dots]:text-rose",
+  default:
+    "bg-blue-soft/60 border-blue/25 [&_.agent-activity-icon]:text-blue-strong [&_.activity-dots]:text-blue",
+};
 
 export function ChatTimeline({
   messages,
@@ -191,25 +200,34 @@ export function ChatTimeline({
   const showActivityCard = Boolean((running || pending) && !hasStream);
   const streamActivity = activityCopy(phase, false, activeTool);
   const activity = activityCopy(phase, pending, activeTool);
+  const toneClass = toneClasses[activity.tone] ?? toneClasses.default;
 
   return (
     <div className="conversation-wrap" onScroll={onScroll} ref={scrollRef}>
-      <section className="conversation" aria-label="会话消息">
+      <section
+        aria-label="会话消息"
+        className="animate-[message-in_300ms_cubic-bezier(0.2,0.8,0.2,1)_both] mx-auto w-[min(720px,calc(100%-48px))] px-0 pt-8 pb-12 max-[720px]:w-[min(100%-28px,640px)] max-[720px]:pt-6 max-[720px]:pb-7"
+        key={sessionId ?? "none"}
+      >
         {messages.length === 0 &&
           !assistantBuffer &&
           !showActivityCard &&
           !reasoningBuffer && (
-          <div className="empty-conversation">
-            <span className="agent-avatar">
-              <Icon name="sparkle" size={16} />
-            </span>
-            <h2>开始一个任务</h2>
-            <p>告诉 Suna 你想在这个工作目录中完成什么。</p>
-          </div>
-        )}
+            <div className="flex min-h-[280px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white shadow-[0_4px_11px_rgba(83,109,222,0.28)]">
+                <Icon name="sparkle" size={16} />
+              </span>
+              <h2 className="mt-3 mb-0.5 text-[18px] font-extrabold text-ink">
+                开始一个任务
+              </h2>
+              <p className="m-0 max-w-[270px] text-[13px] text-ink-muted">
+                告诉 Suna 你想在这个工作目录中完成什么。
+              </p>
+            </div>
+          )}
         {messages.length > historyWindow && (
           <button
-            className="load-history"
+            className="mb-6 block cursor-pointer rounded-full bg-blue-soft px-3 py-2 text-[11px] font-extrabold text-blue-strong transition-[transform,background] duration-160 hover:bg-blue/20 hover:-translate-y-px mx-auto"
             onClick={() => {
               const element = scrollRef.current;
               if (element)
@@ -226,13 +244,15 @@ export function ChatTimeline({
         )}
         {messages.slice(-historyWindow).map((message, index) => (
           <article
-            className={`message ${message.role === "user" ? "user-message" : "agent-message"}`}
+            className={`mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-6`}
             key={`${messages.length - historyWindow + index}-${message.role}`}
           >
-            <div className="message-meta">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
               <span
                 className={
-                  message.role === "user" ? "avatar small" : "agent-avatar"
+                  message.role === "user"
+                    ? "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-[7px] font-bold text-blue-strong"
+                    : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white"
                 }
               >
                 {message.role === "user" ? (
@@ -241,15 +261,19 @@ export function ChatTimeline({
                   <Icon name="sparkle" size={14} />
                 )}
               </span>
-              <strong>{message.role === "user" ? "你" : "Suna"}</strong>
+              <strong className="text-ink">
+                {message.role === "user" ? "你" : "Suna"}
+              </strong>
             </div>
-            <div className="message-body">
+            <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76]">
               {message.role === "assistant" ? (
                 <Markdown remarkPlugins={[remarkGfm]}>
                   {message.content}
                 </Markdown>
               ) : (
-                message.content
+                <span className="inline-block max-w-[min(640px,100%)] rounded-[4px_15px_15px_15px] border border-line bg-surface-solid px-3.5 py-3 text-ink leading-[1.7] shadow-sm">
+                  {message.content}
+                </span>
               )}
             </div>
           </article>
@@ -258,45 +282,55 @@ export function ChatTimeline({
           <section
             aria-atomic="true"
             aria-live="polite"
-            className={`agent-activity-card ${activity.tone}`}
+            className={`mb-7 grid max-w-[520px] min-h-[68px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[15px] border p-3 shadow-sm ${toneClass}`}
             role="status"
           >
-            <span className="agent-activity-icon">
-              <Icon name={activity.tone === "guard" ? "warning" : "sparkle"} size={17} />
+            <span className="agent-activity-icon grid h-[34px] w-[34px] place-items-center rounded-[11px] bg-surface-solid shadow-sm">
+              <Icon
+                name={activity.tone === "guard" ? "warning" : "sparkle"}
+                size={17}
+              />
             </span>
-            <span className="agent-activity-copy">
-              <strong>{activity.label}</strong>
-              <small>{activity.detail}</small>
+            <span className="grid min-w-0 gap-0.5">
+              <strong className="text-[11px] font-extrabold text-ink">
+                {activity.label}
+              </strong>
+              <small className="truncate text-[10px] leading-[1.4] text-ink-muted">
+                {activity.detail}
+              </small>
             </span>
             <ActivityDots />
           </section>
         )}
         {reasoningBuffer && (
-          <article className="message agent-message">
-            <div className="message-meta">
-              <span className="agent-avatar">
+          <article className="mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
+              <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
                 <Icon name="sparkle" size={14} />
               </span>
-              <strong>Suna</strong>
+              <strong className="text-ink">Suna</strong>
               <StreamActivity label="正在思考" detail={streamActivity.detail} />
             </div>
-            <div className="message-body">
+            <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
               <p>{reasoningBuffer}</p>
             </div>
           </article>
         )}
         {assistantBuffer && (
-          <article className="message agent-message arriving">
-            <div className="message-meta">
-              <span className="agent-avatar">
+          <article className="arriving mb-7 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
+              <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
                 <Icon name="sparkle" size={14} />
               </span>
-              <strong>Suna</strong>
+              <strong className="text-ink">Suna</strong>
               {(running || pending) && (
-                <StreamActivity label="正在回复" detail={streamActivity.detail} />
+                <StreamActivity
+                  label="正在回复"
+                  detail={streamActivity.detail}
+                />
               )}
             </div>
-            <div className="message-body">
+            <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] [&::after]:ml-[3px] [&::after]:inline-block [&::after]:h-[1em] [&::after]:w-[2px] [&::after]:animate-[stream-blink_1s_steps(1)_infinite] [&::after]:rounded-[1px] [&::after]:bg-blue [&::after]:align-[-0.15em] [&::after]:content-['']">
               <Markdown remarkPlugins={[remarkGfm]}>{assistantBuffer}</Markdown>
             </div>
           </article>
@@ -305,7 +339,7 @@ export function ChatTimeline({
       </section>
       {showJumpToLatest && (
         <button
-          className="jump-to-latest"
+          className="animate-[slide-up_240ms_cubic-bezier(0.2,0.8,0.2,1)_both] sticky bottom-4 left-1/2 z-10 -mt-4 mb-4 flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-blue/25 bg-surface-solid/95 px-3 py-2 text-[11px] font-extrabold text-blue-strong shadow-md backdrop-blur-xl transition-[transform,background] duration-160 hover:bg-surface-solid hover:-translate-y-px"
           onClick={() => scrollToLatest()}
           type="button"
         >

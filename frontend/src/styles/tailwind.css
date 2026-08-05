@@ -1,0 +1,555 @@
+@import "tailwindcss";
+
+/*
+ * Suna App 设计 token。
+ *
+ * 主题机制：@theme 定义浅色默认值；[data-theme="dark"] 覆盖同名 CSS 变量。
+ * Tailwind 工具类（bg-canvas、text-ink、border-line…）引用 var(--color-*)，
+ * 因此组件无需写 dark: 前缀，切换 data-theme 即全局生效。
+ */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* 字体 */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+
+  /* 画布与表面 */
+  --color-canvas: #f5f7fb;
+  --color-canvas-glow: rgba(197, 216, 255, 0.5);
+  --color-surface: rgba(255, 255, 255, 0.78);
+  --color-surface-solid: #ffffff;
+  --color-surface-subtle: #f8f9fc;
+  --color-surface-raised: #ffffff;
+  --color-surface-muted: #f8f9fc;
+
+  /* 文字 */
+  --color-ink: #172033;
+  --color-ink-soft: #536176;
+  --color-ink-muted: #8b96a9;
+
+  /* 边框 */
+  --color-line: rgba(32, 48, 76, 0.09);
+  --color-line-strong: rgba(32, 48, 76, 0.14);
+
+  /* 功能色 */
+  --color-blue: #5879eb;
+  --color-blue-strong: #3d61d9;
+  --color-blue-soft: #edf1ff;
+  --color-blue-glow: rgba(88, 121, 235, 0.22);
+  --color-green: #47a87c;
+  --color-green-soft: #ebf8f1;
+  --color-amber: #d98d32;
+  --color-amber-soft: #fff5e8;
+  --color-rose: #d45c67;
+  --color-danger: #d45c67;
+  --color-danger-soft: color-mix(in srgb, #d45c67, transparent 90%);
+  --color-sync: #5879eb;
+  --color-sync-soft: #edf1ff;
+
+  /* 圆角 */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+
+  /* 阴影 */
+  --shadow-sm:
+    0 2px 5px rgba(31, 44, 73, 0.03), 0 1px 2px rgba(31, 44, 73, 0.025);
+  --shadow-md:
+    0 12px 32px rgba(31, 44, 73, 0.07), 0 2px 6px rgba(31, 44, 73, 0.03);
+  --shadow-lg:
+    0 24px 64px rgba(25, 38, 66, 0.14), 0 4px 14px rgba(25, 38, 66, 0.06);
+
+  /* 动效 */
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 深色主题：覆盖同名 token，工具类自动生效。 */
+[data-theme="dark"] {
+  --color-canvas: #10141e;
+  --color-canvas-glow: rgba(61, 87, 154, 0.18);
+  --color-surface: rgba(24, 30, 43, 0.79);
+  --color-surface-solid: #191f2d;
+  --color-surface-subtle: #141a26;
+  --color-surface-raised: #202838;
+  --color-surface-muted: #141a26;
+  --color-ink: #f2f5fa;
+  --color-ink-soft: #b4bfce;
+  --color-ink-muted: #78869b;
+  --color-line: rgba(206, 217, 241, 0.09);
+  --color-line-strong: rgba(206, 217, 241, 0.15);
+  --color-blue: #91a8ff;
+  --color-blue-strong: #afbdff;
+  --color-blue-soft: rgba(94, 124, 229, 0.17);
+  --color-blue-glow: rgba(120, 147, 255, 0.21);
+  --color-green: #72c79b;
+  --color-green-soft: rgba(65, 164, 118, 0.14);
+  --color-amber: #efb15a;
+  --color-amber-soft: rgba(214, 139, 39, 0.13);
+  --color-rose: #f1818a;
+  --color-danger: #f1818a;
+  --color-danger-soft: color-mix(in srgb, #f1818a, transparent 87%);
+  --color-sync: #91a8ff;
+  --color-sync-soft: rgba(94, 124, 229, 0.17);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.11);
+  --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.16), 0 3px 8px rgba(0, 0, 0, 0.09);
+  --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.28), 0 5px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 基础重置 */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  color: var(--color-ink);
+  background:
+    radial-gradient(
+      circle at 70% 2%,
+      var(--color-canvas-glow),
+      transparent 29rem
+    ),
+    var(--color-canvas);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* 全局 keyframes：只动 opacity / transform，配合 reduced-motion 关闭。 */
+@keyframes activity-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+@keyframes breathe {
+  50% {
+    opacity: 0.48;
+    transform: scale(0.78);
+  }
+}
+@keyframes pulse-ring {
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes panel-pop {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes stream-blink {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  50%,
+  95% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 主题切换 View Transition（不支持的浏览器自动降级）。 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 减少动态效果：所有动画/过渡立即完成。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/*
+ * 组件层：仅保留难以用原子类表达的复杂布局（响应式三栏、移动抽屉、
+ * 底部 Sheet、长滚动容器）。简单样式一律写在组件 JSX 的 Tailwind 原子类中。
+ */
+@layer components {
+  /* 三栏工作台：桌面 260/1fr/328，关闭右栏时第三列收起。 */
+  .app-shell {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 328px;
+    height: 100dvh;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .app-shell.details-closed {
+    grid-template-columns: 260px minmax(0, 1fr) 0;
+  }
+  @media (max-width: 1180px) {
+    .app-shell {
+      grid-template-columns: 230px minmax(0, 1fr) 302px;
+    }
+    .app-shell.details-closed {
+      grid-template-columns: 230px minmax(0, 1fr) 0;
+    }
+  }
+  @media (max-width: 980px) {
+    .app-shell,
+    .app-shell.details-closed {
+      grid-template-columns: 230px minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 720px) {
+    .app-shell,
+    .app-shell.details-closed {
+      display: block;
+      height: 100dvh;
+    }
+  }
+
+  /* 中间工作区：顶部栏 / 滚动时间线 / 输入区。 */
+  .workspace {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 聊天滚动容器。 */
+  .conversation-wrap {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 会话侧栏：桌面常驻，移动端左侧抽屉。 */
+  .session-sidebar {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 17px 12px 12px;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-line);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+  .session-list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0 2px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  @media (max-width: 720px) {
+    .session-sidebar {
+      position: fixed;
+      z-index: 20;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: min(82vw, 300px);
+      background: var(--color-surface-solid);
+      transform: translateX(-105%);
+      transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      box-shadow: var(--shadow-lg);
+    }
+    .session-sidebar.is-open {
+      transform: translateX(0);
+    }
+  }
+
+  /* 右侧任务详情：桌面宽度过渡，移动端底部 Sheet。 */
+  .details-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 22px 20px 18px;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    border-left: 1px solid var(--color-line);
+    transition:
+      width 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 200ms ease,
+      padding 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .details-panel:not(.is-open) {
+    width: 0;
+    padding-right: 0;
+    padding-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    border-left-color: transparent;
+  }
+  .details-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-right: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  @media (max-width: 980px) {
+    .details-panel {
+      position: absolute;
+      z-index: 25;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(340px, 92vw);
+      padding: 22px 20px;
+      background: var(--color-surface-solid);
+      box-shadow: var(--shadow-lg);
+      transform: translateX(105%);
+      transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .details-panel.is-open {
+      transform: translateX(0);
+    }
+    .details-panel:not(.is-open) {
+      width: min(340px, 92vw);
+      padding: 22px 20px;
+      opacity: 1;
+      border-left-color: var(--color-line);
+    }
+  }
+  @media (max-width: 720px) {
+    .details-panel {
+      position: fixed;
+      z-index: 25;
+      top: auto;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: min(78dvh, 680px);
+      max-height: min(78dvh, 680px);
+      padding: 19px 18px max(19px, env(safe-area-inset-bottom));
+      border: 1px solid var(--color-line);
+      border-bottom: 0;
+      border-radius: 23px 23px 0 0;
+      transform: translateY(105%);
+    }
+    .details-panel.is-open {
+      transform: translateY(0);
+    }
+    .details-panel:not(.is-open) {
+      width: 100%;
+      padding: 19px 18px max(19px, env(safe-area-inset-bottom));
+      border-color: var(--color-line);
+    }
+  }
+
+  /* 移动端遮罩。 */
+  .mobile-scrim,
+  .details-scrim {
+    display: none;
+  }
+  @media (max-width: 980px) {
+    .details-scrim {
+      display: block;
+      position: fixed;
+      z-index: 24;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      background: rgba(11, 16, 27, 0.2);
+      border: 0;
+      backdrop-filter: blur(1px);
+    }
+  }
+  @media (max-width: 720px) {
+    .mobile-scrim {
+      display: block;
+      position: fixed;
+      z-index: 19;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      background: rgba(11, 16, 27, 0.2);
+      border: 0;
+      backdrop-filter: blur(1px);
+    }
+  }
+
+  /* 设置浮层定位。 */
+  .runtime-settings {
+    position: absolute;
+    right: 18px;
+    top: 76px;
+    width: min(380px, calc(100vw - 36px));
+    max-height: calc(100vh - 130px);
+    z-index: 8;
+    transform-origin: top right;
+  }
+  @media (max-width: 720px) {
+    .runtime-settings {
+      left: 12px;
+      right: 12px;
+      top: 64px;
+      width: auto;
+    }
+  }
+
+  /* 桌面图标按钮基元（移动端在组件里放大触控）。 */
+  .icon-button {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    color: var(--color-ink-soft);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    transition:
+      color 160ms ease,
+      background 160ms ease,
+      transform 160ms ease;
+  }
+  .icon-button:hover:not(:disabled) {
+    color: var(--color-ink);
+    background: var(--color-surface-subtle);
+  }
+  .icon-button:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+  .icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.46;
+  }
+  @media (max-width: 720px) {
+    .icon-button {
+      min-width: 44px;
+      min-height: 44px;
+      width: 44px;
+      height: 44px;
+    }
+  }
+
+  /* 输入区底部留白与安全区。 */
+  .composer-area {
+    padding: 0 26px 21px 28px;
+    background: linear-gradient(
+      to top,
+      var(--color-canvas) 69%,
+      color-mix(in srgb, var(--color-canvas), transparent 100%)
+    );
+  }
+  @media (max-width: 720px) {
+    .composer-area {
+      padding: 0 14px max(12px, env(safe-area-inset-bottom));
+    }
+  }
+
+  /* 运行中细节点。 */
+  .running-orb {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    color: var(--color-blue);
+    background: var(--color-blue-soft);
+    border-radius: 10px;
+  }
+  .running-orb i {
+    width: 7px;
+    height: 7px;
+    background: currentColor;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 var(--color-blue-glow);
+    animation: pulse-ring 2s ease-out infinite;
+  }
+}

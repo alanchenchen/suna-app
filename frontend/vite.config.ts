@@ -1,10 +1,27 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 const gatewayTarget = "http://127.0.0.1:7633";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          markdown: ["react-markdown", "remark-gfm"],
+          ui: [
+            "lucide-react",
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-select",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-tooltip",
+          ],
+        },
+      },
+    },
+  },
   server: {
     host: "127.0.0.1",
     proxy: {

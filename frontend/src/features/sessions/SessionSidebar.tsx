@@ -74,9 +74,12 @@ export function SessionSidebar({
       aria-label="会话"
       className={`session-sidebar ${open ? "is-open" : ""}`}
     >
-      <div className="sidebar-top">
-        <button className="brand" type="button">
-          <span className="brand-mark">
+      <div className="mb-1 flex min-h-[42px] items-center justify-between px-1 pl-2">
+        <button
+          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-[17px] font-extrabold tracking-tight text-ink transition-colors duration-150 hover:bg-surface-subtle"
+          type="button"
+        >
+          <span className="grid h-[27px] w-[27px] place-items-center rounded-[9px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white shadow-[0_4px_11px_rgba(83,109,222,0.28)]">
             <Icon name="sparkle" size={17} />
           </span>
           <span>Suna</span>
@@ -91,34 +94,40 @@ export function SessionSidebar({
       </div>
       {creating && (
         <form
-          className="session-create"
+          className="grid gap-2 px-3.5 pb-3"
           onSubmit={(event) => {
             event.preventDefault();
             void create();
           }}
         >
-          <label>
+          <label className="grid gap-1 text-[11px] font-bold tracking-wide text-ink-muted">
             工作目录
             <input
               autoFocus
+              className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
               disabled={disabled || submitting}
               onChange={(event) => setCwd(event.target.value)}
               placeholder="/Users/me/project"
               value={cwd}
             />
           </label>
-          <label>
+          <label className="grid gap-1 text-[11px] font-bold tracking-wide text-ink-muted">
             标题（可选）
             <input
+              className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
               disabled={disabled || submitting}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="新任务"
               value={title}
             />
           </label>
-          {error && <small className="form-error">{error}</small>}
+          {error && (
+            <small className="text-[12px] font-semibold text-rose">
+              {error}
+            </small>
+          )}
           <button
-            className="runtime-retry"
+            className="cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled || submitting}
             type="submit"
           >
@@ -127,9 +136,13 @@ export function SessionSidebar({
         </form>
       )}
       <nav aria-label="最近会话" className="session-list">
-        <p className="section-label">最近会话</p>
+        <p className="px-2 pb-2 text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
+          最近会话
+        </p>
         {sessions.length === 0 && (
-          <p className="empty-state">还没有会话。创建一个工作目录开始吧。</p>
+          <p className="p-4 text-center text-[13px] text-ink-muted">
+            还没有会话。创建一个工作目录开始吧。
+          </p>
         )}
         {sessions.map((session) => {
           const selected = session.id === selectedId;
@@ -138,34 +151,42 @@ export function SessionSidebar({
             session.status === "running" && !selected && !disabled && !joining;
           return (
             <div
-              className={`session-item ${selected ? "selected" : ""} ${joining ? "is-pending" : ""} ${canJoin ? "has-join" : ""}`}
+              className={`relative my-0.5 ${selected ? "rounded-xl border border-line bg-surface-solid shadow-sm" : ""} ${joining ? "opacity-60" : ""}`}
               key={session.id}
             >
               <button
                 aria-current={selected ? "page" : undefined}
                 aria-label={`${session.title || "未命名会话"}，${joining ? "正在打开" : statusLabels[session.status]}`}
-                className="session-row"
+                className={`grid w-full cursor-pointer grid-cols-[8px_minmax(0,1fr)_auto] items-start gap-2 rounded-xl px-2 py-2.5 text-left transition-[background,border-color,transform,opacity] duration-180 ${selected ? "text-ink" : "text-ink-soft"} hover:bg-surface-subtle active:scale-[0.985] disabled:cursor-wait disabled:opacity-60`}
                 disabled={disabled || joining}
                 onClick={() => onSelect(session.id)}
                 type="button"
               >
                 <span
                   aria-hidden="true"
-                  className={`session-dot ${session.status === "running" ? "active" : session.status === "waiting" ? "waiting" : session.status === "compacting" ? "compacting" : "idle"}`}
+                  className={`mt-1.5 h-[7px] w-[7px] rounded-full ${session.status === "running" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]" : session.status === "waiting" ? "bg-amber" : session.status === "compacting" ? "animate-[breathe_1.8s_ease-in-out_infinite] bg-blue shadow-[0_0_0_3px_var(--color-blue-soft)]" : "bg-ink-muted"}`}
                 />
-                <span className="session-copy">
-                  <strong>{session.title || "未命名会话"}</strong>
-                  <small>{session.cwd}</small>
-                  <em className={`session-status ${session.status}`}>
+                <span className="grid min-w-0 gap-0.5">
+                  <strong className="truncate text-[12px] font-extrabold text-ink">
+                    {session.title || "未命名会话"}
+                  </strong>
+                  <small className="truncate text-[10px] text-ink-muted">
+                    {session.cwd}
+                  </small>
+                  <em
+                    className={`text-[10px] font-bold not-italic ${session.status === "running" ? "text-blue-strong" : session.status === "waiting" ? "text-amber" : "text-ink-muted"}`}
+                  >
                     {joining ? "正在打开…" : statusLabels[session.status]}
                   </em>
                 </span>
-                <time>{relativeTime(session.updated_at)}</time>
+                <time className="text-[10px] text-ink-muted">
+                  {relativeTime(session.updated_at)}
+                </time>
               </button>
               {canJoin && (
                 <button
                   aria-label={`加入正在运行的会话：${session.title || "未命名会话"}`}
-                  className="join-session"
+                  className="absolute top-1.5 right-2 cursor-pointer rounded-md bg-blue px-2 py-1 text-[10px] font-bold text-white shadow-sm transition-colors duration-150 hover:bg-blue-strong"
                   onClick={() => onJoinActive(session.id)}
                   type="button"
                 >
@@ -176,19 +197,25 @@ export function SessionSidebar({
           );
         })}
       </nav>
-      <div className="sidebar-bottom">
+      <div className="mt-auto border-t border-line pt-3">
         <button
-          className="connection-status"
+          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-[12px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-55"
           disabled={disabled}
           onClick={onDisconnect}
           type="button"
         >
-          <span className={connected ? "online-dot" : "offline-dot"} />
+          <span
+            className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-green" : "bg-[#8a8f9d]"}`}
+          />
           {connected ? "Runtime 已连接" : "Runtime 未连接"}
         </button>
-        <div className="profile">
-          <span className="avatar">SU</span>
-          <span>Runtime workspace</span>
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <span className="grid h-8 w-8 place-items-center rounded-xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-[11px] font-extrabold text-white">
+            SU
+          </span>
+          <span className="text-[12px] font-semibold text-ink-soft">
+            Runtime workspace
+          </span>
         </div>
       </div>
     </aside>

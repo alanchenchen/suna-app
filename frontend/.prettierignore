@@ -1,6 +1,7 @@
-# Generated output is not source formatting input. The existing working-tree
-# files below are intentionally retained until their owning change formats them.
+# 锁文件由包管理器生成，不由 Prettier 管理
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 构建产物
 dist/
-src/features/chat/ChatTimeline.tsx
-src/features/run/RunDetails.tsx
-src/styles/app.css

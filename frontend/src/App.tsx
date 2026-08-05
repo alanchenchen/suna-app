@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, IconButton } from "./components/Icon";
+import { Dialog } from "./components/ui/Dialog";
+import { Select } from "./components/ui/Select";
+import { Switch } from "./components/ui/Switch";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer } from "./features/chat/Composer";
 import { RunDetails } from "./features/run/RunDetails";
@@ -24,7 +27,7 @@ import type {
   MCPServerInfo,
   SkillInfo,
 } from "./lib/runtimeBridge";
-import "./styles/app.css";
+import "./styles/tailwind.css";
 
 type PendingUserMessage = { id: string; content: string };
 type ActiveData = {
@@ -558,6 +561,17 @@ export function App() {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem("suna-theme", theme);
   }, [theme]);
+  // 主题切换用 View Transition 做平滑淡入淡出；不支持的浏览器直接切换。
+  const toggleTheme = useCallback(() => {
+    const next = theme === "dark" ? "light" : "dark";
+    const start = (
+      document as Document & {
+        startViewTransition?: (update: () => void) => void;
+      }
+    ).startViewTransition;
+    if (typeof start === "function") start(() => setTheme(next));
+    else setTheme(next);
+  }, [theme]);
 
   const selected = useMemo(
     () =>
@@ -782,22 +796,27 @@ export function App() {
 
   if (!connected)
     return (
-      <main className="runtime-gate">
-        <section aria-live="polite" className="runtime-card runtime-error">
-          <span className="runtime-warning">
+      <main className="grid min-h-dvh place-items-center p-6">
+        <section
+          aria-live="polite"
+          className="animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] w-[min(100%,456px)] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
+        >
+          <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-amber-soft text-amber">
             <Icon name="warning" size={22} />
           </span>
-          <p className="eyebrow">Suna App</p>
-          <h1>
+          <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
+            Suna App
+          </p>
+          <h1 className="mt-2.5 mb-2.5 text-[23px] font-extrabold tracking-tight text-ink">
             {status === "connecting" ? "正在连接你的工作空间" : "连接 Runtime"}
           </h1>
-          <p>
+          <p className="text-[13px] leading-relaxed text-ink-soft">
             {error ||
               bridgeError?.message ||
               "通过本地 Gateway 连接 Suna Runtime。"}
           </p>
           <button
-            className="runtime-retry"
+            className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue text-[12px] font-extrabold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[background,transform] duration-150 hover:bg-blue-strong active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
             disabled={status === "connecting" || status === "disconnecting"}
             onClick={() => void initialize()}
             type="button"
@@ -808,7 +827,9 @@ export function App() {
       </main>
     );
   return (
-    <main className={`app-shell ${detailsOpen ? "" : "details-closed"}`}>
+    <main
+      className={`animate-[message-in_420ms_cubic-bezier(0.2,0.8,0.2,1)_both] app-shell ${detailsOpen ? "" : "details-closed"}`}
+    >
       <SessionSidebar
         connected={connected}
         onCreate={create}
@@ -852,21 +873,23 @@ export function App() {
         />
       )}
       <section className="workspace">
-        <header className="topbar">
-          <div className="title-group">
+        <header className="flex min-h-[74px] items-center justify-between gap-4 border-b border-line px-7 py-3.5 max-[720px]:min-h-[65px] max-[720px]:gap-2.5 max-[720px]:px-3.5 max-[720px]:pt-[max(10px,env(safe-area-inset-top))] max-[720px]:pb-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <IconButton
-              className="mobile-only"
+              className="hidden max-[720px]:inline-grid"
               label="打开会话列表"
               onClick={() => setMobileMenuOpen(true)}
             >
               <Icon name="message" />
             </IconButton>
-            <div>
-              <div className="title-line">
-                <h1>{selected?.title || "选择或创建一个会话"}</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h1 className="m-0 max-w-[54vw] overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-extrabold tracking-tight text-ink max-[720px]:max-w-[min(47vw,230px)] max-[720px]:text-[13px]">
+                  {selected?.title || "选择或创建一个会话"}
+                </h1>
                 {selected && cap("session") && (
                   <button
-                    className="title-edit"
+                    className="cursor-pointer rounded-md px-1.5 py-0.5 text-[11px] font-bold text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
                     disabled={sessionActionsFrozen || observer}
                     onClick={() => {
                       setTitleDraft(selected.title ?? "");
@@ -878,8 +901,13 @@ export function App() {
                   </button>
                 )}
                 {selected && (
-                  <span aria-live="polite" className="live-label">
-                    <span />
+                  <span
+                    aria-live="polite"
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold text-ink-soft max-[390px]:text-[0]"
+                  >
+                    <span
+                      className={`h-[6px] w-[6px] rounded-full ${selected.status === "running" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]" : selected.status === "waiting" ? "bg-amber" : "bg-ink-muted"}`}
+                    />
                     {selected.status === "running"
                       ? "运行中"
                       : selected.status === "waiting"
@@ -891,19 +919,19 @@ export function App() {
                   protocolVersion={hello?.protocol_version ?? "—"}
                 />
               </div>
-              <p>{selected?.cwd || "你的本地 Runtime 工作空间"}</p>
+              <p className="m-0 max-[720px]:hidden">
+                {selected?.cwd || "你的本地 Runtime 工作空间"}
+              </p>
             </div>
           </div>
-          <div className="topbar-actions">
+          <div className="flex items-center gap-1 max-[720px]:gap-px">
             <IconButton
-              className="keep-visible"
               label={theme === "dark" ? "切换为浅色主题" : "切换为深色主题"}
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={toggleTheme}
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} />
             </IconButton>
             <IconButton
-              className="keep-visible"
               label="Runtime 设置"
               onClick={() => setSettingsOpen((value) => !value)}
             >
@@ -911,7 +939,7 @@ export function App() {
             </IconButton>
             {selectedId && cap("session") && (
               <button
-                className="icon-button"
+                className="icon-button text-[11px] font-bold max-[720px]:hidden"
                 disabled={sessionActionsFrozen || observer}
                 onClick={() => void detach()}
                 type="button"
@@ -921,7 +949,7 @@ export function App() {
             )}
             {canDelete && selectedId && (
               <button
-                className="icon-button"
+                className="icon-button text-[11px] font-bold max-[720px]:hidden"
                 disabled={sessionActionsFrozen || observer}
                 onClick={() => void remove()}
                 type="button"
@@ -931,20 +959,20 @@ export function App() {
             )}
             {running && canControl && !syncing && (
               <button
-                className="stop-button"
+                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-rose/10 px-2.5 text-[11px] font-bold text-rose transition-colors duration-150 hover:bg-rose/15 active:scale-95 max-[720px]:h-8 max-[720px]:px-2"
                 onClick={() =>
                   void queueSessionOperation(() => rpc("agent.cancel", {}))
                 }
                 type="button"
               >
                 <Icon name="pause" size={15} />
-                停止
+                <span className="max-[390px]:hidden">停止</span>
               </button>
             )}
             <IconButton
               ariaControls="run-details"
               ariaExpanded={detailsOpen}
-              className="details-toggle"
+              className="aria-expanded:false:bg-blue-soft aria-expanded:false:text-blue-strong"
               label={detailsOpen ? "关闭任务详情" : "打开任务详情"}
               onClick={() => setDetailsOpen(!detailsOpen)}
             >
@@ -952,55 +980,73 @@ export function App() {
             </IconButton>
           </div>
         </header>
-        {editingTitle && (
-          <div
-            aria-labelledby="rename-session-title"
-            aria-modal="true"
-            className="dialog-scrim"
-            role="dialog"
+        <Dialog
+          open={editingTitle}
+          onOpenChange={setEditingTitle}
+          title="重命名会话"
+          description="留空可恢复为未命名会话。"
+        >
+          <form
+            className="grid gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void rename();
+            }}
           >
-            <form
-              className="runtime-dialog"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void rename();
-              }}
-            >
-              <h2 id="rename-session-title">重命名会话</h2>
-              <label>
-                会话标题
-                <input
-                  autoFocus
-                  onChange={(event) => setTitleDraft(event.target.value)}
-                  value={titleDraft}
-                />
-              </label>
-              <p>留空可恢复为未命名会话。</p>
-              <div className="dialog-actions">
-                <button onClick={() => setEditingTitle(false)} type="button">
-                  取消
-                </button>
-                <button className="runtime-retry" type="submit">
-                  保存
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+            <label className="grid gap-1.5 text-[12px] font-bold text-ink-soft">
+              会话标题
+              <input
+                autoFocus
+                className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
+                onChange={(event) => setTitleDraft(event.target.value)}
+                value={titleDraft}
+              />
+            </label>
+            <div className="mt-1 flex justify-end gap-2.5">
+              <button
+                className="cursor-pointer rounded-lg border border-line bg-surface px-3.5 py-2 text-[12px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
+                onClick={() => setEditingTitle(false)}
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                className="cursor-pointer rounded-lg bg-blue px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong"
+                type="submit"
+              >
+                保存
+              </button>
+            </div>
+          </form>
+        </Dialog>
         {syncing && (
-          <div aria-live="polite" className="bridge-sync">
+          <div
+            aria-live="polite"
+            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center gap-3 border-b border-blue/25 bg-blue-soft/60 px-5 py-2 text-[13px] text-ink-soft"
+          >
+            <span className="h-[7px] w-[7px] animate-[breathe_1.35s_ease-in-out_infinite] rounded-full bg-blue" />
             正在切换会话，等待 Runtime 确认…
           </div>
         )}
         {observer && (
-          <div aria-live="polite" className="bridge-error">
+          <div
+            aria-live="polite"
+            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/35 bg-rose/10 px-5 py-2 text-[13px] text-ink"
+          >
             当前会话仅查看；控制权由其他客户端持有。
           </div>
         )}
         {error && (
-          <div className="bridge-error" role="alert">
+          <div
+            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/35 bg-rose/10 px-5 py-2 text-[13px] text-ink"
+            role="alert"
+          >
             {error}
-            <button onClick={() => setError(undefined)} type="button">
+            <button
+              className="cursor-pointer rounded-md bg-rose/15 px-2 py-0.5 text-[11px] font-bold text-rose transition-colors duration-150 hover:bg-rose/25"
+              onClick={() => setError(undefined)}
+              type="button"
+            >
               关闭
             </button>
           </div>
@@ -1115,47 +1161,52 @@ function RuntimeSettings({
     void load();
   }, [load]);
   return (
-    <section aria-label="Runtime 设置" className="runtime-settings">
-      <div className="details-header">
+    <section
+      aria-label="Runtime 设置"
+      className="animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] runtime-settings overflow-auto rounded-2xl border border-line bg-surface p-4 shadow-lg"
+    >
+      <div className="mb-5 flex items-center justify-between">
         <div>
-          <p className="eyebrow">能力设置</p>
-          <h2>Runtime 设置</h2>
+          <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
+            能力设置
+          </p>
+          <h2 className="mt-1 text-[16px] font-extrabold text-ink">
+            Runtime 设置
+          </h2>
         </div>
         <IconButton label="关闭设置" onClick={onClose}>
           <Icon name="close" />
         </IconButton>
       </div>
-      {error && <p className="form-error">{error}</p>}
+      {error && <p className="text-[12px] font-semibold text-rose">{error}</p>}
       {cap("config") && config && (
-        <label>
-          默认模型
-          <select
-            onChange={(event) =>
-              void rpc("config.set", {
-                action: "activate_model",
-                active_model: event.target.value,
-              }).then(onConfig)
-            }
-            value={config.active_model}
-          >
-            {config.models.map((model) => {
-              const ref = `${model.provider}/${model.model}`;
-              return (
-                <option key={ref} value={ref}>
-                  {ref}
-                </option>
-              );
-            })}
-          </select>
-        </label>
+        <div className="border-t border-line pt-3 mt-3.5">
+          <label className="grid gap-1.5 text-[11px] font-bold tracking-wide text-ink-soft">
+            默认模型
+            <Select
+              ariaLabel="默认模型"
+              onValueChange={(value) =>
+                void rpc("config.set", {
+                  action: "activate_model",
+                  active_model: value,
+                }).then(onConfig)
+              }
+              options={config.models.map((model) => {
+                const ref = `${model.provider}/${model.model}`;
+                return { value: ref, label: ref };
+              })}
+              value={config.active_model}
+            />
+          </label>
+        </div>
       )}
       {cap("memory") && (
-        <div>
-          <div className="section-heading">
-            <h3>记忆</h3>
+        <div className="border-t border-line pt-3 mt-3.5">
+          <div className="flex items-center justify-between">
+            <h3 className="m-0 text-[13px] font-bold text-ink">记忆</h3>
             {memory.length > 0 && (
               <button
-                className="text-action danger"
+                className="cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
                 onClick={() => {
                   if (window.confirm("清除所有记忆？此操作无法撤销。"))
                     void rpc("memory.clear", {}).then(() => load());
@@ -1168,15 +1219,20 @@ function RuntimeSettings({
           </div>
           {memory.length ? (
             memory.map((item) => (
-              <div className="setting-item" key={item.id}>
-                <span>
-                  <strong>{item.content}</strong>
-                  <small>
+              <div
+                className="flex items-center justify-between gap-3 border-b border-line py-2 text-[13px]"
+                key={item.id}
+              >
+                <span className="min-w-0">
+                  <strong className="block truncate text-ink">
+                    {item.content}
+                  </strong>
+                  <small className="mt-0.5 block text-[11px] font-normal text-ink-muted">
                     {item.kind} · 优先级 {item.priority}
                   </small>
                 </span>
                 <button
-                  className="text-action danger"
+                  className="shrink-0 cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
                   onClick={() => {
                     if (window.confirm("删除这条记忆？"))
                       void rpc("memory.delete", { id: item.id }).then(() =>
@@ -1190,48 +1246,60 @@ function RuntimeSettings({
               </div>
             ))
           ) : (
-            <p>没有可用记忆。</p>
+            <p className="text-[13px] text-ink-muted">没有可用记忆。</p>
           )}
         </div>
       )}
       {cap("skill") && (
-        <div>
-          <h3>技能</h3>
+        <div className="border-t border-line pt-3 mt-3.5">
+          <h3 className="m-0 mb-2 text-[13px] font-bold text-ink">技能</h3>
           {skills.map((skill) => (
-            <label className="setting-item" key={skill.name}>
-              <span>
-                {skill.name}
-                <small>{skill.description}</small>
+            <div
+              className="flex items-center justify-between gap-3 border-b border-line py-2 text-[13px]"
+              key={skill.name}
+            >
+              <span className="min-w-0">
+                <strong className="block truncate text-ink">
+                  {skill.name}
+                </strong>
+                <small className="mt-0.5 block truncate text-[11px] font-normal text-ink-muted">
+                  {skill.description}
+                </small>
               </span>
-              <input
+              <Switch
                 checked={skill.enabled}
-                onChange={(event) =>
+                label={`启用技能 ${skill.name}`}
+                onCheckedChange={(enabled) =>
                   void rpc("skill.set", {
                     name: skill.name,
-                    enabled: event.target.checked,
+                    enabled,
                   }).then(() => load())
                 }
-                type="checkbox"
               />
-            </label>
+            </div>
           ))}
         </div>
       )}
       {cap("mcp") && (
-        <div>
-          <h3>MCP 服务</h3>
+        <div className="border-t border-line pt-3 mt-3.5">
+          <h3 className="m-0 mb-2 text-[13px] font-bold text-ink">MCP 服务</h3>
           {mcp.map((server) => (
-            <div className="setting-item" key={server.name}>
-              <span>
-                <strong>{server.name}</strong>
-                <small>
+            <div
+              className="flex items-center justify-between gap-3 border-b border-line py-2 text-[13px]"
+              key={server.name}
+            >
+              <span className="min-w-0">
+                <strong className="block truncate text-ink">
+                  {server.name}
+                </strong>
+                <small className="mt-0.5 block truncate text-[11px] font-normal text-ink-muted">
                   {server.transport ? `${server.transport} · ` : ""}
                   {server.tool_count} 个工具
                 </small>
               </span>
-              <span className="row-actions">
+              <span className="flex shrink-0 items-center gap-2">
                 <button
-                  className="text-action"
+                  className="cursor-pointer text-[11px] font-bold text-blue-strong transition-opacity duration-150 hover:opacity-75"
                   onClick={() =>
                     void rpc("mcp.reload", { name: server.name }).then(() =>
                       load(),
@@ -1241,22 +1309,24 @@ function RuntimeSettings({
                 >
                   重载
                 </button>
-                <input
+                <Switch
                   checked={server.active}
-                  onChange={(event) =>
+                  label={`启用 MCP 服务 ${server.name}`}
+                  onCheckedChange={(active) =>
                     void rpc("mcp.toggle", {
                       name: server.name,
-                      active: event.target.checked,
+                      active,
                     }).then(() => load())
                   }
-                  type="checkbox"
                 />
               </span>
             </div>
           ))}
         </div>
       )}
-      {!loaded && <p>正在加载可用设置…</p>}
+      {!loaded && (
+        <p className="text-[13px] text-ink-muted">正在加载可用设置…</p>
+      )}
     </section>
   );
 }
