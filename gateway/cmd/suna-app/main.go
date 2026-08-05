@@ -35,7 +35,14 @@ func main() {
 
 	listener, err := net.Listen("tcp", cfg.ListenAddress)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "suna-app could not start the local server")
+		if errors.Is(err, syscall.EADDRINUSE) {
+			// 端口被占用最常见的场景是另一个 Suna App 已在运行；给出可执行的
+			// 下一步，而不是泛化的启动失败提示。
+			fmt.Fprintf(os.Stderr, "suna-app: 端口 %s 已被占用，可能已有 Suna App 正在运行。\n", cfg.ListenAddress)
+			fmt.Fprintf(os.Stderr, "请直接打开 http://%s ；如需新实例，请用 --listen 指定其他 loopback 端口。\n", cfg.ListenAddress)
+		} else {
+			fmt.Fprintf(os.Stderr, "suna-app could not start the local server: %v\n", err)
+		}
 		os.Exit(1)
 	}
 	defer listener.Close()

@@ -28,6 +28,7 @@ type httpFakeConnection struct {
 	done          chan struct{}
 	mu            sync.Mutex
 	method        string
+	requestErr    error
 	closeOnce     sync.Once
 }
 
@@ -38,6 +39,9 @@ func (c *httpFakeConnection) Request(_ context.Context, method string, _ any) (j
 	c.mu.Lock()
 	c.method = method
 	c.mu.Unlock()
+	if c.requestErr != nil {
+		return nil, c.requestErr
+	}
 	return json.RawMessage(`{"value":"ok"}`), nil
 }
 func (c *httpFakeConnection) Notifications() <-chan runtime.Notification { return c.notifications }

@@ -239,9 +239,16 @@ func (s *Server) bridgeEvents(w http.ResponseWriter, r *http.Request) {
 			if err != nil { // Notification fields originate from a typed Runtime frame.
 				return
 			}
-			_, _ = io.WriteString(w, "event: notification\ndata: ")
-			_, _ = w.Write(payload)
-			_, _ = io.WriteString(w, "\n\n")
+			// 浏览器已断开时写入会失败；立即退出，避免继续空转等待请求取消。
+			if _, err = io.WriteString(w, "event: notification\ndata: "); err != nil {
+				return
+			}
+			if _, err = w.Write(payload); err != nil {
+				return
+			}
+			if _, err = io.WriteString(w, "\n\n"); err != nil {
+				return
+			}
 			flusher.Flush()
 		}
 	}
@@ -319,6 +326,16 @@ func decodeLimitedJSON(w http.ResponseWriter, r *http.Request, max int64, destin
 }
 
 func bridgeRuntimeError(w http.ResponseWriter, err error) {
+	// Runtime 的结构化 JSON-RPC 错误携带稳定 data.kind；必须按其映射到可读
+	// 的错误，而不是全部压成 unavailable。原始 message 是自由文本，不透传。
+	var rpcErr *runtime.RPCError
+	if errors.As(err, &rpcErr) {
+		kind := rpcErr.Kind()
+		if kind != "" {
+			bridgeError(w, http.StatusBadRequest, kind, safeRPCMessage(kind))
+			return
+		}
+	}
 	kind := runtime.ErrorUnavailable
 	var runtimeError *runtime.Error
 	if errors.As(err, &runtimeError) {
@@ -329,6 +346,27 @@ func bridgeRuntimeError(w http.ResponseWriter, err error) {
 		status = http.StatusNotImplemented
 	}
 	bridgeError(w, status, string(kind), safeMessage(kind))
+}
+
+// safeRPCMessage 只根据公开协议的稳定错误 kind 生成面向浏览器的安全文案，
+// 不透传 Runtime 自由文本 message。
+func safeRPCMessage(kind string) string {
+	switch kind {
+	case "session_required":
+		return "需要先附加到该会话。"
+	case "session_busy":
+		return "该会话正被其他客户端或任务占用，请稍后重试。"
+	case "invalid_request", "parse_error":
+		return "请求参数无效。"
+	case "unsupported_method":
+		return "Runtime 不支持该操作。"
+	case "unsupported_capability":
+		return "Installed Runtime does not support the required capability."
+	case "handshake_required":
+		return "需要先完成 Runtime 握手。"
+	default:
+		return "Runtime 拒绝了该请求。"
+	}
 }
 
 func bridgeError(w http.ResponseWriter, status int, code, message string) {

@@ -120,6 +120,21 @@ func (e *RPCError) Error() string {
 	return fmt.Sprintf("runtime JSON-RPC error %d: %s", e.Code, e.Message)
 }
 
+// Kind 返回 Runtime 结构化错误的稳定分类（data.kind）。
+// 它只存在于公开协议中；无法解析时返回空字符串。
+func (e *RPCError) Kind() string {
+	if e == nil || len(e.Data) == 0 {
+		return ""
+	}
+	var data struct {
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(e.Data, &data); err != nil {
+		return ""
+	}
+	return data.Kind
+}
+
 // Notification is a server-originated JSON-RPC notification.
 type Notification struct {
 	Method string
