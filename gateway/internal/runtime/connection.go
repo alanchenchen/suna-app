@@ -70,7 +70,7 @@ func commandJSONOutput(ctx context.Context, command *exec.Cmd) ([]byte, error) {
 		_ = stdout.Close()
 		_ = command.Process.Kill()
 	})
-	line, readErr := readNDJSONFrame(bufio.NewReader(stdout), maxRuntimeFrameBytes)
+	line, readErr := readNDJSONFrame(bufio.NewReader(stdout), maxServeOutputBytes)
 	stopped := stop()
 	waitErr := command.Wait()
 	if readErr != nil {

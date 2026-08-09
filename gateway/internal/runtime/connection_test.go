@@ -234,6 +234,56 @@ func TestConnectionRejectsOversizedFrameAndCloses(t *testing.T) {
 	}
 }
 
+func TestConnectionAcceptsLargeFrameOverOld64KBLimit(t *testing.T) {
+	// 回归测试：Runtime 的 session.attach 完整 snapshot 可达数百 KB，而 Gateway
+	// 早期帧上限是 64KB，导致大 snapshot 被误判为协议错误并终止连接。
+	// 现在 TCP 帧上限为 16MB，必须能正常接收并分发大帧。
+	listener := newRuntimeListener(t)
+	defer listener.Close()
+	const largePayloadSize = 200 * 1024
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		reader := bufio.NewReader(conn)
+		_ = readTestMessage(t, reader) // runtime.hello
+		_ = writeTestJSON(conn, map[string]any{"jsonrpc": "2.0", "id": 1, "result": map[string]any{"protocol_version": ProtocolVersion}})
+		message := readTestMessage(t, reader) // session.attach
+		large := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      message.ID,
+			"result": map[string]any{
+				"snapshot": map[string]any{
+					"padding": string(make([]byte, largePayloadSize)),
+				},
+			},
+		}
+		_ = writeTestJSON(conn, large)
+		<-time.After(200 * time.Millisecond)
+	}()
+	manager := newTestManager(t, listener.Addr().String())
+	connection, err := manager.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+
+	var result map[string]any
+	if err := connection.Call(context.Background(), "session.attach", map[string]any{"session_id": "test"}, &result); err != nil {
+		t.Fatalf("Call() with large result error = %v", err)
+	}
+	snapshot, ok := result["snapshot"].(map[string]any)
+	if !ok {
+		t.Fatalf("result has no snapshot: %v", result)
+	}
+	padding, ok := snapshot["padding"].(string)
+	if !ok || len(padding) != largePayloadSize {
+		t.Fatalf("large payload not preserved: got %d bytes", len(padding))
+	}
+}
+
 func TestConnectionManagerRejectsNonLoopbackLauncherEndpoint(t *testing.T) {
 	manager, err := NewConnectionManager(ManagerConfig{Launcher: fakeLauncher{result: ServeResult{Status: "ready", TCPEndpoint: "192.0.2.1:3000"}}})
 	if err != nil {

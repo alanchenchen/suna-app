@@ -168,7 +168,14 @@ func performHello(ctx context.Context, conn net.Conn) (HelloResult, error) {
 	return HelloResult{ProtocolVersion: hello.ProtocolVersion}, nil
 }
 
-const maxRuntimeFrameBytes = 64 * 1024
+// maxRuntimeFrameBytes 是 TCP JSON-RPC 单帧上限。Runtime 的公开 TCP transport
+// 不限制响应帧大小（session.attach 的完整 snapshot 可达数百 KB），Gateway 必须
+// 设一个足够容纳真实响应的上限，同时防止不可信对端撑爆内存。
+const maxRuntimeFrameBytes = 16 * 1024 * 1024
+
+// maxServeOutputBytes 是 `suna serve --json` 单行 stdout 的上限；CLI 输出与
+// TCP 帧不同，永远是小 JSON，使用独立的小上限。
+const maxServeOutputBytes = 64 * 1024
 
 func readFrame(conn net.Conn) ([]byte, error) {
 	frame := make([]byte, 0, 4096)
