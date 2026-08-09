@@ -49,7 +49,6 @@ export function RunDetails(props: RunDetailsProps) {
     run,
     usage,
     totals,
-    toolSummary,
     ask,
     guard,
     config,
@@ -308,32 +307,6 @@ export function RunDetails(props: RunDetailsProps) {
               )}
             </section>
           )}
-          <section className="border-t border-line pt-4 mt-4">
-            <h3 className="m-0 mb-2 text-[13px] font-bold text-ink">
-              工具活动
-            </h3>
-            <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
-              <span className="text-ink-muted">已执行</span>
-              <b className="text-ink">{toolSummary?.total ?? 0}</b>
-            </div>
-            <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
-              <span className="text-ink-muted">成功 / 失败</span>
-              <b className="text-ink">
-                {toolSummary
-                  ? `${toolSummary.success} / ${toolSummary.failed}`
-                  : "—"}
-              </b>
-            </div>
-            {toolSummary?.recent?.slice(0, 4).map((tool, index) => (
-              <div
-                className="flex items-center justify-between border-b border-line py-2 text-[13px]"
-                key={`${tool.tool}-${index}`}
-              >
-                <span className="truncate text-ink-muted">{tool.tool}</span>
-                <small className="text-ink-soft">{tool.status}</small>
-              </div>
-            ))}
-          </section>
           <section className="border-t border-line pt-4 mt-4">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="m-0 text-[13px] font-bold text-ink">本次用量</h3>

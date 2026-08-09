@@ -10,16 +10,19 @@ import { Composer } from "./features/chat/Composer";
 import { RunDetails } from "./features/run/RunDetails";
 import { useRuntimeBridge } from "./features/runtime/useRuntimeBridge";
 import { SessionSidebar } from "./features/sessions/SessionSidebar";
+import { TaskOverview } from "./features/overview/TaskOverview";
 import type { Theme } from "./lib/models";
 import type {
   AgentRunEvent,
   AgentUsageEvent,
   AskUserEvent,
+  FlowSegment,
   GuardConfirmEvent,
   RuntimeConfig,
   RuntimeNotification,
   SessionInfo,
   SessionSnapshot,
+  ToolFlowItem,
   ToolSummary,
   ToolStartEvent,
   UsagePeriod,
@@ -33,8 +36,8 @@ import "./styles/tailwind.css";
 type PendingUserMessage = { id: string; content: string };
 type ActiveData = {
   snapshot?: SessionSnapshot;
-  assistant: string;
-  reasoning: string;
+  /** 本轮 run 的按序叙事流：思考 / 工具 / 回复按到达顺序排列。 */
+  flow: FlowSegment[];
   usage?: AgentUsageEvent;
   run?: AgentRunEvent;
   ask?: AskUserEvent;
@@ -44,10 +47,33 @@ type ActiveData = {
   pendingUsers: PendingUserMessage[];
 };
 const blankActive = (): ActiveData => ({
-  assistant: "",
-  reasoning: "",
+  flow: [],
   pendingUsers: [],
 });
+/**
+ * 从权威快照的进行中 buffer 恢复叙事流：reasoning 在前、assistant 在后，
+ * 均为未结束段（运行中 attach / 发送后 reattach 时使用）。
+ */
+function flowFromSnapshot(snapshot: SessionSnapshot): FlowSegment[] {
+  const flow: FlowSegment[] = [];
+  if (snapshot.current_run?.reasoning_buffer) {
+    flow.push({
+      kind: "reasoning",
+      id: Date.now(),
+      text: snapshot.current_run.reasoning_buffer,
+      done: false,
+    });
+  }
+  if (snapshot.current_run?.assistant_buffer) {
+    flow.push({
+      kind: "assistant",
+      id: Date.now() + 1,
+      text: snapshot.current_run.assistant_buffer,
+      done: false,
+    });
+  }
+  return flow;
+}
 
 function messageId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
@@ -81,6 +107,7 @@ export function App() {
   const [active, setActive] = useState<ActiveData>(blankActive);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [usage, setUsage] = useState<UsagePeriod>();
   const [config, setConfig] = useState<RuntimeConfig>();
@@ -106,8 +133,7 @@ export function App() {
     { attach: number; sessionId: string; runId?: string } | undefined
   >(undefined);
   const deltaRef = useRef({
-    assistant: "",
-    reasoning: "",
+    items: [] as { kind: "assistant" | "reasoning"; content: string }[],
     scope: undefined as
       { attach: number; sessionId: string; runId?: string } | undefined,
   });
@@ -124,15 +150,15 @@ export function App() {
     if (deltaFrameRef.current !== undefined)
       cancelAnimationFrame(deltaFrameRef.current);
     deltaFrameRef.current = undefined;
-    deltaRef.current = { assistant: "", reasoning: "", scope: undefined };
+    deltaRef.current = { items: [], scope: undefined };
   }, []);
   const flushDeltas = useCallback(() => {
     deltaFrameRef.current = undefined;
     const pending = deltaRef.current;
-    deltaRef.current = { assistant: "", reasoning: "", scope: undefined };
+    deltaRef.current = { items: [], scope: undefined };
     const scope = scopeRef.current;
     if (
-      (!pending.assistant && !pending.reasoning) ||
+      pending.items.length === 0 ||
       syncingRef.current ||
       !scope ||
       !pending.scope ||
@@ -141,11 +167,36 @@ export function App() {
       scope.runId !== pending.scope.runId
     )
       return;
-    setActive((value) => ({
-      ...value,
-      assistant: value.assistant + pending.assistant,
-      reasoning: value.reasoning + pending.reasoning,
-    }));
+    // 把到达顺序的 delta 逐段写入统一叙事流：与末尾同 kind 且未结束的段
+    // 合并（继续流式累积），否则新开一段——思考→工具→回复可交替出现。
+    setActive((value) => {
+      let flow = value.flow;
+      for (const item of pending.items) {
+        const last = flow[flow.length - 1];
+        if (
+          last &&
+          last.kind === item.kind &&
+          !last.done &&
+          (last.kind === "assistant" || last.kind === "reasoning")
+        ) {
+          flow = [
+            ...flow.slice(0, -1),
+            { ...last, text: last.text + item.content },
+          ];
+        } else {
+          flow = [
+            ...flow,
+            {
+              kind: item.kind,
+              id: Date.now() + Math.random(),
+              text: item.content,
+              done: false,
+            },
+          ];
+        }
+      }
+      return { ...value, flow };
+    });
   }, []);
   const queueDelta = useCallback(
     (kind: "assistant" | "reasoning", content: string, runId?: string) => {
@@ -165,7 +216,7 @@ export function App() {
       )
         resetQueuedDeltas();
       deltaRef.current.scope = { ...scope };
-      deltaRef.current[kind] += content;
+      deltaRef.current.items.push({ kind, content });
       if (deltaFrameRef.current === undefined)
         deltaFrameRef.current = requestAnimationFrame(flushDeltas);
     },
@@ -261,22 +312,14 @@ export function App() {
                 }
               : value.snapshot,
           };
-          // The protocol does not emit a separate completed-assistant message.
-          // Keep the streamed result visible until the next authoritative attach.
-          // done 时无条件结束思考态：reasoning 只是过程文本，无论有没有正文
-          // 都必须清空，否则“正在思考”会一直停留在界面上。
+          // 叙事流保留：思考/回复段全部标为已结束，工具卡与回复块作为
+          // 本轮操作流继续显示在时间线中（不再清空、不再拍平成消息）。
           if (event.params.state === "done" && value.snapshot) {
-            if (value.assistant) {
-              next.snapshot = {
-                ...next.snapshot!,
-                messages: [
-                  ...(value.snapshot.messages ?? []),
-                  { role: "assistant", content: value.assistant },
-                ],
-              };
-              next.assistant = "";
-            }
-            next.reasoning = "";
+            next.flow = value.flow.map((segment) =>
+              segment.kind === "assistant" || segment.kind === "reasoning"
+                ? { ...segment, done: true }
+                : segment,
+            );
           }
           return next;
         });
@@ -295,31 +338,73 @@ export function App() {
           scope.sessionId !== selectedIdRef.current
         )
           return;
-        setActive((value) => ({
-          ...value,
-          activeTool: { ...event.params, status: "running" },
-        }));
+        const item: ToolFlowItem = {
+          id: event.params.id,
+          tool: event.params.tool,
+          intent: event.params.intent,
+          params: event.params.params,
+          status: "running",
+        };
+        setActive((value) => {
+          // 工具开始 = 之前的思考/回复段落结束；工具卡按顺序插入叙事流。
+          const flow = value.flow.map((segment) =>
+            segment.kind === "assistant" || segment.kind === "reasoning"
+              ? { ...segment, done: true }
+              : segment,
+          );
+          return {
+            ...value,
+            activeTool: { ...event.params, status: "running" },
+            flow: [...flow, { kind: "tool", item }],
+          };
+        });
         return;
       }
       if (event.method === "agent.tool_guard") {
-        setActive((value) =>
-          value.activeTool?.id === event.params.tool_call_id
-            ? { ...value, activeTool: { ...value.activeTool, status: "guard" } }
-            : value,
-        );
+        setActive((value) => ({
+          ...value,
+          activeTool:
+            value.activeTool?.id === event.params.tool_call_id
+              ? { ...value.activeTool, status: "guard" }
+              : value.activeTool,
+          flow: value.flow.map((segment) =>
+            segment.kind === "tool" &&
+            segment.item.id === event.params.tool_call_id
+              ? {
+                  ...segment,
+                  item: { ...segment.item, status: "guard" as const },
+                }
+              : segment,
+          ),
+        }));
         return;
       }
       if (event.method === "agent.tool_end") {
-        setActive((value) =>
-          value.activeTool?.id === event.params.id
-            ? event.params.error
+        setActive((value) => ({
+          ...value,
+          activeTool:
+            value.activeTool?.id === event.params.id
+              ? event.params.error
+                ? { ...value.activeTool, status: "failed" }
+                : undefined
+              : value.activeTool,
+          flow: value.flow.map((segment) =>
+            segment.kind === "tool" && segment.item.id === event.params.id
               ? {
-                  ...value,
-                  activeTool: { ...value.activeTool, status: "failed" },
+                  ...segment,
+                  item: {
+                    ...segment.item,
+                    status: event.params.error
+                      ? ("failed" as const)
+                      : ("success" as const),
+                    result: event.params.result,
+                    resultTruncated: event.params.result_truncated,
+                    error: event.params.error,
+                  },
                 }
-              : { ...value, activeTool: undefined }
-            : value,
-        );
+              : segment,
+          ),
+        }));
         return;
       }
       if (event.method === "agent.ask_user") {
@@ -481,8 +566,7 @@ export function App() {
         setHandoffRole(hostSessionIdsRef.current.has(id) ? "host" : "guest");
         setActive({
           snapshot,
-          assistant: snapshot.current_run?.assistant_buffer ?? "",
-          reasoning: snapshot.current_run?.reasoning_buffer ?? "",
+          flow: flowFromSnapshot(snapshot),
           toolSummary: snapshot.tool_summary,
           pendingUsers: [],
         });
@@ -656,8 +740,7 @@ export function App() {
         setHandoffRole("host");
         setActive({
           snapshot,
-          assistant: "",
-          reasoning: "",
+          flow: [],
           toolSummary: snapshot.tool_summary,
           pendingUsers: [],
         });
@@ -684,8 +767,6 @@ export function App() {
         .join("\n") || "[图片]";
     setActive((value) => ({
       ...value,
-      assistant: "",
-      reasoning: "",
       pendingUsers: [...value.pendingUsers, { id, content }],
     }));
     try {
@@ -708,8 +789,12 @@ export function App() {
             ...snapshot,
             messages: snapshot.messages ?? value.snapshot?.messages,
           },
-          assistant: snapshot.current_run?.assistant_buffer ?? "",
-          reasoning: snapshot.current_run?.reasoning_buffer ?? "",
+          // reattach 后 snapshot.messages 已是权威历史（含完成的回复），
+          // 只保留工具卡段（不持久化在 messages），丢弃思考/回复段避免重复。
+          flow: [
+            ...value.flow.filter((segment) => segment.kind === "tool"),
+            ...flowFromSnapshot(snapshot),
+          ],
           // The preceding run belongs to the pre-send snapshot. Let the new
           // authoritative current_run (and subsequent agent.run) decide control.
           run: undefined,
@@ -820,8 +905,7 @@ export function App() {
           setSelectedId(snapshot.session.id);
           setActive({
             snapshot,
-            assistant: snapshot.current_run?.assistant_buffer ?? "",
-            reasoning: snapshot.current_run?.reasoning_buffer ?? "",
+            flow: flowFromSnapshot(snapshot),
             toolSummary: snapshot.tool_summary,
             pendingUsers: [],
           });
@@ -941,7 +1025,7 @@ export function App() {
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <h1 className="m-0 max-w-[54vw] overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-extrabold tracking-tight text-ink max-[720px]:max-w-[min(47vw,230px)] max-[720px]:text-[13px]">
-                  {selected?.title || "选择或创建一个会话"}
+                  {selected?.title || "任务总览"}
                 </h1>
                 {selected && (
                   <span
@@ -1063,22 +1147,47 @@ export function App() {
             </div>
           </form>
         </Dialog>
+        <Dialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          title="新建会话"
+          description="选择工作目录，Suna 将在此目录内执行任务。"
+        >
+          <CreateSessionForm
+            onCancel={() => setCreateOpen(false)}
+            onCreate={(cwd, title) =>
+              create(cwd, title).then(() => setCreateOpen(false))
+            }
+          />
+        </Dialog>
         {observer && (
           <div
             aria-live="polite"
-            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/35 bg-rose/10 px-5 py-2 text-[13px] text-ink"
+            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/25 bg-[linear-gradient(180deg,rgba(244,63,94,0.09),rgba(244,63,94,0.04))] px-7 py-2.5 text-[12.5px] text-ink backdrop-blur-md max-[720px]:px-3.5"
           >
-            <span className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]"
-              />
-              {handoffRole === "guest"
-                ? "已加入其他客户端的会话，任务运行中仅可查看。"
-                : "另一个客户端正在运行此会话，当前仅可查看。"}
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="relative grid h-[26px] w-[26px] shrink-0 place-items-center rounded-[9px] bg-rose/12 text-rose">
+                <Icon name="eye" size={14} />
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-0.5 h-2 w-2 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-blue shadow-[0_0_0_3px_var(--color-surface-solid)]"
+                />
+              </span>
+              <span className="min-w-0">
+                <strong className="block truncate text-[12.5px] font-extrabold text-ink">
+                  {handoffRole === "guest"
+                    ? "正在观察运行中的会话"
+                    : "会话正在其他客户端运行"}
+                </strong>
+                <span className="block truncate text-[11px] text-ink-muted">
+                  {handoffRole === "guest"
+                    ? "任务结束后可接管输入"
+                    : "当前窗口仅可查看，任务由另一个客户端控制"}
+                </span>
+              </span>
             </span>
             {selected && selected.client_count > 1 && (
-              <span className="shrink-0 text-[11px] font-bold text-ink-soft">
+              <span className="shrink-0 rounded-full border border-line bg-surface-solid/80 px-2.5 py-1 text-[10.5px] font-extrabold text-ink-soft">
                 {selected.client_count} 个客户端
               </span>
             )}
@@ -1086,12 +1195,17 @@ export function App() {
         )}
         {error && (
           <div
-            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/35 bg-rose/10 px-5 py-2 text-[13px] text-ink"
+            className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/25 bg-[linear-gradient(180deg,rgba(244,63,94,0.09),rgba(244,63,94,0.04))] px-7 py-2.5 text-[12.5px] text-ink backdrop-blur-md max-[720px]:px-3.5"
             role="alert"
           >
-            {error}
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-[9px] bg-rose/12 text-rose">
+                <Icon name="warning" size={14} />
+              </span>
+              <span className="min-w-0 truncate">{error}</span>
+            </span>
             <button
-              className="cursor-pointer rounded-md bg-rose/15 px-2 py-0.5 text-[11px] font-bold text-rose transition-colors duration-150 hover:bg-rose/25"
+              className="shrink-0 cursor-pointer rounded-lg border border-rose/25 bg-surface-solid/80 px-2.5 py-1 text-[11px] font-bold text-rose transition-colors duration-150 hover:bg-rose/15"
               onClick={() => setError(undefined)}
               type="button"
             >
@@ -1118,26 +1232,52 @@ export function App() {
             />
           </>
         )}
-        <ChatTimeline
-          activeTool={active.activeTool}
-          assistantBuffer={active.assistant}
-          loading={syncing}
-          messages={messages}
-          pending={active.pendingUsers.length > 0}
-          phase={active.run?.phase ?? current?.phase}
-          reasoningBuffer={active.reasoning}
-          running={running}
-          sessionId={active.snapshot?.session.id}
-          toolSummary={active.toolSummary}
-        />
-        <Composer
-          canAttachImageUrl={Boolean(hello?.content_sources.url)}
-          disabled={sessionActionsFrozen || observer}
-          focusTrigger={composerFocus}
-          onSubmit={send}
-          observer={observer}
-          waiting={selected?.status === "waiting"}
-        />
+        {!selected ? (
+          <TaskOverview
+            connected={connected}
+            onCreate={() => setCreateOpen(true)}
+            onReconnect={() => void initialize()}
+            onSelect={(id) => void attach(id)}
+            pendingId={syncing ? selectedId : undefined}
+            selectedId={selectedId}
+            sessions={sessions}
+          />
+        ) : (
+          <>
+            <ChatTimeline
+              activeTool={active.activeTool}
+              ask={active.ask}
+              controlsDisabled={syncing || (running && !canControl)}
+              guard={active.guard}
+              loading={syncing}
+              messages={messages}
+              onAskReply={(id, answer) =>
+                queueSessionOperation(() =>
+                  rpc("agent.askReply", { id, answer }),
+                ).then(() => undefined)
+              }
+              onGuardReply={(id, decision) =>
+                queueSessionOperation(() =>
+                  rpc("agent.guardReply", { id, decision }),
+                ).then(() => undefined)
+              }
+              pending={active.pendingUsers.length > 0}
+              phase={active.run?.phase ?? current?.phase}
+              flow={active.flow}
+              running={running}
+              sessionId={active.snapshot?.session.id}
+              toolSummary={active.toolSummary}
+            />
+            <Composer
+              canAttachImageUrl={Boolean(hello?.content_sources.url)}
+              disabled={sessionActionsFrozen || observer}
+              focusTrigger={composerFocus}
+              onSubmit={send}
+              observer={observer}
+              waiting={selected?.status === "waiting"}
+            />
+          </>
+        )}
       </section>
       <RunDetails
         ask={active.ask}
@@ -1181,7 +1321,6 @@ export function App() {
         phase={active.run?.phase ?? current?.phase}
         run={active.run}
         status={current?.status ?? selected?.status}
-        toolSummary={active.toolSummary}
         totals={usage}
         usage={active.usage}
       />
@@ -1430,5 +1569,85 @@ function RuntimeSettings({
         <p className="text-[13px] text-ink-muted">正在加载可用设置…</p>
       )}
     </section>
+  );
+}
+
+function CreateSessionForm({
+  onCancel,
+  onCreate,
+}: {
+  onCancel: () => void;
+  onCreate: (cwd: string, title?: string) => Promise<void>;
+}) {
+  const [cwd, setCwd] = useState("");
+  const [title, setTitle] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function submit() {
+    if (!cwd.trim()) {
+      setError("请输入工作目录。");
+      return;
+    }
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      await onCreate(cwd.trim(), title.trim() || undefined);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "无法创建会话。");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form
+      className="grid gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <label className="grid gap-1.5 text-[12px] font-bold text-ink-soft">
+        工作目录
+        <input
+          autoFocus
+          className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
+          disabled={submitting}
+          onChange={(event) => setCwd(event.target.value)}
+          placeholder="/Users/me/project"
+          value={cwd}
+        />
+      </label>
+      <label className="grid gap-1.5 text-[12px] font-bold text-ink-soft">
+        标题（可选）
+        <input
+          className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
+          disabled={submitting}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="新任务"
+          value={title}
+        />
+      </label>
+      {error && (
+        <small className="text-[12px] font-semibold text-rose">{error}</small>
+      )}
+      <div className="mt-1 flex justify-end gap-2.5">
+        <button
+          className="cursor-pointer rounded-lg border border-line bg-surface px-3.5 py-2 text-[12px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
+          disabled={submitting}
+          onClick={onCancel}
+          type="button"
+        >
+          取消
+        </button>
+        <button
+          className="cursor-pointer rounded-lg bg-blue px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={submitting}
+          type="submit"
+        >
+          {submitting ? "正在创建…" : "创建会话"}
+        </button>
+      </div>
+    </form>
   );
 }

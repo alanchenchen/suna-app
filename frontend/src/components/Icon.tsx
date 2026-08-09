@@ -5,7 +5,9 @@ import {
   ChevronDown,
   ChevronRight,
   Ellipsis,
+  Eye,
   Folder,
+  Image,
   MessageSquare,
   Moon,
   PanelRight,
@@ -29,7 +31,9 @@ export type IconName =
   | "chevron-right"
   | "close"
   | "ellipsis"
+  | "eye"
   | "folder"
+  | "image"
   | "message"
   | "moon"
   | "panel"
@@ -50,7 +54,9 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "chevron-right": ChevronRight,
   close: X,
   ellipsis: Ellipsis,
+  eye: Eye,
   folder: Folder,
+  image: Image,
   message: MessageSquare,
   moon: Moon,
   panel: PanelRight,
@@ -65,9 +71,24 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   warning: TriangleAlert,
 };
 
-export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
+export function Icon({
+  name,
+  size = 18,
+  className,
+}: {
+  name: IconName;
+  size?: number;
+  className?: string;
+}) {
   const LucideIcon = icons[name];
-  return <LucideIcon aria-hidden="true" size={size} strokeWidth={1.8} />;
+  return (
+    <LucideIcon
+      aria-hidden="true"
+      className={className}
+      size={size}
+      strokeWidth={1.8}
+    />
+  );
 }
 
 export function IconButton({

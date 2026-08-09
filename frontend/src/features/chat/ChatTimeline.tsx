@@ -2,7 +2,14 @@ import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "../../components/Icon";
-import type { SnapshotMessage, ToolSummary } from "../../lib/runtimeBridge";
+import type {
+  AskUserEvent,
+  FlowSegment,
+  GuardConfirmEvent,
+  SnapshotMessage,
+  ToolFlowItem,
+  ToolSummary,
+} from "../../lib/runtimeBridge";
 
 type ActiveTool = {
   id?: string;
@@ -13,8 +20,8 @@ type ActiveTool = {
 
 type ChatTimelineProps = {
   messages: SnapshotMessage[];
-  assistantBuffer?: string;
-  reasoningBuffer?: string;
+  /** 本轮 run 的按序叙事流：思考 / 工具 / 回复按到达顺序排列。 */
+  flow?: FlowSegment[];
   running: boolean;
   /** Runtime phase, supplied by the application shell when available. */
   phase?: string;
@@ -24,6 +31,13 @@ type ChatTimelineProps = {
   activeTool?: ActiveTool;
   /** Aggregate tool execution summary for the current session. */
   toolSummary?: ToolSummary;
+  /** Pending user decision, rendered inline in the timeline. */
+  ask?: AskUserEvent;
+  guard?: GuardConfirmEvent;
+  onAskReply?: (id: string, answer: string) => Promise<void>;
+  onGuardReply?: (id: string, decision: "approve" | "reject") => Promise<void>;
+  /** Disable decision controls while another client owns the run. */
+  controlsDisabled?: boolean;
   /** Changes when Runtime attaches another session, resetting scroll anchoring. */
   sessionId?: string;
   /** Show skeleton placeholders while a session snapshot is loading. */
@@ -124,6 +138,48 @@ function StreamActivity({ label, detail }: { label: string; detail?: string }) {
   );
 }
 
+function ReasoningBlock({
+  text,
+  running,
+  done,
+}: {
+  text: string;
+  running: boolean;
+  /** 该段思考已结束（run 完成或进入工具调用），折叠显示为过程记录。 */
+  done?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <article className="animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
+      <button
+        aria-expanded={expanded}
+        className="mb-1.5 flex w-full cursor-pointer items-center gap-1.5 text-[11px] text-ink-soft"
+        onClick={() => setExpanded((value) => !value)}
+        type="button"
+      >
+        <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
+          <Icon name="sparkle" size={14} />
+        </span>
+        <strong className="text-ink">Suna</strong>
+        <span className="ml-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-ink-muted">
+          <Icon
+            className={`transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+            name="chevron-down"
+            size={12}
+          />
+          {done ? (expanded ? "收起思考" : "查看思考过程") : "思考中"}
+        </span>
+        {running && !done && <StreamActivity label="正在思考" />}
+      </button>
+      {expanded && (
+        <div className="markdown-body min-w-0 max-w-[650px] rounded-[18px] bg-surface-subtle/70 px-4 py-3 text-[13px] leading-[1.82] text-ink-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [overflow-wrap:anywhere]">
+          <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+        </div>
+      )}
+    </article>
+  );
+}
+
 const toneClasses: Record<string, string> = {
   guard:
     "bg-amber-soft/70 border-amber/30 [&_.agent-activity-icon]:text-amber [&_.activity-dots]:text-amber",
@@ -135,13 +191,17 @@ const toneClasses: Record<string, string> = {
 
 export function ChatTimeline({
   messages,
-  assistantBuffer,
-  reasoningBuffer,
+  flow = [],
   running,
   phase,
   pending,
   activeTool,
   toolSummary,
+  ask,
+  guard,
+  onAskReply,
+  onGuardReply,
+  controlsDisabled = false,
   sessionId,
   loading = false,
 }: ChatTimelineProps) {
@@ -184,7 +244,7 @@ export function ChatTimeline({
     historyAnchorRef.current = undefined;
   }, [historyWindow]);
   useLayoutEffect(() => {
-    const key = `${sessionId ?? "none"}:${messages.length}:${assistantBuffer?.length ?? 0}:${reasoningBuffer?.length ?? 0}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
+    const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
     if (lastContentKeyRef.current === key) return;
     lastContentKeyRef.current = key;
     // Keep an active conversation anchored only when the reader is already at
@@ -193,16 +253,19 @@ export function ChatTimeline({
   }, [
     activeTool?.id,
     activeTool?.status,
-    assistantBuffer,
+    flow,
     messages.length,
     pending,
     phase,
-    reasoningBuffer,
     running,
     sessionId,
   ]);
 
-  const hasStream = Boolean(reasoningBuffer || assistantBuffer);
+  const hasStream = flow.some(
+    (segment) =>
+      (segment.kind === "reasoning" || segment.kind === "assistant") &&
+      !segment.done,
+  );
   const showActivityCard = Boolean((running || pending) && !hasStream);
   const streamActivity = activityCopy(phase, false, activeTool);
   const activity = activityCopy(phase, pending, activeTool);
@@ -233,9 +296,8 @@ export function ChatTimeline({
         )}
         {!loading &&
           messages.length === 0 &&
-          !assistantBuffer &&
-          !showActivityCard &&
-          !reasoningBuffer && (
+          flow.length === 0 &&
+          !showActivityCard && (
             <div className="flex min-h-[300px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white shadow-[0_8px_24px_rgba(83,109,222,0.35)]">
                 <Icon name="sparkle" size={22} />
@@ -309,7 +371,7 @@ export function ChatTimeline({
               </div>
               <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76]">
                 {message.role === "assistant" ? (
-                  <div className="markdown-body">
+                  <div className="markdown-body rounded-[18px] bg-surface-subtle/70 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     <Markdown remarkPlugins={[remarkGfm]}>
                       {message.content}
                     </Markdown>
@@ -322,6 +384,77 @@ export function ChatTimeline({
               </div>
             </article>
           ))}
+        {!loading && (ask || guard) && (
+          <section
+            aria-atomic="true"
+            aria-live="polite"
+            className="mb-7 max-w-[520px] animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[15px] border border-amber/30 bg-amber-soft/70 p-3.5 shadow-sm"
+            role="status"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-amber/15 text-amber">
+                <Icon name="warning" size={17} />
+              </span>
+              <div className="min-w-0">
+                <strong className="block text-[13px] font-extrabold text-ink">
+                  {guard ? "需要你的授权" : "Suna 有一个问题"}
+                </strong>
+                <small className="truncate text-[11px] text-ink-muted">
+                  {guard ? guard.tool : "请回复后继续"}
+                </small>
+              </div>
+            </div>
+            <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
+              {guard ? guard.reason : ask?.question}
+            </p>
+            {(ask && !ask.can_reply) || (guard && !guard.can_reply) ? (
+              <small className="mt-1.5 block text-[11px] font-semibold text-ink-muted">
+                此请求由其他客户端处理；当前窗口仅可查看。
+              </small>
+            ) : null}
+            {ask && ask.options && ask.options.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {ask.options.map((option) => (
+                  <button
+                    className="cursor-pointer rounded-[7px] border border-line bg-surface-solid px-2.5 py-1.5 text-[12px] font-semibold text-ink transition-colors duration-150 hover:border-blue/40 hover:text-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={!ask.can_reply || controlsDisabled}
+                    key={option}
+                    onClick={() => void onAskReply?.(ask.id, option)}
+                    type="button"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+            {ask && ask.allow_custom && (
+              <AskInlineInput
+                disabled={!ask.can_reply || controlsDisabled}
+                onSubmit={(answer) => onAskReply?.(ask.id, answer)}
+              />
+            )}
+            {guard && (
+              <div className="mt-2.5 flex gap-2">
+                <button
+                  className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={!guard.can_reply || controlsDisabled}
+                  onClick={() => void onGuardReply?.(guard.id, "reject")}
+                  type="button"
+                >
+                  拒绝
+                </button>
+                <button
+                  className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={!guard.can_reply || controlsDisabled}
+                  onClick={() => void onGuardReply?.(guard.id, "approve")}
+                  type="button"
+                >
+                  批准
+                </button>
+              </div>
+            )}
+          </section>
+        )}
         {!loading && showActivityCard && (
           <section
             aria-atomic="true"
@@ -346,84 +479,95 @@ export function ChatTimeline({
             <ActivityDots />
           </section>
         )}
-        {!loading && toolSummary && toolSummary.total > 0 && (
-          <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[15px] border border-line bg-surface-solid p-3.5 shadow-sm">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[11px] font-extrabold text-ink">
-                <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-blue-strong">
-                  <Icon name="tool" size={13} />
+        {!loading && flow.length > 0 && (
+          <div aria-label="执行过程" className="space-y-7">
+            {flow.map((segment) => {
+              if (segment.kind === "reasoning") {
+                return (
+                  <ReasoningBlock
+                    done={segment.done}
+                    key={segment.id}
+                    running={running && !segment.done}
+                    text={segment.text}
+                  />
+                );
+              }
+              if (segment.kind === "tool") {
+                return <ToolCard item={segment.item} key={segment.item.id} />;
+              }
+              const streaming = !segment.done;
+              return (
+                <article
+                  className="arriving animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]"
+                  key={segment.id}
+                >
+                  <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
+                    <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
+                      <Icon name="sparkle" size={14} />
+                    </span>
+                    <strong className="text-ink">Suna</strong>
+                    {streaming && (running || pending) && (
+                      <StreamActivity
+                        label="正在回复"
+                        detail={streamActivity.detail}
+                      />
+                    )}
+                  </div>
+                  <div
+                    className={`markdown-body min-w-0 max-w-[650px] rounded-[18px] bg-surface-subtle/70 px-4 py-3 text-[13px] leading-[1.82] tracking-tight text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [overflow-wrap:anywhere]${streaming ? " [&::after]:ml-[3px] [&::after]:inline-block [&::after]:h-[1em] [&::after]:w-[2px] [&::after]:animate-[stream-blink_1s_steps(1)_infinite] [&::after]:rounded-[1px] [&::after]:bg-blue [&::after]:align-[-0.15em] [&::after]:content-['']" : ""}`}
+                  >
+                    <Markdown remarkPlugins={[remarkGfm]}>
+                      {segment.text}
+                    </Markdown>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+        {!loading &&
+          flow.filter((segment) => segment.kind === "tool").length === 0 &&
+          toolSummary &&
+          toolSummary.total > 0 && (
+            <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[15px] border border-line bg-surface-solid p-3.5 shadow-sm">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[11px] font-extrabold text-ink">
+                  <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-blue-strong">
+                    <Icon name="tool" size={13} />
+                  </span>
+                  工具执行
                 </span>
-                工具执行
-              </span>
-              <span className="text-[10px] font-bold text-ink-muted">
-                共 {toolSummary.total} 次 · {toolSummary.success} 成功
-                {toolSummary.failed > 0 && (
-                  <span className="text-rose">
-                    {" "}
-                    · {toolSummary.failed} 失败
-                  </span>
-                )}
-              </span>
-            </div>
-            {toolSummary.recent?.slice(0, 4).map((tool, index) => (
-              <div
-                className="flex items-center gap-2 border-t border-line/60 py-2 first:border-t-0 text-[11px]"
-                key={`${tool.tool}-${index}`}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`h-[6px] w-[6px] shrink-0 rounded-full ${tool.status === "success" ? "bg-green" : tool.status === "failed" ? "bg-rose" : "bg-ink-muted"}`}
-                />
-                <code className="shrink-0 font-mono text-[11px] font-semibold text-ink">
-                  {tool.tool}
-                </code>
-                {tool.summary && (
-                  <span className="truncate text-ink-muted">
-                    {tool.summary}
-                  </span>
-                )}
+                <span className="text-[10px] font-bold text-ink-muted">
+                  共 {toolSummary.total} 次 · {toolSummary.success} 成功
+                  {toolSummary.failed > 0 && (
+                    <span className="text-rose">
+                      {" "}
+                      · {toolSummary.failed} 失败
+                    </span>
+                  )}
+                </span>
               </div>
-            ))}
-          </section>
-        )}
-        {!loading && reasoningBuffer && (
-          <article className="mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
-              <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
-                <Icon name="sparkle" size={14} />
-              </span>
-              <strong className="text-ink">Suna</strong>
-              {running && (
-                <StreamActivity
-                  label="正在思考"
-                  detail={streamActivity.detail}
-                />
-              )}
-            </div>
-            <div className="markdown-body min-w-0 max-w-[650px] text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
-              <Markdown remarkPlugins={[remarkGfm]}>{reasoningBuffer}</Markdown>
-            </div>
-          </article>
-        )}
-        {!loading && assistantBuffer && (
-          <article className="arriving mb-7 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]">
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
-              <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
-                <Icon name="sparkle" size={14} />
-              </span>
-              <strong className="text-ink">Suna</strong>
-              {(running || pending) && (
-                <StreamActivity
-                  label="正在回复"
-                  detail={streamActivity.detail}
-                />
-              )}
-            </div>
-            <div className="markdown-body min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] [&::after]:ml-[3px] [&::after]:inline-block [&::after]:h-[1em] [&::after]:w-[2px] [&::after]:animate-[stream-blink_1s_steps(1)_infinite] [&::after]:rounded-[1px] [&::after]:bg-blue [&::after]:align-[-0.15em] [&::after]:content-['']">
-              <Markdown remarkPlugins={[remarkGfm]}>{assistantBuffer}</Markdown>
-            </div>
-          </article>
-        )}
+              {toolSummary.recent?.slice(0, 4).map((tool, index) => (
+                <div
+                  className="flex items-center gap-2 border-t border-line/60 py-2 text-[11px] first:border-t-0"
+                  key={`${tool.tool}-${index}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`h-[6px] w-[6px] shrink-0 rounded-full ${tool.status === "success" ? "bg-green" : tool.status === "failed" ? "bg-rose" : "bg-ink-muted"}`}
+                  />
+                  <code className="shrink-0 font-mono text-[11px] font-semibold text-ink">
+                    {tool.tool}
+                  </code>
+                  {tool.summary && (
+                    <span className="truncate text-ink-muted">
+                      {tool.summary}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
         <div ref={endRef} />
       </section>
       {showJumpToLatest && (
@@ -436,6 +580,148 @@ export function ChatTimeline({
           回到最新消息
         </button>
       )}
+    </div>
+  );
+}
+
+function ToolCard({ item }: { item: ToolFlowItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const status = item.status;
+  const statusMeta = {
+    running: {
+      dot: "bg-blue animate-pulse",
+      label: "执行中",
+      text: "text-blue-strong",
+    },
+    guard: {
+      dot: "bg-amber animate-pulse",
+      label: "等待授权",
+      text: "text-amber",
+    },
+    success: { dot: "bg-green", label: "完成", text: "text-green" },
+    failed: { dot: "bg-rose", label: "失败", text: "text-rose" },
+  }[status];
+  const hasDetail =
+    Boolean(item.params && Object.keys(item.params).length > 0) ||
+    Boolean(item.result);
+  const iconTone = {
+    running: "bg-blue-soft text-blue-strong",
+    guard: "bg-amber-soft text-amber",
+    success: "bg-green-soft text-green",
+    failed: "bg-rose/15 text-rose",
+  }[status];
+  return (
+    <article className="animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[14px] border border-line bg-surface-solid shadow-sm transition-[border-color] duration-160 hover:border-line-strong">
+      <button
+        aria-expanded={expanded}
+        className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left disabled:cursor-default"
+        disabled={!hasDetail}
+        onClick={() => setExpanded((value) => !value)}
+        type="button"
+      >
+        <span
+          aria-hidden="true"
+          className={`h-[7px] w-[7px] shrink-0 rounded-full ${statusMeta.dot}`}
+        />
+        <span
+          className={`grid h-[24px] w-[24px] shrink-0 place-items-center rounded-lg ${iconTone}`}
+        >
+          <Icon name="tool" size={13} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <code className="block truncate font-mono text-[11.5px] font-semibold text-ink">
+            {item.tool}
+          </code>
+          {item.intent && (
+            <span className="block truncate text-[10.5px] text-ink-muted">
+              {item.intent}
+            </span>
+          )}
+        </span>
+        <span
+          className={`shrink-0 text-[10px] font-extrabold ${statusMeta.text}`}
+        >
+          {statusMeta.label}
+        </span>
+        {hasDetail && (
+          <Icon
+            name="chevron-down"
+            size={14}
+            className={`shrink-0 text-ink-muted transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          />
+        )}
+      </button>
+      {expanded && hasDetail && (
+        <div className="space-y-2 border-t border-line/70 px-3 py-2.5">
+          {item.params && Object.keys(item.params).length > 0 && (
+            <div>
+              <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">
+                参数
+              </span>
+              <pre className="max-h-[180px] overflow-auto rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
+                {JSON.stringify(item.params, null, 2)}
+              </pre>
+            </div>
+          )}
+          {item.result && (
+            <div>
+              <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">
+                结果
+              </span>
+              <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
+                {item.result}
+                {item.resultTruncated && (
+                  <span className="mt-1 block text-[10px] font-semibold text-ink-muted">
+                    （结果已截断）
+                  </span>
+                )}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function AskInlineInput({
+  disabled,
+  onSubmit,
+}: {
+  disabled: boolean;
+  onSubmit: (answer: string) => void;
+}) {
+  const [answer, setAnswer] = useState("");
+  return (
+    <div className="mt-2.5 flex gap-1.5">
+      <input
+        aria-label="回答"
+        className="min-w-0 flex-1 rounded-lg border border-line bg-surface-solid px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
+        disabled={disabled}
+        onChange={(event) => setAnswer(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            if (answer.trim() && !disabled) {
+              onSubmit(answer.trim());
+              setAnswer("");
+            }
+          }
+        }}
+        placeholder="输入你的回答"
+        value={answer}
+      />
+      <button
+        className="cursor-pointer rounded-lg bg-blue px-3 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
+        disabled={disabled || !answer.trim()}
+        onClick={() => {
+          onSubmit(answer.trim());
+          setAnswer("");
+        }}
+        type="button"
+      >
+        发送
+      </button>
     </div>
   );
 }
