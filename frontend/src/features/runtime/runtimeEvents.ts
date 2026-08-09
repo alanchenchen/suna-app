@@ -1,0 +1,264 @@
+import type { Dispatch, SetStateAction } from "react";
+import type {
+  RuntimeConfig,
+  RuntimeNotification,
+  SessionInfo,
+  ToolFlowItem,
+} from "../../lib/runtimeBridge";
+import type { ActiveData, Scope } from "./sessionState";
+
+/** 单个 run 的时间线工具卡上限：超出丢弃最旧，避免超长 run 累积 DOM。 */
+const MAX_TOOL_CARDS = 24;
+
+type NotificationDeps = {
+  setActive: Dispatch<SetStateAction<ActiveData>>;
+  setConfig: Dispatch<SetStateAction<RuntimeConfig | undefined>>;
+  queueDelta: (
+    kind: "assistant" | "reasoning",
+    content: string,
+    runId?: string,
+  ) => void;
+  flushDeltas: () => void;
+  acceptsRun: (runId?: string) => boolean;
+  acceptsSession: (sessionId?: string) => boolean;
+  mergeSession: (session: SessionInfo) => void;
+  getScope: () => Scope | undefined;
+  isSyncing: () => boolean;
+  getSelectedId: () => string | undefined;
+};
+
+/**
+ * 构造 Runtime 通知处理器。事件与当前 attach 作用域绑定：
+ * 会话无关的全局通知（session.updated 目录增量、config.state）始终处理；
+ * 会话相关通知（agent.*、session.user_message）必须匹配当前作用域。
+ */
+export function createNotificationHandler({
+  setActive,
+  setConfig,
+  queueDelta,
+  flushDeltas,
+  acceptsRun,
+  acceptsSession,
+  mergeSession,
+  getScope,
+  isSyncing,
+  getSelectedId,
+}: NotificationDeps) {
+  return (event: RuntimeNotification) => {
+    if (event.method === "session.updated") {
+      mergeSession(event.params.session);
+      if (acceptsSession(event.params.session.id))
+        setActive((value) =>
+          value.snapshot?.session.id === event.params.session.id
+            ? {
+                ...value,
+                snapshot: {
+                  ...value.snapshot,
+                  session: event.params.session,
+                },
+              }
+            : value,
+        );
+      return;
+    }
+    if (event.method === "config.state") {
+      setConfig(event.params);
+      return;
+    }
+    if (event.method === "agent.delta") {
+      queueDelta(event.params.kind, event.params.content, event.params.run_id);
+      return;
+    }
+    if (event.method === "agent.run") {
+      if (!acceptsRun(event.params.run_id)) return;
+      // 终态事件前先提交本帧内积压的 delta，避免最后一段内容重复出现。
+      if (event.params.state === "done") flushDeltas();
+      setActive((value) => {
+        const next: ActiveData = {
+          ...value,
+          run: event.params,
+          snapshot: value.snapshot
+            ? {
+                ...value.snapshot,
+                current_run: {
+                  run_id: event.params.run_id,
+                  status:
+                    event.params.state === "done" ||
+                    event.params.state === "cancelled" ||
+                    event.params.state === "failed"
+                      ? "idle"
+                      : event.params.state === "retrying"
+                        ? "running"
+                        : "running",
+                  phase: event.params.phase,
+                  can_control: event.params.can_control,
+                },
+              }
+            : value.snapshot,
+        };
+        // 叙事流保留：思考/回复段全部标为已结束，工具卡与回复块作为
+        // 本轮操作流继续显示在时间线中（不再清空、不再拍平成消息）。
+        if (event.params.state === "done" && value.snapshot) {
+          next.flow = value.flow.map((segment) =>
+            segment.kind === "assistant" || segment.kind === "reasoning"
+              ? { ...segment, done: true }
+              : segment,
+          );
+        }
+        return next;
+      });
+      return;
+    }
+    if (event.method === "agent.usage") {
+      if (!acceptsRun(event.params.run_id)) return;
+      setActive((value) => ({ ...value, usage: event.params }));
+      return;
+    }
+    if (event.method === "agent.tool_start") {
+      const scope = getScope();
+      if (isSyncing() || !scope || scope.sessionId !== getSelectedId()) return;
+      const item: ToolFlowItem = {
+        id: event.params.id,
+        tool: event.params.tool,
+        intent: event.params.intent,
+        params: event.params.params,
+        status: "running",
+      };
+      setActive((value) => {
+        // 工具开始 = 之前的思考/回复段落结束；工具卡按顺序插入叙事流。
+        const flow = value.flow.map((segment) =>
+          segment.kind === "assistant" || segment.kind === "reasoning"
+            ? { ...segment, done: true }
+            : segment,
+        );
+        // 单 run 工具卡硬上限：超长 run 会累积大量 DOM，丢弃最旧的
+        // 工具段保持叙事顺序，历史细节由 toolSummary 统计兜底。
+        const toolCount = flow.filter(
+          (segment) => segment.kind === "tool",
+        ).length;
+        if (toolCount >= MAX_TOOL_CARDS) {
+          const firstToolIndex = flow.findIndex(
+            (segment) => segment.kind === "tool",
+          );
+          if (firstToolIndex >= 0) flow.splice(firstToolIndex, 1);
+        }
+        return {
+          ...value,
+          activeTool: { ...event.params, status: "running" },
+          flow: [...flow, { kind: "tool", item }],
+        };
+      });
+      return;
+    }
+    if (event.method === "agent.tool_guard") {
+      setActive((value) => ({
+        ...value,
+        activeTool:
+          value.activeTool?.id === event.params.tool_call_id
+            ? { ...value.activeTool, status: "guard" }
+            : value.activeTool,
+        flow: value.flow.map((segment) =>
+          segment.kind === "tool" &&
+          segment.item.id === event.params.tool_call_id
+            ? {
+                ...segment,
+                item: { ...segment.item, status: "guard" as const },
+              }
+            : segment,
+        ),
+      }));
+      return;
+    }
+    if (event.method === "agent.tool_end") {
+      setActive((value) => ({
+        ...value,
+        activeTool:
+          value.activeTool?.id === event.params.id
+            ? event.params.error
+              ? { ...value.activeTool, status: "failed" }
+              : undefined
+            : value.activeTool,
+        flow: value.flow.map((segment) =>
+          segment.kind === "tool" && segment.item.id === event.params.id
+            ? {
+                ...segment,
+                item: {
+                  ...segment.item,
+                  status: event.params.error
+                    ? ("failed" as const)
+                    : ("success" as const),
+                  result: event.params.result,
+                  resultTruncated: event.params.result_truncated,
+                  error: event.params.error,
+                },
+              }
+            : segment,
+        ),
+      }));
+      return;
+    }
+    if (event.method === "agent.ask_user") {
+      if (!acceptsSession(event.params.session_id)) return;
+      setActive((value) => ({ ...value, ask: event.params }));
+      return;
+    }
+    if (event.method === "agent.guard_confirm") {
+      if (!acceptsSession(event.params.session_id)) return;
+      setActive((value) => ({ ...value, guard: event.params }));
+      return;
+    }
+    if (event.method === "agent.interaction_resolved") {
+      if (!acceptsSession(event.params.session_id)) return;
+      setActive((value) => ({
+        ...value,
+        ask: value.ask?.id === event.params.id ? undefined : value.ask,
+        guard: value.guard?.id === event.params.id ? undefined : value.guard,
+        activeTool:
+          value.activeTool?.id === event.params.id
+            ? { ...value.activeTool, status: undefined }
+            : value.activeTool,
+      }));
+      return;
+    }
+    if (event.method === "session.user_message") {
+      if (!acceptsSession(event.params.session_id)) return;
+      const text = event.params.parts
+        ?.filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("\n");
+      const content =
+        text ||
+        (event.params.parts?.some((part) => part.type === "image")
+          ? "[图片]"
+          : undefined);
+      if (!content) return;
+      setActive((value) => {
+        const pendingIndex = value.pendingUsers.findIndex(
+          (item) => item.content === content,
+        );
+        return {
+          ...value,
+          pendingUsers:
+            pendingIndex < 0
+              ? value.pendingUsers
+              : value.pendingUsers.filter((_, index) => index !== pendingIndex),
+          snapshot: value.snapshot
+            ? {
+                ...value.snapshot,
+                messages: (value.snapshot.messages ?? []).some(
+                  (message) =>
+                    message.role === "user" && message.content === content,
+                )
+                  ? value.snapshot.messages
+                  : [
+                      ...(value.snapshot.messages ?? []),
+                      { role: "user", content },
+                    ],
+              }
+            : value.snapshot,
+        };
+      });
+      return;
+    }
+  };
+}

@@ -19,7 +19,7 @@ export type UseRuntimeBridgeOptions = Pick<
   RuntimeBridgeClientOptions,
   "baseUrl" | "timeoutMs" | "fetch" | "eventSourceFactory"
 > & {
-  /** Notifications are delivered as they arrive and are never retained by this hook. */
+  /** 通知按到达即投递，本 hook 不保留任何事件。 */
   onNotification?: (notification: RuntimeNotification) => void;
   onEventError?: (error: RuntimeBridgeError) => void;
   onReconnected?: () => void | Promise<void>;
@@ -42,9 +42,9 @@ export type RuntimeBridgeHook = {
 };
 
 /**
- * Owns one ephemeral Gateway bridge for a mounted React consumer. It does not
- * use localStorage/sessionStorage and deliberately does not collect events, so
- * callers remain responsible for rendering only the Runtime state they need.
+ * 为一个已挂载的 React 消费者持有单个临时 Gateway bridge。不使用
+ * localStorage/sessionStorage，也不收集事件；调用方只渲染自己需要的
+ * Runtime 状态。
  */
 export function useRuntimeBridge(
   options: UseRuntimeBridgeOptions = {},
@@ -171,7 +171,7 @@ export function useRuntimeBridge(
       invalidateGeneration();
       connectAbortRef.current?.abort();
       closeEvents();
-      // Best effort: the browser may terminate this request during page unload.
+      // 尽力而为：页面卸载时浏览器可能终止此请求。
       void clientRef.current!.disconnect().catch(() => undefined);
     };
   }, [closeEvents, invalidateGeneration]);

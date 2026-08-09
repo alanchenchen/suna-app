@@ -12,7 +12,6 @@ export default defineConfig({
         manualChunks: {
           markdown: ["react-markdown", "remark-gfm"],
           ui: [
-            "lucide-react",
             "@radix-ui/react-dialog",
             "@radix-ui/react-select",
             "@radix-ui/react-switch",
