@@ -16,6 +16,7 @@ import {
   Sparkles,
   Sun,
   TriangleAlert,
+  Users,
   type LucideProps,
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export type IconName =
   | "search"
   | "sparkle"
   | "sun"
+  | "users"
   | "warning";
 
 const icons: Record<IconName, React.ComponentType<LucideProps>> = {
@@ -53,6 +55,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   search: Search,
   sparkle: Sparkles,
   sun: Sun,
+  users: Users,
   warning: TriangleAlert,
 };
 

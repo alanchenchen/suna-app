@@ -20,7 +20,8 @@ type SessionSidebarProps = {
   disabled?: boolean;
   onSelect: (id: string) => void;
   onCreate: (cwd: string, title?: string) => Promise<void>;
-  onDisconnect: () => void;
+  /** 未连接时点击重新连接；已连接时该按钮仅为状态展示。 */
+  onReconnect: () => void;
   onJoinActive: (id: string) => void;
   onDetach?: () => void;
   onDelete?: (id: string) => void;
@@ -44,7 +45,7 @@ export function SessionSidebar({
   disabled = false,
   onSelect,
   onCreate,
-  onDisconnect,
+  onReconnect,
   onJoinActive,
   onDetach,
   onDelete,
@@ -145,13 +146,28 @@ export function SessionSidebar({
               {error}
             </small>
           )}
-          <button
-            className="cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled || submitting}
-            type="submit"
-          >
-            {submitting ? "正在创建…" : "创建会话"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="flex-1 cursor-pointer rounded-lg border border-line bg-surface px-3 py-2 text-[12px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={disabled || submitting}
+              onClick={() => {
+                setCreating(false);
+                setCwd("");
+                setTitle("");
+                setError(undefined);
+              }}
+              type="button"
+            >
+              取消
+            </button>
+            <button
+              className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={disabled || submitting}
+              type="submit"
+            >
+              {submitting ? "正在创建…" : "创建会话"}
+            </button>
+          </div>
         </form>
       )}
       <nav aria-label="最近会话" className="session-list">
@@ -266,15 +282,18 @@ export function SessionSidebar({
       </nav>
       <div className="mt-auto border-t border-line pt-3">
         <button
-          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-[12px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-55"
-          disabled={disabled}
-          onClick={onDisconnect}
+          aria-label={
+            connected ? "Runtime 已连接" : "Runtime 未连接，点击重新连接"
+          }
+          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-[12px] font-bold transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-default disabled:opacity-100 disabled:hover:bg-transparent"
+          disabled={connected || disabled}
+          onClick={onReconnect}
           type="button"
         >
           <span
             className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-green" : "bg-[#8a8f9d]"}`}
           />
-          {connected ? "Runtime 已连接" : "Runtime 未连接"}
+          {connected ? "Runtime 已连接" : "Runtime 未连接，点击重连"}
         </button>
         <div className="flex items-center gap-2.5 px-2 py-2">
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-[11px] font-extrabold text-white">

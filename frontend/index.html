@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#101314" />
     <title>Suna App</title>
+    <script>
+      // 首屏防闪烁：在 React 挂载前根据偏好或系统主题设置 data-theme。
+      (function () {
+        try {
+          var saved = localStorage.getItem("suna-theme");
+          var theme =
+            saved === "light" || saved === "dark" || saved === "system"
+              ? saved
+              : "system";
+          var resolved =
+            theme === "system"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : theme;
+          document.documentElement.dataset.theme = resolved;
+        } catch (e) {
+          /* localStorage 不可用时回落到默认浅色 */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

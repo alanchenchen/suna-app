@@ -55,14 +55,27 @@ function messageId() {
 
 export function App() {
   const { toast } = useToast();
+  // 主题：默认跟随系统（system），用户手动切换后记住偏好（light/dark）。
+  // 显式选过 system 也会记住，之后继续跟随系统变化。
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = window.localStorage.getItem("suna-theme");
-    return saved === "light" || saved === "dark"
+    return saved === "light" || saved === "dark" || saved === "system"
       ? saved
-      : window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
+      : "system";
   });
+  const [systemDark, setSystemDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  // 系统主题变化时，若用户处于 system 模式则实时跟随。
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (event: MediaQueryListEvent) =>
+      setSystemDark(event.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+  const resolvedTheme =
+    theme === "system" ? (systemDark ? "dark" : "light") : theme;
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string>();
   const [active, setActive] = useState<ActiveData>(blankActive);
@@ -75,6 +88,11 @@ export function App() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [composerFocus, setComposerFocus] = useState(0);
+  // handoffRole：当前会话中我是 host（创建/拥有）还是 guest（加入别人的）。
+  // 对应 TUI 的 handoffRole；idle 会话无法从 Runtime 得知 owner，因此用
+  // 前端记忆：本会话创建过/恢复过则视为 host，否则 attach 即视为 guest。
+  const [handoffRole, setHandoffRole] = useState<"host" | "guest">("host");
+  const hostSessionIdsRef = useRef<Set<string>>(new Set());
   const selectedIdRef = useRef<string | undefined>(undefined);
   const restoreRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const attachIntentRef = useRef(0);
@@ -385,15 +403,7 @@ export function App() {
     onEventError,
     onReconnected,
   });
-  const {
-    connect,
-    disconnect,
-    rpc,
-    connected,
-    hello,
-    status,
-    error: bridgeError,
-  } = bridge;
+  const { connect, rpc, connected, hello, status, error: bridgeError } = bridge;
   const cap = useCallback(
     (name: string) =>
       Boolean(
@@ -467,6 +477,8 @@ export function App() {
           runId: snapshot.current_run?.run_id,
         };
         setSelectedId(id);
+        // 判断当前会话中我的身份：我创建过的会话是 host，否则视为 guest。
+        setHandoffRole(hostSessionIdsRef.current.has(id) ? "host" : "guest");
         setActive({
           snapshot,
           assistant: snapshot.current_run?.assistant_buffer ?? "",
@@ -560,10 +572,28 @@ export function App() {
         .then(setConfig)
         .catch(() => undefined);
   }, [cap, connected, rpc]);
+  // Runtime 的 session.updated 只广播给 attach 了该 session 的连接；
+  // Web 未 attach 的 session（例如 TUI 正在运行的）收不到状态变更，
+  // 因此需要定时刷新列表，让 running/waiting 状态和 Join Active 入口保持最新。
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    if (!connected) return;
+    const timer = window.setInterval(() => {
+      void loadSessions().catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [connected, loadSessions]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = resolvedTheme;
+    // 同步浏览器 UI 色（地址栏/状态栏），跟随当前主题。
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute(
+        "content",
+        resolvedTheme === "dark" ? "#10141e" : "#f5f7fb",
+      );
+    }
     window.localStorage.setItem("suna-theme", theme);
-  }, [theme]);
+  }, [resolvedTheme, theme]);
   // Cmd/Ctrl+K 聚焦输入框：桌面快速开始输入。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -575,17 +605,13 @@ export function App() {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
-  // 主题切换用 View Transition 做平滑淡入淡出；不支持的浏览器直接切换。
+  // 主题切换：同步写入 data-theme 并更新偏好，不依赖 View Transition 等
+  // 浏览器 API 的兼容性，保证在任何浏览器下都立即生效。
   const toggleTheme = useCallback(() => {
-    const next = theme === "dark" ? "light" : "dark";
-    const start = (
-      document as Document & {
-        startViewTransition?: (update: () => void) => void;
-      }
-    ).startViewTransition;
-    if (typeof start === "function") start(() => setTheme(next));
-    else setTheme(next);
-  }, [theme]);
+    const next = resolvedTheme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    setTheme(next);
+  }, [resolvedTheme]);
 
   const selected = useMemo(
     () =>
@@ -629,6 +655,8 @@ export function App() {
           runId: snapshot.current_run?.run_id,
         };
         setSelectedId(snapshot.session.id);
+        hostSessionIdsRef.current.add(snapshot.session.id);
+        setHandoffRole("host");
         setActive({
           snapshot,
           assistant: "",
@@ -851,10 +879,12 @@ export function App() {
       <SessionSidebar
         connected={connected}
         onCreate={create}
-        onDisconnect={() =>
-          void disconnect().catch((reason) =>
+        onReconnect={() =>
+          void initialize().catch((reason) =>
             setError(
-              reason instanceof Error ? reason.message : "无法断开 Runtime。",
+              reason instanceof Error
+                ? reason.message
+                : "无法重新连接 Runtime。",
             ),
           )
         }
@@ -936,6 +966,22 @@ export function App() {
                         : "空闲"}
                   </span>
                 )}
+                {selected &&
+                  (handoffRole === "guest" || selected.client_count > 1) && (
+                    <span
+                      aria-label={
+                        handoffRole === "guest"
+                          ? `已加入会话，共 ${selected.client_count} 个客户端`
+                          : `会话共享中，共 ${selected.client_count} 个客户端`
+                      }
+                      className="inline-flex items-center gap-1 rounded-full bg-blue-soft px-2 py-0.5 text-[10px] font-bold text-blue-strong"
+                    >
+                      <Icon name="users" size={11} />
+                      {handoffRole === "guest" ? "已加入" : "共享中"}
+                      {selected.client_count > 1 &&
+                        ` · ${selected.client_count}`}
+                    </span>
+                  )}
                 <RuntimeStatusBadge
                   protocolVersion={hello?.protocol_version ?? "—"}
                 />
@@ -947,10 +993,12 @@ export function App() {
           </div>
           <div className="flex items-center gap-1 max-[720px]:gap-px">
             <IconButton
-              label={theme === "dark" ? "切换为浅色主题" : "切换为深色主题"}
+              label={
+                resolvedTheme === "dark" ? "切换为浅色主题" : "切换为深色主题"
+              }
               onClick={toggleTheme}
             >
-              <Icon name={theme === "dark" ? "sun" : "moon"} />
+              <Icon name={resolvedTheme === "dark" ? "sun" : "moon"} />
             </IconButton>
             <IconButton
               label="Runtime 设置"
@@ -1025,7 +1073,20 @@ export function App() {
             aria-live="polite"
             className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/35 bg-rose/10 px-5 py-2 text-[13px] text-ink"
           >
-            当前会话仅查看；控制权由其他客户端持有。
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 animate-[breathe_2.4s_ease-in-out_infinite] rounded-full bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]"
+              />
+              {handoffRole === "guest"
+                ? "已加入其他客户端的会话，任务运行中仅可查看。"
+                : "另一个客户端正在运行此会话，当前仅可查看。"}
+            </span>
+            {selected && selected.client_count > 1 && (
+              <span className="shrink-0 text-[11px] font-bold text-ink-soft">
+                {selected.client_count} 个客户端
+              </span>
+            )}
           </div>
         )}
         {error && (
@@ -1047,9 +1108,11 @@ export function App() {
           <RuntimeSettings
             cap={cap}
             config={config}
-            rpc={rpc}
             onClose={() => setSettingsOpen(false)}
             onConfig={setConfig}
+            onThemeChange={setTheme}
+            rpc={rpc}
+            theme={theme}
           />
         )}
         <ChatTimeline
@@ -1128,6 +1191,8 @@ type SettingsProps = {
   onConfig: (config: RuntimeConfig) => void;
   onClose: () => void;
   rpc: ReturnType<typeof useRuntimeBridge>["rpc"];
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
 };
 function RuntimeSettings({
   cap,
@@ -1135,6 +1200,8 @@ function RuntimeSettings({
   onConfig,
   onClose,
   rpc,
+  theme,
+  onThemeChange,
 }: SettingsProps) {
   const [memory, setMemory] = useState<MemoryItem[]>([]);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
@@ -1173,6 +1240,43 @@ function RuntimeSettings({
         </IconButton>
       </div>
       {error && <p className="text-[12px] font-semibold text-rose">{error}</p>}
+      <div className="mt-3.5 border-t border-line pt-3">
+        <label className="grid gap-1.5 text-[11px] font-bold tracking-wide text-ink-soft">
+          主题
+          <div className="flex gap-1.5">
+            {(
+              [
+                ["system", "跟随系统"],
+                ["light", "浅色"],
+                ["dark", "深色"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                className={`cursor-pointer rounded-lg border px-2.5 py-1.5 text-[12px] font-bold transition-colors duration-150 ${
+                  theme === value
+                    ? "border-blue/60 bg-blue-soft text-blue-strong"
+                    : "border-line bg-surface-raised text-ink-soft hover:bg-surface-subtle"
+                }`}
+                key={value}
+                onClick={() => {
+                  const next = value as Theme;
+                  document.documentElement.dataset.theme =
+                    next === "system"
+                      ? window.matchMedia("(prefers-color-scheme: dark)")
+                          .matches
+                        ? "dark"
+                        : "light"
+                      : next;
+                  onThemeChange(next);
+                }}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </label>
+      </div>
       {cap("config") && config && (
         <div className="border-t border-line pt-3 mt-3.5">
           <label className="grid gap-1.5 text-[11px] font-bold tracking-wide text-ink-soft">

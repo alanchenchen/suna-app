@@ -1,4 +1,4 @@
-export type Theme = "light" | "dark";
+export type Theme = "system" | "light" | "dark";
 
 export type SessionStatus = "active" | "done" | "waiting" | "idle";
 
