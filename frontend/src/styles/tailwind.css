@@ -666,6 +666,17 @@ button {
     z-index: 8;
     transform-origin: top right;
   }
+  /* 设置浮层点击外部关闭的透明遮罩：覆盖全屏但低于面板（z 7 < 8）。 */
+  .settings-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 7;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
   @media (max-width: 720px) {
     .runtime-settings {
       left: 12px;

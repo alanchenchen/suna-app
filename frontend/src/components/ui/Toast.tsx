@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { Check, TriangleAlert, X } from "lucide-react";
+import { Check, Info, TriangleAlert, X } from "lucide-react";
 
 export type ToastKind = "success" | "error" | "info";
 
@@ -64,7 +64,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               ) : item.kind === "error" ? (
                 <TriangleAlert size={12} strokeWidth={2.5} />
               ) : (
-                <Check size={12} strokeWidth={2.5} />
+                <Info size={12} strokeWidth={2.5} />
               )}
             </span>
             <span className="text-[12.5px] font-semibold text-ink">

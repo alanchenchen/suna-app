@@ -106,6 +106,11 @@ export function RunDetails(props: RunDetailsProps) {
     context && usage?.context_window
       ? Math.min(100, (context / usage.context_window) * 100)
       : 0;
+  // 缓存命中率：缓存读取 token 占输入 token 的比例（DeepSeek 前缀缓存）。
+  const cachePercent =
+    usage?.cache_read_tokens && usage.input_tokens
+      ? Math.min(100, (usage.cache_read_tokens / usage.input_tokens) * 100)
+      : undefined;
   const canAskReply = Boolean(ask?.can_reply) && !busy;
   const canGuardReply = Boolean(guard?.can_reply) && !busy;
   const selectedModel = modelRef ?? "";
@@ -140,10 +145,10 @@ export function RunDetails(props: RunDetailsProps) {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-              当前 Runtime
+              当前会话
             </p>
             <h2 className="mt-1 text-[16px] font-extrabold text-ink">
-              执行详情
+              状态与用量
             </h2>
           </div>
           <IconButton
@@ -163,8 +168,8 @@ export function RunDetails(props: RunDetailsProps) {
               <span className="running-orb">
                 <i />
               </span>
-              <div>
-                <strong className="text-[13px] font-extrabold text-ink">
+              <div className="min-w-0 flex-1">
+                <strong className="block text-[13px] font-extrabold text-ink">
                   {status === "running"
                     ? "正在执行任务"
                     : status === "waiting"
@@ -173,10 +178,26 @@ export function RunDetails(props: RunDetailsProps) {
                         ? "正在压缩上下文"
                         : "会话空闲"}
                 </strong>
-                <small className="block text-[11px] text-ink-muted">
-                  {phase ? `阶段：${phase}` : "等待下一步"}
+                <small className="block truncate text-[11px] text-ink-muted">
+                  {phase
+                    ? `阶段：${phase}`
+                    : status === "running"
+                      ? "Suna 正在处理任务"
+                      : status === "waiting"
+                        ? "回复后将继续处理"
+                        : "可开始新任务或加入运行中的会话"}
                 </small>
               </div>
+              {status !== "running" && onResume && (
+                <button
+                  className="shrink-0 cursor-pointer rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-[11px] font-bold text-ink transition-colors duration-150 hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={busy}
+                  onClick={() => void act(onResume)}
+                  type="button"
+                >
+                  恢复执行
+                </button>
+              )}
             </div>
             <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
               {run?.state === "retrying"
@@ -194,16 +215,6 @@ export function RunDetails(props: RunDetailsProps) {
                   ? `会话模型不可用：${run.run_error.model_ref ?? "—"}`
                   : "尚未配置模型。"}
               </small>
-            )}
-            {onResume && (
-              <button
-                className="mt-2.5 cursor-pointer rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={busy}
-                onClick={() => void act(onResume)}
-                type="button"
-              >
-                恢复执行
-              </button>
             )}
           </section>
           {(ask || guard) && (
@@ -347,6 +358,21 @@ export function RunDetails(props: RunDetailsProps) {
                 {tokenCount(usage?.output_tokens)}
               </b>
             </div>
+            {usage?.cache_read_tokens !== undefined &&
+              cachePercent !== undefined && (
+                <>
+                  <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
+                    <span className="text-ink-muted">缓存命中</span>
+                    <b className="text-green">{cachePercent.toFixed(0)}%</b>
+                  </div>
+                  <div className="mt-2 mb-2.5 h-[5px] overflow-hidden rounded-full bg-surface-subtle">
+                    <span
+                      className="block h-full rounded-full bg-green transition-[width] duration-500"
+                      style={{ width: `${cachePercent}%` }}
+                    />
+                  </div>
+                </>
+              )}
             <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
               <span className="text-ink-muted">今日请求</span>
               <b className="text-ink">{totals?.requests ?? "—"}</b>

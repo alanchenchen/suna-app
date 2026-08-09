@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
@@ -25,6 +25,7 @@ type SessionSidebarProps = {
   onJoinActive: (id: string) => void;
   onDetach?: () => void;
   onDelete?: (id: string) => void;
+  onRename?: () => void;
   onClose?: () => void;
 };
 
@@ -49,6 +50,7 @@ export function SessionSidebar({
   onJoinActive,
   onDetach,
   onDelete,
+  onRename,
   onClose,
 }: SessionSidebarProps) {
   const [creating, setCreating] = useState(false);
@@ -57,6 +59,18 @@ export function SessionSidebar({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const [menuFor, setMenuFor] = useState<string>();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 点击会话菜单外部时关闭菜单，避免菜单残留。
+  useEffect(() => {
+    if (!menuFor) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node))
+        setMenuFor(undefined);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuFor]);
 
   async function create() {
     if (!cwd.trim()) {
@@ -208,11 +222,11 @@ export function SessionSidebar({
                   <small className="truncate text-[10px] text-ink-muted">
                     {session.cwd}
                   </small>
-                  <em
-                    className={`text-[10px] font-bold not-italic ${session.status === "running" ? "text-blue-strong" : session.status === "waiting" ? "text-amber" : "text-ink-muted"}`}
+                  <span
+                    className={`text-[10px] font-bold ${session.status === "running" ? "text-blue-strong" : session.status === "waiting" ? "text-amber" : "text-ink-muted"}`}
                   >
                     {joining ? "正在打开…" : statusLabels[session.status]}
-                  </em>
+                  </span>
                 </span>
                 <time className="text-[10px] text-ink-muted">
                   {relativeTime(session.updated_at)}
@@ -228,8 +242,8 @@ export function SessionSidebar({
                   加入
                 </button>
               )}
-              {selected && (onDetach || onDelete) && (
-                <div className="absolute top-1 right-1.5">
+              {selected && (onDetach || onDelete || onRename) && (
+                <div className="absolute top-1 right-1.5" ref={menuRef}>
                   <button
                     aria-expanded={menuFor === session.id}
                     aria-label={`会话操作：${session.title || "未命名会话"}`}
@@ -245,7 +259,20 @@ export function SessionSidebar({
                     <Icon name="ellipsis" size={15} />
                   </button>
                   {menuFor === session.id && (
-                    <div className="absolute top-8 right-0 z-10 w-32 animate-[panel-pop_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-xl border border-line bg-surface-solid py-1 shadow-lg">
+                    <div className="absolute top-8 right-0 z-10 w-36 animate-[panel-pop_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-xl border border-line bg-surface-solid py-1 shadow-lg">
+                      {onRename && (
+                        <button
+                          className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMenuFor(undefined);
+                            onRename();
+                          }}
+                          type="button"
+                        >
+                          重命名会话
+                        </button>
+                      )}
                       {onDetach && (
                         <button
                           className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"

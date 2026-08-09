@@ -4,10 +4,10 @@ import { Dialog } from "./components/ui/Dialog";
 import { Select } from "./components/ui/Select";
 import { Switch } from "./components/ui/Switch";
 import { useToast } from "./components/ui/Toast";
+import { Tooltip } from "./components/ui/Tooltip";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer } from "./features/chat/Composer";
 import { RunDetails } from "./features/run/RunDetails";
-import { RuntimeStatusBadge } from "./features/runtime/RuntimeStatusPanel";
 import { useRuntimeBridge } from "./features/runtime/useRuntimeBridge";
 import { SessionSidebar } from "./features/sessions/SessionSidebar";
 import type { Theme } from "./lib/models";
@@ -263,19 +263,19 @@ export function App() {
           };
           // The protocol does not emit a separate completed-assistant message.
           // Keep the streamed result visible until the next authoritative attach.
-          if (
-            event.params.state === "done" &&
-            value.assistant &&
-            value.snapshot
-          ) {
-            next.snapshot = {
-              ...next.snapshot!,
-              messages: [
-                ...(value.snapshot.messages ?? []),
-                { role: "assistant", content: value.assistant },
-              ],
-            };
-            next.assistant = "";
+          // done 时无条件结束思考态：reasoning 只是过程文本，无论有没有正文
+          // 都必须清空，否则“正在思考”会一直停留在界面上。
+          if (event.params.state === "done" && value.snapshot) {
+            if (value.assistant) {
+              next.snapshot = {
+                ...next.snapshot!,
+                messages: [
+                  ...(value.snapshot.messages ?? []),
+                  { role: "assistant", content: value.assistant },
+                ],
+              };
+              next.assistant = "";
+            }
             next.reasoning = "";
           }
           return next;
@@ -572,15 +572,12 @@ export function App() {
         .then(setConfig)
         .catch(() => undefined);
   }, [cap, connected, rpc]);
-  // Runtime 的 session.updated 只广播给 attach 了该 session 的连接；
-  // Web 未 attach 的 session（例如 TUI 正在运行的）收不到状态变更，
-  // 因此需要定时刷新列表，让 running/waiting 状态和 Join Active 入口保持最新。
+  // Runtime 0.3+ 的 session.updated 会全局广播轻量 Session Catalog 增量
+  // （包括未 attach 的客户端），因此无需定时轮询：连接建立后由
+  // session.list 取初始快照，之后靠 onNotification 里的 mergeSession 增量更新。
   useEffect(() => {
     if (!connected) return;
-    const timer = window.setInterval(() => {
-      void loadSessions().catch(() => undefined);
-    }, 5000);
-    return () => window.clearInterval(timer);
+    void loadSessions().catch(() => undefined);
   }, [connected, loadSessions]);
   useEffect(() => {
     document.documentElement.dataset.theme = resolvedTheme;
@@ -913,6 +910,14 @@ export function App() {
         sessions={sessions}
         onDetach={selectedId ? () => void detach() : undefined}
         onDelete={canDelete ? (id) => void remove(id) : undefined}
+        onRename={
+          selected && cap("session") && !sessionActionsFrozen && !observer
+            ? () => {
+                setTitleDraft(selected.title ?? "");
+                setEditingTitle(true);
+              }
+            : undefined
+        }
         onClose={() => setMobileMenuOpen(false)}
       />
       {mobileMenuOpen && (
@@ -938,23 +943,10 @@ export function App() {
                 <h1 className="m-0 max-w-[54vw] overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-extrabold tracking-tight text-ink max-[720px]:max-w-[min(47vw,230px)] max-[720px]:text-[13px]">
                   {selected?.title || "选择或创建一个会话"}
                 </h1>
-                {selected && cap("session") && (
-                  <button
-                    className="cursor-pointer rounded-md px-1.5 py-0.5 text-[11px] font-bold text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={sessionActionsFrozen || observer}
-                    onClick={() => {
-                      setTitleDraft(selected.title ?? "");
-                      setEditingTitle(true);
-                    }}
-                    type="button"
-                  >
-                    重命名
-                  </button>
-                )}
                 {selected && (
                   <span
                     aria-live="polite"
-                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold text-ink-soft max-[390px]:text-[0]"
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold text-ink-soft max-[390px]:hidden"
                   >
                     <span
                       className={`h-[6px] w-[6px] rounded-full ${selected.status === "running" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]" : selected.status === "waiting" ? "bg-amber" : "bg-ink-muted"}`}
@@ -982,9 +974,6 @@ export function App() {
                         ` · ${selected.client_count}`}
                     </span>
                   )}
-                <RuntimeStatusBadge
-                  protocolVersion={hello?.protocol_version ?? "—"}
-                />
               </div>
               <p className="m-0 max-[720px]:hidden">
                 {selected?.cwd || "你的本地 Runtime 工作空间"}
@@ -992,20 +981,24 @@ export function App() {
             </div>
           </div>
           <div className="flex items-center gap-1 max-[720px]:gap-px">
-            <IconButton
-              label={
-                resolvedTheme === "dark" ? "切换为浅色主题" : "切换为深色主题"
-              }
-              onClick={toggleTheme}
-            >
-              <Icon name={resolvedTheme === "dark" ? "sun" : "moon"} />
-            </IconButton>
-            <IconButton
-              label="Runtime 设置"
-              onClick={() => setSettingsOpen((value) => !value)}
-            >
-              <Icon name="ellipsis" />
-            </IconButton>
+            <Tooltip label="切换主题">
+              <IconButton
+                label={
+                  resolvedTheme === "dark" ? "切换为浅色主题" : "切换为深色主题"
+                }
+                onClick={toggleTheme}
+              >
+                <Icon name={resolvedTheme === "dark" ? "sun" : "moon"} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip label="Runtime 设置">
+              <IconButton
+                label="Runtime 设置"
+                onClick={() => setSettingsOpen((value) => !value)}
+              >
+                <Icon name="settings" />
+              </IconButton>
+            </Tooltip>
             {running && canControl && !syncing && (
               <button
                 className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-rose/10 px-2.5 text-[11px] font-bold text-rose transition-colors duration-150 hover:bg-rose/15 active:scale-95 max-[720px]:h-8 max-[720px]:px-2"
@@ -1018,15 +1011,17 @@ export function App() {
                 <span className="max-[390px]:hidden">停止</span>
               </button>
             )}
-            <IconButton
-              ariaControls="run-details"
-              ariaExpanded={detailsOpen}
-              className="aria-expanded:false:bg-blue-soft aria-expanded:false:text-blue-strong"
-              label={detailsOpen ? "关闭任务详情" : "打开任务详情"}
-              onClick={() => setDetailsOpen(!detailsOpen)}
-            >
-              <Icon name="panel" />
-            </IconButton>
+            <Tooltip label={detailsOpen ? "关闭任务详情" : "打开任务详情"}>
+              <IconButton
+                ariaControls="run-details"
+                ariaExpanded={detailsOpen}
+                className="aria-expanded:false:bg-blue-soft aria-expanded:false:text-blue-strong"
+                label={detailsOpen ? "关闭任务详情" : "打开任务详情"}
+                onClick={() => setDetailsOpen(!detailsOpen)}
+              >
+                <Icon name="panel" />
+              </IconButton>
+            </Tooltip>
           </div>
         </header>
         <Dialog
@@ -1105,15 +1100,23 @@ export function App() {
           </div>
         )}
         {settingsOpen && (
-          <RuntimeSettings
-            cap={cap}
-            config={config}
-            onClose={() => setSettingsOpen(false)}
-            onConfig={setConfig}
-            onThemeChange={setTheme}
-            rpc={rpc}
-            theme={theme}
-          />
+          <>
+            <button
+              aria-label="关闭设置"
+              className="settings-scrim"
+              onClick={() => setSettingsOpen(false)}
+              type="button"
+            />
+            <RuntimeSettings
+              cap={cap}
+              config={config}
+              onClose={() => setSettingsOpen(false)}
+              onConfig={setConfig}
+              onThemeChange={setTheme}
+              rpc={rpc}
+              theme={theme}
+            />
+          </>
         )}
         <ChatTimeline
           activeTool={active.activeTool}
@@ -1125,6 +1128,7 @@ export function App() {
           reasoningBuffer={active.reasoning}
           running={running}
           sessionId={active.snapshot?.session.id}
+          toolSummary={active.toolSummary}
         />
         <Composer
           canAttachImageUrl={Boolean(hello?.content_sources.url)}
@@ -1224,7 +1228,7 @@ function RuntimeSettings({
   return (
     <section
       aria-label="Runtime 设置"
-      className="animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] runtime-settings overflow-auto rounded-2xl border border-line bg-surface p-4 shadow-lg"
+      className="animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] runtime-settings overflow-auto rounded-2xl border border-line bg-surface-solid p-4 shadow-lg"
     >
       <div className="mb-5 flex items-center justify-between">
         <div>

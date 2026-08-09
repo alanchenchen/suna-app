@@ -95,22 +95,3 @@ export function RuntimeStatusPanel({
     </main>
   );
 }
-
-export function RuntimeStatusBadge({
-  protocolVersion,
-}: {
-  protocolVersion: string;
-}) {
-  return (
-    <span
-      aria-label={`Runtime 已就绪，协议 ${protocolVersion}`}
-      className="inline-flex items-center gap-1.5 rounded-full bg-green-soft px-2 py-0.5 text-[10px] font-bold text-green max-[390px]:text-[0]"
-    >
-      <span
-        aria-hidden="true"
-        className="h-[6px] w-[6px] rounded-full bg-green"
-      />
-      Runtime 已就绪
-    </span>
-  );
-}

@@ -4,7 +4,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  X,
   Ellipsis,
   Folder,
   MessageSquare,
@@ -13,10 +12,13 @@ import {
   Pause,
   Plus,
   Search,
+  Settings,
   Sparkles,
   Sun,
   TriangleAlert,
   Users,
+  Wrench,
+  X,
   type LucideProps,
 } from "lucide-react";
 
@@ -34,8 +36,10 @@ export type IconName =
   | "pause"
   | "plus"
   | "search"
+  | "settings"
   | "sparkle"
   | "sun"
+  | "tool"
   | "users"
   | "warning";
 
@@ -53,8 +57,10 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   pause: Pause,
   plus: Plus,
   search: Search,
+  settings: Settings,
   sparkle: Sparkles,
   sun: Sun,
+  tool: Wrench,
   users: Users,
   warning: TriangleAlert,
 };
@@ -73,6 +79,7 @@ export function IconButton({
   ariaControls,
   buttonRef,
   disabled,
+  ref,
 }: {
   label: string;
   children: ReactNode;
@@ -82,6 +89,8 @@ export function IconButton({
   ariaControls?: string;
   buttonRef?: Ref<HTMLButtonElement>;
   disabled?: boolean;
+  /** React 19 ref-as-prop：供 Radix Trigger asChild 注入 ref。 */
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
@@ -91,7 +100,7 @@ export function IconButton({
       className={`icon-button ${className}`}
       disabled={disabled}
       onClick={onClick}
-      ref={buttonRef}
+      ref={ref ?? buttonRef}
       type="button"
     >
       {children}
