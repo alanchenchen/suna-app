@@ -1,6 +1,4 @@
 import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Icon } from "../../components/Icon";
 import type {
   AskUserEvent,
@@ -20,6 +18,7 @@ import {
   toneClasses,
   ToolCard,
 } from "./blocks";
+import { LazyMarkdown } from "./LazyMarkdown";
 
 type ActiveTool = {
   id?: string;
@@ -240,9 +239,7 @@ export function ChatTimeline({
                     <LongMessage text={message.content} />
                   ) : (
                     <div className="markdown-body rounded-[18px] bg-surface-subtle/70 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                      <Markdown remarkPlugins={[remarkGfm]}>
-                        {message.content}
-                      </Markdown>
+                      <LazyMarkdown>{message.content}</LazyMarkdown>
                     </div>
                   )
                 ) : (
@@ -334,9 +331,7 @@ export function ChatTimeline({
                         />
                       </>
                     ) : (
-                      <Markdown remarkPlugins={[remarkGfm]}>
-                        {segment.text}
-                      </Markdown>
+                      <LazyMarkdown>{segment.text}</LazyMarkdown>
                     )}
                   </div>
                 </article>

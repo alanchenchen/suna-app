@@ -1,12 +1,11 @@
 import { useState } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Icon } from "../../components/Icon";
 import type {
   AskUserEvent,
   GuardConfirmEvent,
   ToolFlowItem,
 } from "../../lib/runtimeBridge";
+import { LazyMarkdown } from "./LazyMarkdown";
 
 function activityCopy(
   phase?: string,
@@ -143,7 +142,7 @@ export function ReasoningBlock({
       </button>
       {expanded && (
         <div className="markdown-body min-w-0 max-w-[650px] rounded-[18px] bg-surface-subtle/70 px-4 py-3 text-[13px] leading-[1.82] text-ink-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [overflow-wrap:anywhere]">
-          <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+          <LazyMarkdown>{text}</LazyMarkdown>
         </div>
       )}
     </article>
@@ -323,7 +322,7 @@ export function LongMessage({ text }: { text: string }) {
         </button>
       )}
       {expanded ? (
-        <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+        <LazyMarkdown>{text}</LazyMarkdown>
       ) : (
         <p className="m-0 line-clamp-4 whitespace-pre-wrap text-[13px] leading-[1.82] text-ink">
           {text.slice(0, 800)}
