@@ -57,7 +57,7 @@ jobs:
           test -z "$(gofmt -l .)"
           go vet ./...
           go test ./...
-
+          go test -race ./...
       - name: Build release artifacts
         run: ./scripts/build-release.sh "${GITHUB_REF_NAME}"
 
@@ -70,5 +70,5 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            dist/suna-app-*
+            dist/v*
             dist/checksums.txt
