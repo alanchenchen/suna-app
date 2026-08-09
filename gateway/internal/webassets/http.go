@@ -41,6 +41,13 @@ func HandlerFromFS(assets fs.FS) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		// 缓存策略：入口 HTML（含 SPA fallback）每次重新验证，确保拿到最新
+		// 资源引用；带 hash 的静态资源（/assets/*.js|css）可长期缓存，加快回访。
+		if cleanPath == "/" || path.Ext(cleanPath) == "" {
+			w.Header().Set("Cache-Control", "no-cache")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
 		if cleanPath != "/" && path.Ext(cleanPath) == "" {
 			r2 := r.Clone(r.Context())
 			// Serve the directory root rather than /index.html: net/http's

@@ -48,6 +48,28 @@ func TestHandlerFromFSServesShellAssetsAndSPAPaths(t *testing.T) {
 	}
 }
 
+func TestHandlerFromFSSetsSaneCacheHeaders(t *testing.T) {
+	t.Parallel()
+
+	handler := HandlerFromFS(testAssets())
+
+	// 入口 HTML（含 SPA fallback）必须每次重新验证，避免浏览器一直加载旧版 UI。
+	for _, path := range []string{"/", "/sessions/example"} {
+		response := serve(handler, http.MethodGet, path)
+		if got := response.Header().Get("Cache-Control"); got != "no-cache" {
+			t.Fatalf("%s: Cache-Control = %q, want %q", path, got, "no-cache")
+		}
+	}
+
+	// 带 hash 的静态资源可长期缓存。
+	for _, path := range []string{"/assets/app.js", "/assets/app.css"} {
+		response := serve(handler, http.MethodGet, path)
+		if got := response.Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+			t.Fatalf("%s: Cache-Control = %q, want immutable long cache", path, got)
+		}
+	}
+}
+
 func TestHandlerFromFSMissingIndexReturnsBuildGuidance(t *testing.T) {
 	t.Parallel()
 
