@@ -22,10 +22,10 @@ export function Dialog({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="animate-[scrim-in_200ms_ease_both] fixed inset-0 z-30 bg-[rgb(15_18_28_/_0.42)]" />
+        <DialogPrimitive.Overlay className="animate-[scrim-in_200ms_ease_both] fixed inset-0 z-30 bg-[rgb(15_18_28_/_0.55)]" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] fixed top-1/2 left-1/2 z-30 grid w-[min(100%,440px)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 gap-3 rounded-2xl border border-line bg-surface p-5 shadow-lg focus:outline-none"
+          className="animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] fixed top-1/2 left-1/2 z-30 grid w-[min(100%,440px)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 gap-3 rounded-2xl border border-line bg-surface-solid p-5 shadow-lg focus:outline-none"
         >
           <div className="flex items-start justify-between gap-4">
             <div>

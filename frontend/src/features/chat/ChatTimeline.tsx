@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "../../components/Icon";
-import type { SnapshotMessage } from "../../lib/runtimeBridge";
+import type { SnapshotMessage, ToolSummary } from "../../lib/runtimeBridge";
 
 type ActiveTool = {
   id?: string;
@@ -22,6 +22,8 @@ type ChatTimelineProps = {
   pending?: boolean;
   /** The current Runtime tool, supplied by the application shell when available. */
   activeTool?: ActiveTool;
+  /** Aggregate tool execution summary for the current session. */
+  toolSummary?: ToolSummary;
   /** Changes when Runtime attaches another session, resetting scroll anchoring. */
   sessionId?: string;
   /** Show skeleton placeholders while a session snapshot is loading. */
@@ -139,6 +141,7 @@ export function ChatTimeline({
   phase,
   pending,
   activeTool,
+  toolSummary,
   sessionId,
   loading = false,
 }: ChatTimelineProps) {
@@ -306,9 +309,11 @@ export function ChatTimeline({
               </div>
               <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76]">
                 {message.role === "assistant" ? (
-                  <Markdown remarkPlugins={[remarkGfm]}>
-                    {message.content}
-                  </Markdown>
+                  <div className="markdown-body">
+                    <Markdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </Markdown>
+                  </div>
                 ) : (
                   <span className="inline-block max-w-[min(640px,100%)] rounded-[4px_15px_15px_15px] border border-line bg-surface-solid px-3.5 py-3 text-ink leading-[1.7] shadow-sm">
                     {message.content}
@@ -341,6 +346,46 @@ export function ChatTimeline({
             <ActivityDots />
           </section>
         )}
+        {!loading && toolSummary && toolSummary.total > 0 && (
+          <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[15px] border border-line bg-surface-solid p-3.5 shadow-sm">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11px] font-extrabold text-ink">
+                <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-blue-strong">
+                  <Icon name="tool" size={13} />
+                </span>
+                工具执行
+              </span>
+              <span className="text-[10px] font-bold text-ink-muted">
+                共 {toolSummary.total} 次 · {toolSummary.success} 成功
+                {toolSummary.failed > 0 && (
+                  <span className="text-rose">
+                    {" "}
+                    · {toolSummary.failed} 失败
+                  </span>
+                )}
+              </span>
+            </div>
+            {toolSummary.recent?.slice(0, 4).map((tool, index) => (
+              <div
+                className="flex items-center gap-2 border-t border-line/60 py-2 first:border-t-0 text-[11px]"
+                key={`${tool.tool}-${index}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-[6px] w-[6px] shrink-0 rounded-full ${tool.status === "success" ? "bg-green" : tool.status === "failed" ? "bg-rose" : "bg-ink-muted"}`}
+                />
+                <code className="shrink-0 font-mono text-[11px] font-semibold text-ink">
+                  {tool.tool}
+                </code>
+                {tool.summary && (
+                  <span className="truncate text-ink-muted">
+                    {tool.summary}
+                  </span>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
         {!loading && reasoningBuffer && (
           <article className="mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
             <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
@@ -348,10 +393,15 @@ export function ChatTimeline({
                 <Icon name="sparkle" size={14} />
               </span>
               <strong className="text-ink">Suna</strong>
-              <StreamActivity label="正在思考" detail={streamActivity.detail} />
+              {running && (
+                <StreamActivity
+                  label="正在思考"
+                  detail={streamActivity.detail}
+                />
+              )}
             </div>
-            <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
-              <p>{reasoningBuffer}</p>
+            <div className="markdown-body min-w-0 max-w-[650px] text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
+              <Markdown remarkPlugins={[remarkGfm]}>{reasoningBuffer}</Markdown>
             </div>
           </article>
         )}
@@ -369,7 +419,7 @@ export function ChatTimeline({
                 />
               )}
             </div>
-            <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] [&::after]:ml-[3px] [&::after]:inline-block [&::after]:h-[1em] [&::after]:w-[2px] [&::after]:animate-[stream-blink_1s_steps(1)_infinite] [&::after]:rounded-[1px] [&::after]:bg-blue [&::after]:align-[-0.15em] [&::after]:content-['']">
+            <div className="markdown-body min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] [&::after]:ml-[3px] [&::after]:inline-block [&::after]:h-[1em] [&::after]:w-[2px] [&::after]:animate-[stream-blink_1s_steps(1)_infinite] [&::after]:rounded-[1px] [&::after]:bg-blue [&::after]:align-[-0.15em] [&::after]:content-['']">
               <Markdown remarkPlugins={[remarkGfm]}>{assistantBuffer}</Markdown>
             </div>
           </article>

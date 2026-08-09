@@ -84,7 +84,7 @@ export function Composer({
           )}
         </div>
       )}
-      <div className="mx-auto w-[min(720px,100%)] rounded-[17px] border border-line-strong bg-surface-solid p-[7px_7px_7px_16px] shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] transition-[border-color,box-shadow,transform] duration-180 focus-within:translate-y-[-1px] focus-within:border-blue/50 focus-within:shadow-[0_0_0_4px_var(--color-blue-soft),var(--shadow-md)] max-[720px]:min-h-[55px] max-[720px]:rounded-2xl">
+      <div className="mx-auto w-[min(720px,100%)] rounded-[17px] border border-line bg-surface-solid p-[7px_7px_7px_16px] shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] transition-[border-color,box-shadow,transform] duration-180 focus-within:-translate-y-px focus-within:border-blue/40 focus-within:shadow-[0_0_0_3px_var(--color-blue-soft),var(--shadow-md)] max-[720px]:min-h-[55px] max-[720px]:rounded-2xl">
         {showImageInput && (
           <label className="grid gap-1 px-2 pt-1.5 text-[10px] font-bold text-ink-muted">
             图片 URL
