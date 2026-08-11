@@ -16,7 +16,7 @@ const (
 	ErrorUnavailable ErrorKind = "unavailable"
 	ErrorProtocol    ErrorKind = "protocol_error"
 	ErrorCapability  ErrorKind = "capability_error"
-	ProtocolVersion            = "0.3"
+	ProtocolVersion            = "0.4"
 )
 
 type Error struct {

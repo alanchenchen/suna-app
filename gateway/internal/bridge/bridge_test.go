@@ -63,7 +63,7 @@ func (c *fakeConnection) Request(_ context.Context, method string, params any) (
 }
 func (c *fakeConnection) Notifications() <-chan runtime.Notification { return c.notifications }
 func (c *fakeConnection) Hello() json.RawMessage {
-	return json.RawMessage(`{"protocol_version":"0.3","runtime_version":"test","transport":"tcp","capabilities":{},"content_sources":{}}`)
+	return json.RawMessage(`{"protocol_version":"0.4","runtime_version":"test","transport":"tcp","capabilities":{},"content_sources":{}}`)
 }
 func (c *fakeConnection) Done() <-chan struct{} { return c.done }
 func (c *fakeConnection) Close() error {

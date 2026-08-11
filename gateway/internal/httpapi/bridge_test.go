@@ -46,7 +46,7 @@ func (c *httpFakeConnection) Request(_ context.Context, method string, _ any) (j
 }
 func (c *httpFakeConnection) Notifications() <-chan runtime.Notification { return c.notifications }
 func (c *httpFakeConnection) Hello() json.RawMessage {
-	return json.RawMessage(`{"protocol_version":"0.3","runtime_version":"test","transport":"tcp","capabilities":{},"content_sources":{}}`)
+	return json.RawMessage(`{"protocol_version":"0.4","runtime_version":"test","transport":"tcp","capabilities":{},"content_sources":{}}`)
 }
 func (c *httpFakeConnection) Done() <-chan struct{} { return c.done }
 func (c *httpFakeConnection) Close() error {
