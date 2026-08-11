@@ -108,6 +108,8 @@ export function App() {
     rename,
     detach,
     remove,
+    mcpServers,
+    refreshMcp,
   } = session;
   const sessionActionsFrozen = syncing || !selectedId;
   const current = active.snapshot?.current_run;
@@ -229,9 +231,11 @@ export function App() {
             <RuntimeSettings
               cap={cap}
               config={config}
+              mcpServers={mcpServers}
               onClose={() => setSettingsOpen(false)}
               onConfig={setConfig}
               onThemeChange={setTheme}
+              refreshMcp={() => void refreshMcp()}
               rpc={rpc}
               theme={theme}
             />

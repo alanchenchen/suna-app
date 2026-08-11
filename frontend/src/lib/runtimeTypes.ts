@@ -256,6 +256,8 @@ export type MCPServerInfo = {
   name: string;
   transport?: string;
   command?: string;
+  /** 0.4 起由 Runtime 报告的状态机：disabled / starting / active / error。 */
+  state?: "disabled" | "starting" | "active" | "error";
   active: boolean;
   configured: boolean;
   tool_count: number;
@@ -373,6 +375,7 @@ export type RuntimeNotifications = {
   "session.compact_result": CompactResultEvent;
   "config.state": RuntimeConfig;
   "memory.state": { memories: MemoryItem[] };
+  "mcp.updated": { server: MCPServerInfo };
   "skill.load": { name: string; status?: string };
   "skill.review": {
     name: string;

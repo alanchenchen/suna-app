@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type {
+  MCPServerInfo,
   RuntimeConfig,
   RuntimeNotification,
   SessionInfo,
@@ -22,6 +23,7 @@ type NotificationDeps = {
   acceptsRun: (runId?: string) => boolean;
   acceptsSession: (sessionId?: string) => boolean;
   mergeSession: (session: SessionInfo) => void;
+  mergeMcp: (server: MCPServerInfo) => void;
   getScope: () => Scope | undefined;
   isSyncing: () => boolean;
   getSelectedId: () => string | undefined;
@@ -40,6 +42,7 @@ export function createNotificationHandler({
   acceptsRun,
   acceptsSession,
   mergeSession,
+  mergeMcp,
   getScope,
   isSyncing,
   getSelectedId,
@@ -63,6 +66,11 @@ export function createNotificationHandler({
     }
     if (event.method === "config.state") {
       setConfig(event.params);
+      return;
+    }
+    // 0.4 MCP 状态增量：按 server 名覆盖本地快照，驱动设置面板状态徽章。
+    if (event.method === "mcp.updated") {
+      mergeMcp(event.params.server);
       return;
     }
     if (event.method === "agent.delta") {

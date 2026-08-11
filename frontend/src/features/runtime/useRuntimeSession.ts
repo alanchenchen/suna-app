@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
 import type {
+  MCPServerInfo,
   RuntimeConfig,
   RuntimeNotification,
   SessionInfo,
@@ -78,6 +79,17 @@ export function useRuntimeSession() {
       ).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
     });
   }, []);
+  // 0.4 MCP 状态快照：mcp.list 初始加载 + mcp.updated 增量覆盖，
+  // 设置面板据此显示 starting / active / error 实时状态。
+  const [mcpServers, setMcpServers] = useState<MCPServerInfo[]>([]);
+  const mergeMcp = useCallback((server: MCPServerInfo) => {
+    setMcpServers((list) => {
+      const found = list.some((item) => item.name === server.name);
+      return found
+        ? list.map((item) => (item.name === server.name ? server : item))
+        : [...list, server];
+    });
+  }, []);
   const acceptsSession = useCallback((sessionId?: string) => {
     const scope = scopeRef.current;
     return Boolean(
@@ -102,11 +114,19 @@ export function useRuntimeSession() {
         acceptsRun,
         acceptsSession,
         mergeSession,
+        mergeMcp,
         getScope: () => scopeRef.current,
         isSyncing: () => syncingRef.current,
         getSelectedId: () => selectedIdRef.current,
       }),
-    [acceptsRun, acceptsSession, flushDeltas, mergeSession, queueDelta],
+    [
+      acceptsRun,
+      acceptsSession,
+      flushDeltas,
+      mergeMcp,
+      mergeSession,
+      queueDelta,
+    ],
   );
   const onEventError = useCallback(
     (reason: Error) => setError(reason.message),
@@ -132,6 +152,13 @@ export function useRuntimeSession() {
       ),
     [hello],
   );
+  // 0.4 MCP 状态快照：mcp.list 初始加载 + mcp.updated 增量覆盖，
+  // 设置面板据此显示 starting / active / error 实时状态。
+  const refreshMcp = useCallback(async () => {
+    if (!cap("mcp")) return;
+    const result = await rpc("mcp.list", {});
+    setMcpServers(result.servers);
+  }, [cap, rpc]);
   const queueSessionOperation = useCallback(
     <T>(operation: () => Promise<T>) => {
       const work = attachQueueRef.current.then(operation);
@@ -379,6 +406,9 @@ export function useRuntimeSession() {
     ...actions,
     // 设置面板需要 setConfig 更新默认模型后的本地状态。
     setConfig,
+    // 0.4 MCP 状态快照与刷新。
+    mcpServers,
+    refreshMcp,
   };
 }
 
