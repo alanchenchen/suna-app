@@ -463,10 +463,19 @@ button {
     min-height: 0;
     overflow: hidden;
   }
+  /* 移动端：flex 纵向布局，聊天区占剩余空间，输入区固定在底部。
+     不能用 block——conversation 的 height:100% 会撑满整个容器，
+     把 composer 挤出视口。 */
   @media (max-width: 720px) {
     .workspace {
-      display: block;
+      display: flex;
+      flex-direction: column;
       height: 100%;
+      min-height: 0;
+    }
+    .workspace > .conversation-wrap {
+      flex: 1 1 auto;
+      height: auto;
       min-height: 0;
     }
   }

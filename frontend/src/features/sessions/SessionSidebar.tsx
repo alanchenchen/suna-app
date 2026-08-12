@@ -61,6 +61,19 @@ export function SessionSidebar({
   const [menuFor, setMenuFor] = useState<string>();
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // 移动端（≤720px）侧栏是抽屉：未打开时对屏幕阅读器和 Tab 聚焦隐藏，
+  // 避免读屏读到屏幕外的会话列表、键盘焦点落到不可见元素上。
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia("(max-width: 720px)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 720px)");
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  const hidden = isMobile && !open;
+
   // 点击会话菜单外部时关闭菜单，避免菜单残留。
   useEffect(() => {
     if (!menuFor) return;
@@ -93,8 +106,10 @@ export function SessionSidebar({
 
   return (
     <aside
+      aria-hidden={hidden || undefined}
       aria-label="会话"
       className={`session-sidebar ${open ? "is-open" : ""}`}
+      inert={hidden || undefined}
     >
       <div className="mb-1 flex min-h-[42px] items-center justify-between px-1 pl-2">
         <button
