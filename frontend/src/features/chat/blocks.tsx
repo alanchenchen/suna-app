@@ -107,7 +107,8 @@ export function StreamActivity({
   );
 }
 
-/** 思考段：未结束时显示"正在思考 + 呼吸点"，结束后折叠为可展开的过程记录。 */
+/** 思考段：琥珀色 brain 头像，与蓝色 sparkle 的正式回复区分；
+ * 未结束时显示“思考中 + 呼吸点”，结束后折叠为可展开的过程记录。 */
 export function ReasoningBlock({
   text,
   running,
@@ -126,11 +127,11 @@ export function ReasoningBlock({
         onClick={() => setExpanded((value) => !value)}
         type="button"
       >
-        <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
-          <Icon name="sparkle" size={14} />
+        <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-amber-soft text-amber">
+          <Icon name="brain" size={13} />
         </span>
         <strong className="text-ink">Suna</strong>
-        <span className="ml-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-ink-muted">
+        <span className="ml-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-amber">
           <Icon
             className={`transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
             name="chevron-down"
@@ -141,7 +142,7 @@ export function ReasoningBlock({
         {running && !done && <StreamActivity label="正在思考" />}
       </button>
       {expanded && (
-        <div className="markdown-body min-w-0 max-w-[650px] rounded-[18px] bg-surface-subtle/70 px-4 py-3 text-[13px] leading-[1.82] text-ink-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [overflow-wrap:anywhere]">
+        <div className="markdown-body min-w-0 max-w-[650px] rounded-[18px] border border-amber/20 bg-amber-soft/45 px-4 py-3 text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
           <LazyMarkdown>{text}</LazyMarkdown>
         </div>
       )}
@@ -311,7 +312,7 @@ export const LONG_MESSAGE_THRESHOLD = 20_000;
 export function LongMessage({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div className="markdown-body rounded-[18px] bg-surface-subtle/70 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <div className="markdown-body rounded-[18px] border border-line bg-surface-solid px-4 py-3 shadow-[0_1px_3px_rgba(28,42,72,0.07),inset_0_1px_0_rgba(255,255,255,0.06)]">
       {!expanded && (
         <button
           className="mb-2 block cursor-pointer text-[12px] font-bold text-blue-strong transition-opacity duration-150 hover:opacity-75"

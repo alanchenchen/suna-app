@@ -238,7 +238,7 @@ export function ChatTimeline({
                   message.content.length > LONG_MESSAGE_THRESHOLD ? (
                     <LongMessage text={message.content} />
                   ) : (
-                    <div className="markdown-body rounded-[18px] bg-surface-subtle/70 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    <div className="markdown-body rounded-[18px] border border-line bg-surface-solid px-4 py-3 shadow-[0_1px_3px_rgba(28,42,72,0.07),inset_0_1px_0_rgba(255,255,255,0.06)]">
                       <LazyMarkdown>{message.content}</LazyMarkdown>
                     </div>
                   )
@@ -318,7 +318,7 @@ export function ChatTimeline({
                     )}
                   </div>
                   <div
-                    className={`min-w-0 max-w-[650px] rounded-[18px] px-4 py-3 text-[13px] leading-[1.82] tracking-tight shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [overflow-wrap:anywhere] ${streaming ? "bg-surface-subtle/70 text-ink whitespace-pre-wrap" : "markdown-body bg-surface-subtle/70 text-ink"}`}
+                    className={`min-w-0 max-w-[650px] rounded-[18px] border border-line px-4 py-3 text-[13px] leading-[1.82] tracking-tight shadow-[0_1px_3px_rgba(28,42,72,0.07),inset_0_1px_0_rgba(255,255,255,0.06)] [overflow-wrap:anywhere] ${streaming ? "bg-surface-solid text-ink whitespace-pre-wrap" : "markdown-body bg-surface-solid text-ink"}`}
                   >
                     {/* 流式过程中用纯文本（不解析 Markdown）：避免每帧对
                         全文重新解析导致 O(n²)；完成后才一次性渲染。 */}

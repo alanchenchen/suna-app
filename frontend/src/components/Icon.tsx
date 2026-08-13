@@ -1,6 +1,7 @@
 import type { ReactNode, Ref } from "react";
 import {
   ArrowUp,
+  Brain,
   Check,
   ChevronDown,
   ChevronRight,
@@ -26,6 +27,7 @@ import {
 
 export type IconName =
   | "arrow-up"
+  | "brain"
   | "check"
   | "chevron-down"
   | "chevron-right"
@@ -49,6 +51,7 @@ export type IconName =
 
 const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "arrow-up": ArrowUp,
+  brain: Brain,
   check: Check,
   "chevron-down": ChevronDown,
   "chevron-right": ChevronRight,
