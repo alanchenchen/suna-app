@@ -97,6 +97,8 @@ go build ./...
 
 - 使用 fake Runtime 或公开 protocol fixtures；不得依赖 Suna 私有包、真实网络、真实模型或凭据。
 - 测试必须离线、快速、确定性；涉及真实 Runtime、浏览器端到端或外部网络的测试必须明确标记为 integration，不进入默认快速测试。
+- 前端测试与被测文件放在同一目录（co-located），命名 `*.test.ts(x)`（Vitest 默认约定）；不建集中式 `__tests__` 目录。
+- 前端核心状态逻辑（事件处理、状态机、数据流）必须补测试；UI 组件不强制，除非有交互状态机。
 - 提交前运行 `git diff --check`、`git status --short` 与受影响侧的质量命令。
 
 ## Git 提交规范
