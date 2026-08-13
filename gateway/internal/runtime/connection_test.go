@@ -586,3 +586,91 @@ func writeTestJSON(conn net.Conn, value any) error {
 	}
 	return writeAll(conn, append(payload, '\n'))
 }
+
+// 回归测试：`suna serve --json` 启动的 daemon 会继承父进程 stdout 并长期
+// 保持打开。commandJSONOutput 必须读到第一行 JSON 就返回，不能像
+// exec.Cmd.Output 那样等待整个 stdout 关闭，否则健康启动会被误判为超时。
+func TestCommandJSONOutputReturnsAfterFirstLineWhileChildKeepsStdoutOpen(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping subprocess test in short mode")
+	}
+	command := exec.Command("sh", "-c", `printf '{"status":"ready","tcp_endpoint":"127.0.0.1:7632"}\n'; sleep 5`)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	output, err := commandJSONOutput(ctx, command)
+	if err != nil {
+		t.Fatalf("commandJSONOutput() error = %v, want first line only", err)
+	}
+	var result ServeResult
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Fatalf("decode first line: %v", err)
+	}
+	if result.Status != "ready" || result.TCPEndpoint != "127.0.0.1:7632" {
+		t.Fatalf("unexpected serve result: %#v", result)
+	}
+}
+
+// performHello 必须拒绝所有非法握手响应：错误 JSONRPC 版本、RPC error、
+// 空 result、协议版本不匹配、缺少必要 capabilities。
+func TestPerformHelloRejectsInvalidResponses(t *testing.T) {
+	cases := []struct {
+		name  string
+		frame map[string]any
+		want  ErrorKind
+	}{
+		{
+			name:  "wrong jsonrpc version",
+			frame: map[string]any{"jsonrpc": "1.0", "id": 1, "result": map[string]any{"protocol_version": ProtocolVersion}},
+			want:  ErrorProtocol,
+		},
+		{
+			name:  "rpc error response",
+			frame: map[string]any{"jsonrpc": "2.0", "id": 1, "error": map[string]any{"code": -32603, "message": "unsupported"}},
+			want:  ErrorCapability,
+		},
+		{
+			name:  "empty result",
+			frame: map[string]any{"jsonrpc": "2.0", "id": 1, "result": nil},
+			want:  ErrorProtocol,
+		},
+		{
+			name:  "mismatched protocol version",
+			frame: map[string]any{"jsonrpc": "2.0", "id": 1, "result": map[string]any{"protocol_version": "0.3"}},
+			want:  ErrorCapability,
+		},
+		{
+			name:  "missing capabilities",
+			frame: map[string]any{"jsonrpc": "2.0", "id": 1, "result": map[string]any{"protocol_version": ProtocolVersion}},
+			want:  ErrorCapability,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client, server := net.Pipe()
+			defer client.Close()
+			defer server.Close()
+			go func() {
+				// net.Pipe 是同步的：先读 hello 请求，再写响应帧。
+				reader := bufio.NewReader(server)
+				_, _ = reader.ReadBytes('\n')
+				payload, _ := json.Marshal(tc.frame)
+				_, _ = server.Write(append(payload, '\n'))
+			}()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, err := performHello(ctx, client)
+			if err == nil {
+				t.Fatalf("performHello() succeeded, want error kind %q", tc.want)
+			}
+			var rpcErr *Error
+			if !errors.As(err, &rpcErr) {
+				t.Fatalf("error is %T, want *runtime.Error", err)
+			}
+			if rpcErr.Kind != tc.want {
+				t.Fatalf("error kind = %q, want %q (err=%v)", rpcErr.Kind, tc.want, err)
+			}
+		})
+	}
+}
