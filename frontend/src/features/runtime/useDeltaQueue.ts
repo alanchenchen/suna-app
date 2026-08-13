@@ -91,13 +91,20 @@ export function useDeltaQueue({
       // 与权威作用域匹配（带 run_id 时拒绝来自旧 run 的事件）。
       if (isSyncing() || !scope) return;
       if (runId && scope.runId && scope.runId !== runId) return;
-      if (runId && !scope.runId) setScope({ ...scope, runId });
+      // 首次收到 run_id 时建立权威作用域：setScope 更新外部状态，
+      // pending scope 必须使用更新后的值，否则 flush 时新旧 runId 不匹配，
+      // 第一条 delta 会被整批丢弃。
+      let pendingScope = scope;
+      if (runId && !scope.runId) {
+        pendingScope = { ...scope, runId };
+        setScope(pendingScope);
+      }
       if (
         deltaRef.current.scope &&
-        deltaRef.current.scope.attach !== scope.attach
+        deltaRef.current.scope.attach !== pendingScope.attach
       )
         resetQueuedDeltas();
-      deltaRef.current.scope = { ...scope };
+      deltaRef.current.scope = { ...pendingScope };
       deltaRef.current.items.push({ kind, content });
       if (deltaFrameRef.current === undefined)
         deltaFrameRef.current = requestAnimationFrame(flushDeltas);

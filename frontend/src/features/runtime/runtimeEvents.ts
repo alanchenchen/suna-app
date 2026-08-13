@@ -11,7 +11,7 @@ import type { ActiveData, Scope } from "./sessionState";
 /** 单个 run 的时间线工具卡上限：超出丢弃最旧，避免超长 run 累积 DOM。 */
 const MAX_TOOL_CARDS = 24;
 
-type NotificationDeps = {
+export type NotificationDeps = {
   setActive: Dispatch<SetStateAction<ActiveData>>;
   setConfig: Dispatch<SetStateAction<RuntimeConfig | undefined>>;
   queueDelta: (
@@ -98,9 +98,10 @@ export function createNotificationHandler({
                     event.params.state === "cancelled" ||
                     event.params.state === "failed"
                       ? "idle"
-                      : event.params.state === "retrying"
-                        ? "running"
-                        : "running",
+                      : // cancelling/retrying/running 都保持 running 展示：
+                        // 取消收尾阶段 UI 仍应显示任务在进行，can_control 以
+                        // 事件参数为准（cancelling 时 Runtime 会置 false）。
+                        "running",
                   phase: event.params.phase,
                   can_control: event.params.can_control,
                 },

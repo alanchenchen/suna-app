@@ -92,7 +92,9 @@ export type RunError = {
 };
 export type AgentRunEvent = {
   run_id?: string;
-  state: "running" | "retrying" | "done" | "failed" | "cancelled";
+  /** cancelling 是非终态：daemon 已接受取消，run 仍在收尾，can_control=false。 */
+  state:
+    "running" | "retrying" | "cancelling" | "done" | "failed" | "cancelled";
   phase?: "model" | "tool" | "compact" | "guard" | "ask" | "skill";
   can_control: boolean;
   message?: string;
