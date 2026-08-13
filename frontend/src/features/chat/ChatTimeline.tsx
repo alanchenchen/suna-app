@@ -163,7 +163,7 @@ export function ChatTimeline({
           flow.length === 0 &&
           !showActivityCard && (
             <div className="flex min-h-[300px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white shadow-[0_8px_24px_rgba(83,109,222,0.35)]">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_8px_24px_rgba(91,103,241,0.32)]">
                 <Icon name="sparkle" size={22} />
               </span>
               <h2 className="mt-4 mb-1.5 text-[17px] font-extrabold tracking-tight text-ink">
@@ -173,7 +173,7 @@ export function ChatTimeline({
                 告诉 Suna 你想在这个工作目录中完成什么，它会负责执行与推进。
               </p>
               <div className="mt-6 grid gap-2 text-left">
-                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm">
+                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-blue/25 hover:shadow-md">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-blue-soft text-blue-strong">
                     <Icon name="search" size={14} />
                   </span>
@@ -181,7 +181,7 @@ export function ChatTimeline({
                     让 Suna 分析代码、查找问题并解释架构
                   </span>
                 </div>
-                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm">
+                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-green/30 hover:shadow-md">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-green-soft text-green">
                     <Icon name="check" size={14} />
                   </span>
@@ -212,15 +212,17 @@ export function ChatTimeline({
         {!loading &&
           messages.slice(-historyWindow).map((message, index) => (
             <article
-              className={`mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-6`}
+              className={`mb-8 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-7`}
               key={`${messages.length - historyWindow + index}-${message.role}`}
             >
-              <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
+              <div
+                className={`mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft ${message.role === "user" ? "flex-row-reverse" : ""}`}
+              >
                 <span
                   className={
                     message.role === "user"
                       ? "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-[7px] font-bold text-blue-strong"
-                      : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white"
+                      : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white"
                   }
                 >
                   {message.role === "user" ? (
@@ -233,7 +235,9 @@ export function ChatTimeline({
                   {message.role === "user" ? "你" : "Suna"}
                 </strong>
               </div>
-              <div className="min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight text-ink [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76]">
+              <div
+                className={`min-w-0 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76] ${message.role === "user" ? "flex justify-end" : "max-w-[650px] text-ink"}`}
+              >
                 {message.role === "assistant" ? (
                   message.content.length > LONG_MESSAGE_THRESHOLD ? (
                     <LongMessage text={message.content} />
@@ -243,7 +247,8 @@ export function ChatTimeline({
                     </div>
                   )
                 ) : (
-                  <span className="inline-block max-w-[min(640px,100%)] rounded-[4px_15px_15px_15px] border border-line bg-surface-solid px-3.5 py-3 text-ink leading-[1.7] shadow-sm">
+                  // 用户消息：右对齐 + 品牌渐变底（靛蓝→紫），一眼可辨说话人。
+                  <span className="inline-block max-w-[min(640px,100%)] rounded-[15px_15px_4px_15px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-4 py-3 text-[13px] leading-[1.7] text-white shadow-[0_4px_14px_rgba(91,103,241,0.28)]">
                     {message.content}
                   </span>
                 )}
@@ -306,7 +311,7 @@ export function ChatTimeline({
                   key={segment.id}
                 >
                   <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
-                    <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white">
+                    <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white">
                       <Icon name="sparkle" size={14} />
                     </span>
                     <strong className="text-ink">Suna</strong>

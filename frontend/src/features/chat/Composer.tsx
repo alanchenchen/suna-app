@@ -85,7 +85,7 @@ export function Composer({
         </div>
       )}
       <div
-        className={`mx-auto w-[min(720px,100%)] rounded-[20px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow,transform,opacity] duration-180 max-[720px]:rounded-2xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-dashed border-rose/30 bg-surface-subtle/70 opacity-75" : "border-line shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] focus-within:border-blue/40 focus-within:shadow-[0_0_0_3px_var(--color-blue-soft),var(--shadow-md)]"}`}
+        className={`mx-auto w-[min(720px,100%)] rounded-[20px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow,transform,opacity] duration-180 max-[720px]:rounded-2xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-dashed border-rose/30 bg-surface-subtle/70 opacity-75" : "border-line shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] focus-within:border-blue/45 focus-within:shadow-[0_0_0_3px_var(--color-blue-soft),0_10px_30px_rgba(91,103,241,0.14),var(--shadow-md)] focus-within:-translate-y-px"}`}
       >
         {observer && (
           <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10.5px] font-semibold text-rose/80">
@@ -98,7 +98,7 @@ export function Composer({
             图片 URL
             <input
               autoFocus
-              className="rounded-lg border border-line bg-surface-raised px-3 py-2 text-ink outline-none transition-colors duration-150 focus:border-line-strong"
+              className="rounded-lg bg-surface-raised px-3 py-2 text-ink outline-none transition-[background-color] duration-150"
               disabled={disabled || sending}
               onChange={(event) => setImageUrl(event.target.value)}
               placeholder="https://example.com/image.png"
@@ -156,7 +156,7 @@ export function Composer({
             )}
             <button
               aria-label="发送消息"
-              className="grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] bg-blue text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,background,box-shadow] duration-160 hover:bg-blue-strong hover:shadow-[0_7px_15px_var(--color-blue-glow)] hover:-translate-y-px active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:shadow-none max-[720px]:h-[42px] max-[720px]:w-[42px]"
+              className="grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,background,box-shadow] duration-160 hover:shadow-[0_7px_18px_var(--color-blue-glow)] hover:-translate-y-px active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:shadow-none max-[720px]:h-[42px] max-[720px]:w-[42px]"
               disabled={
                 (!draft.trim() && !imageUrl.trim()) || disabled || sending
               }

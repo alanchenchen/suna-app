@@ -161,8 +161,13 @@ export function RunDetails(props: RunDetailsProps) {
         <div className="details-scroll">
           <section
             aria-live="polite"
-            className="rounded-2xl border border-line bg-surface-subtle p-3.5"
+            className="relative overflow-hidden rounded-2xl border border-line bg-surface-subtle p-3.5"
           >
+            {/* 顶部品牌色渐变细条：与用户消息/发送按钮统一视觉语言 */}
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 top-0 h-[2.5px] bg-[linear-gradient(90deg,#5b67f1,#6d5df0_55%,#7c54e8)]"
+            />
             <div className="flex items-center gap-3">
               <span className="running-orb">
                 <i />
@@ -217,7 +222,7 @@ export function RunDetails(props: RunDetailsProps) {
             )}
           </section>
           {(ask || guard) && (
-            <section className="mt-4 rounded-2xl border border-amber/30 bg-amber-soft/50 p-3.5">
+            <section className="mt-4 rounded-2xl border border-amber/30 bg-amber-soft/50 p-3.5 animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-amber/15 text-amber">
                   <Icon name="warning" size={17} />
@@ -265,7 +270,7 @@ export function RunDetails(props: RunDetailsProps) {
                     value={answer}
                   />
                   <button
-                    className="cursor-pointer rounded-lg bg-blue px-3 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
+                    className="cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
                     disabled={!answer.trim() || !canAskReply}
                     onClick={() =>
                       void act(() => onAskReply(ask.id, answer.trim()))
@@ -307,7 +312,10 @@ export function RunDetails(props: RunDetailsProps) {
               )}
             </section>
           )}
-          <section className="border-t border-line pt-4 mt-4">
+          <section
+            className="border-t border-line pt-4 mt-4 animate-[message-in_260ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+            key={`usage-${usage?.run_id ?? "none"}-${status ?? "none"}`}
+          >
             <div className="mb-2 flex items-center justify-between">
               <h3 className="m-0 text-[13px] font-bold text-ink">本次用量</h3>
               <button

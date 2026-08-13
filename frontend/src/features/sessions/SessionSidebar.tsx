@@ -116,7 +116,7 @@ export function SessionSidebar({
           className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-[17px] font-extrabold tracking-tight text-ink transition-colors duration-150 hover:bg-surface-subtle"
           type="button"
         >
-          <span className="grid h-[27px] w-[27px] place-items-center rounded-[9px] bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-white shadow-[0_4px_11px_rgba(83,109,222,0.28)]">
+          <span className="grid h-[27px] w-[27px] place-items-center rounded-[9px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_4px_11px_rgba(91,103,241,0.26)]">
             <Icon name="sparkle" size={17} />
           </span>
           <span>Suna</span>
@@ -218,6 +218,13 @@ export function SessionSidebar({
               className={`group relative my-0.5 ${selected ? "rounded-xl border border-line bg-surface-solid shadow-sm" : ""} ${joining ? "opacity-60" : ""}`}
               key={session.id}
             >
+              {/* 选中态左侧品牌色指示条：现代导航的经典做法 */}
+              {selected && (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-1/2 left-0 h-[60%] w-[3px] -translate-y-1/2 rounded-r-full bg-blue shadow-[0_0_8px_var(--color-blue-glow)]"
+                />
+              )}
               <button
                 aria-current={selected ? "page" : undefined}
                 aria-label={`${session.title || "未命名会话"}，${joining ? "正在打开" : statusLabels[session.status]}`}
@@ -338,7 +345,7 @@ export function SessionSidebar({
           {connected ? "Runtime 已连接" : "Runtime 未连接，点击重连"}
         </button>
         <div className="flex items-center gap-2.5 px-2 py-2">
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-[linear-gradient(145deg,#7c98ff,#536dde_62%,#744fc7)] text-[11px] font-extrabold text-white">
+          <span className="grid h-8 w-8 place-items-center rounded-xl bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[11px] font-extrabold text-white">
             SU
           </span>
           <span className="text-[12px] font-semibold text-ink-soft">

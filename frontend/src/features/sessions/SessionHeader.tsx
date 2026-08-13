@@ -80,7 +80,10 @@ export function SessionHeader({
                 </span>
               )}
           </div>
-          <p className="m-0 max-[720px]:hidden">
+          <p
+            className="m-0 max-w-[420px] truncate text-[11px] font-medium text-ink-muted max-[720px]:hidden"
+            title={selected?.cwd}
+          >
             {selected?.cwd || "你的本地 Runtime 工作空间"}
           </p>
         </div>

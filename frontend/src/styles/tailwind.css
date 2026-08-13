@@ -49,11 +49,12 @@
   --color-line: rgba(32, 48, 76, 0.09);
   --color-line-strong: rgba(32, 48, 76, 0.14);
 
-  /* 功能色 */
-  --color-blue: #5879eb;
-  --color-blue-strong: #3d61d9;
-  --color-blue-soft: #edf1ff;
-  --color-blue-glow: rgba(88, 121, 235, 0.22);
+  /* 功能色：靛蓝品牌色（AI 工具主流色系，专业 + 现代） */
+  --color-blue: #5b67f1;
+  --color-blue-strong: #4852d8;
+  --color-blue-soft: #eef0ff;
+  --color-blue-glow: rgba(91, 103, 241, 0.24);
+  --color-blue-strong-2: #3f48c4;
   --color-green: #47a87c;
   --color-green-soft: #ebf8f1;
   --color-amber: #d98d32;
@@ -61,8 +62,8 @@
   --color-rose: #d45c67;
   --color-danger: #d45c67;
   --color-danger-soft: color-mix(in srgb, #d45c67, transparent 90%);
-  --color-sync: #5879eb;
-  --color-sync-soft: #edf1ff;
+  --color-sync: #5b67f1;
+  --color-sync-soft: #eef0ff;
 
   /* 圆角：统一 8/12/16/20/26 */
   --radius-xs: 8px;
@@ -101,10 +102,11 @@
   --color-ink-muted: #78869b;
   --color-line: rgba(206, 217, 241, 0.09);
   --color-line-strong: rgba(206, 217, 241, 0.15);
-  --color-blue: #91a8ff;
-  --color-blue-strong: #afbdff;
-  --color-blue-soft: rgba(94, 124, 229, 0.17);
-  --color-blue-glow: rgba(120, 147, 255, 0.21);
+  --color-blue: #93a0ff;
+  --color-blue-strong: #b1bcff;
+  --color-blue-soft: rgba(104, 116, 240, 0.17);
+  --color-blue-glow: rgba(130, 146, 255, 0.22);
+  --color-blue-strong-2: #7c89f8;
   --color-green: #72c79b;
   --color-green-soft: rgba(65, 164, 118, 0.14);
   --color-amber: #efb15a;
@@ -112,8 +114,8 @@
   --color-rose: #f1818a;
   --color-danger: #f1818a;
   --color-danger-soft: color-mix(in srgb, #f1818a, transparent 87%);
-  --color-sync: #91a8ff;
-  --color-sync-soft: rgba(94, 124, 229, 0.17);
+  --color-sync: #93a0ff;
+  --color-sync-soft: rgba(104, 116, 240, 0.17);
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.11);
   --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.16), 0 3px 8px rgba(0, 0, 0, 0.09);
   --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.28), 0 5px 16px rgba(0, 0, 0, 0.15);

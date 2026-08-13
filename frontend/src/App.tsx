@@ -148,7 +148,7 @@ export function App() {
               "通过本地 Gateway 连接 Suna Runtime。"}
           </p>
           <button
-            className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue text-[12px] font-extrabold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[background,transform] duration-150 hover:bg-blue-strong active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
             disabled={status === "connecting" || status === "disconnecting"}
             onClick={() => void initialize()}
             type="button"
