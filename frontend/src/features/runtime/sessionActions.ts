@@ -6,7 +6,7 @@ import type { ActiveData, Scope } from "./sessionState";
 
 type Rpc = ReturnType<typeof useRuntimeBridge>["rpc"];
 
-type SessionActionDeps = {
+export type SessionActionDeps = {
   rpc: Rpc;
   queueSessionOperation: <T>(operation: () => Promise<T>) => Promise<T>;
   activeScopeMatches: (scope: Scope) => boolean;
