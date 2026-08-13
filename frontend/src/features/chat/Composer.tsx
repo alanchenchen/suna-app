@@ -84,13 +84,21 @@ export function Composer({
           )}
         </div>
       )}
-      <div className="mx-auto w-[min(720px,100%)] rounded-[20px] border border-line bg-surface-solid px-4 pt-3 pb-2.5 shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] transition-[border-color,box-shadow,transform] duration-180 focus-within:border-blue/40 focus-within:shadow-[0_0_0_3px_var(--color-blue-soft),var(--shadow-md)] max-[720px]:rounded-2xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2">
+      <div
+        className={`mx-auto w-[min(720px,100%)] rounded-[20px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow,transform,opacity] duration-180 max-[720px]:rounded-2xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-dashed border-rose/30 bg-surface-subtle/70 opacity-75" : "border-line shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] focus-within:border-blue/40 focus-within:shadow-[0_0_0_3px_var(--color-blue-soft),var(--shadow-md)]"}`}
+      >
+        {observer && (
+          <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10.5px] font-semibold text-rose/80">
+            <Icon name="eye" size={12} />
+            其他客户端正在运行此会话，任务结束后可在此输入
+          </div>
+        )}
         {showImageInput && (
           <label className="mb-2 grid gap-1 px-0.5 text-[10px] font-bold text-ink-muted">
             图片 URL
             <input
               autoFocus
-              className="rounded-lg border border-line bg-surface-raised px-3 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
+              className="rounded-lg border border-line bg-surface-raised px-3 py-2 text-ink outline-none transition-colors duration-150 focus:border-line-strong"
               disabled={disabled || sending}
               onChange={(event) => setImageUrl(event.target.value)}
               placeholder="https://example.com/image.png"

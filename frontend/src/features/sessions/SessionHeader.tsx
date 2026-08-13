@@ -44,13 +44,13 @@ export function SessionHeader({
         </IconButton>
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
-            <h1 className="m-0 max-w-[54vw] overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-extrabold tracking-tight text-ink max-[720px]:max-w-[min(47vw,230px)] max-[720px]:text-[13px]">
+            <h1 className="m-0 min-w-0 basis-auto flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-extrabold tracking-tight text-ink max-[720px]:max-w-none max-[720px]:text-[13px]">
               {selected?.title || "任务总览"}
             </h1>
             {selected && (
               <span
                 aria-live="polite"
-                className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold text-ink-soft max-[390px]:hidden"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-ink-soft max-[390px]:hidden"
               >
                 <span
                   className={`h-[6px] w-[6px] rounded-full ${selected.status === "running" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]" : selected.status === "waiting" ? "bg-amber" : "bg-ink-muted"}`}
@@ -70,11 +70,13 @@ export function SessionHeader({
                       ? `已加入会话，共 ${selected.client_count} 个客户端`
                       : `会话共享中，共 ${selected.client_count} 个客户端`
                   }
-                  className="inline-flex items-center gap-1 rounded-full bg-blue-soft px-2 py-0.5 text-[10px] font-bold text-blue-strong"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-blue-soft px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-blue-strong"
                 >
                   <Icon name="users" size={11} />
-                  {handoffRole === "guest" ? "已加入" : "共享中"}
-                  {selected.client_count > 1 && ` · ${selected.client_count}`}
+                  <span className="max-[720px]:hidden">
+                    {handoffRole === "guest" ? "已加入" : "共享中"}
+                  </span>
+                  {selected.client_count > 1 && `· ${selected.client_count}`}
                 </span>
               )}
           </div>

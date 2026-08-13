@@ -56,7 +56,19 @@ export function App() {
   }, [resolvedTheme, theme]);
 
   // 纯 UI 状态：面板开关与表单草稿。
-  const [detailsOpen, setDetailsOpen] = useState(true);
+  // 桌面默认打开右栏；移动端详情是底部 Sheet，默认关闭避免打开即弹层，
+  // 缩小到移动端时也自动关闭（避免残留弹出）。
+  const [detailsOpen, setDetailsOpen] = useState(
+    () => !window.matchMedia("(max-width: 720px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 720px)");
+    const onChange = () => {
+      if (media.matches) setDetailsOpen(false);
+    };
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
