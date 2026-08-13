@@ -79,6 +79,18 @@ export function useRuntimeSession() {
       ).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
     });
   }, []);
+  // 运行终态兜底：run 事件到达时直接把目录中 session 置为 idle。
+  // 正常路径下 session.updated 通知也会更新目录，但重连窗口内可能
+  // 丢失该通知；以 run 终态事件为准可避免 observer 卡在运行中。
+  const markSessionIdle = useCallback((sessionId?: string) => {
+    if (!sessionId) return;
+    sessionsRevisionRef.current++;
+    setSessions((list) =>
+      list.map((item) =>
+        item.id === sessionId ? { ...item, status: "idle" as const } : item,
+      ),
+    );
+  }, []);
   // 0.4 MCP 状态快照：mcp.list 初始加载 + mcp.updated 增量覆盖，
   // 设置面板据此显示 starting / active / error 实时状态。
   const [mcpServers, setMcpServers] = useState<MCPServerInfo[]>([]);
@@ -114,6 +126,7 @@ export function useRuntimeSession() {
         acceptsRun,
         acceptsSession,
         mergeSession,
+        markSessionIdle,
         mergeMcp,
         getScope: () => scopeRef.current,
         isSyncing: () => syncingRef.current,
@@ -123,6 +136,7 @@ export function useRuntimeSession() {
       acceptsRun,
       acceptsSession,
       flushDeltas,
+      markSessionIdle,
       mergeMcp,
       mergeSession,
       queueDelta,

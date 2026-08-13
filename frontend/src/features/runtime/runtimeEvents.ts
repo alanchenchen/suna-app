@@ -23,6 +23,8 @@ type NotificationDeps = {
   acceptsRun: (runId?: string) => boolean;
   acceptsSession: (sessionId?: string) => boolean;
   mergeSession: (session: SessionInfo) => void;
+  /** 运行终态兜底：把目录中该 session 的 status 置为 idle，不依赖 session.updated 通知。 */
+  markSessionIdle: (sessionId?: string) => void;
   mergeMcp: (server: MCPServerInfo) => void;
   getScope: () => Scope | undefined;
   isSyncing: () => boolean;
@@ -42,6 +44,7 @@ export function createNotificationHandler({
   acceptsRun,
   acceptsSession,
   mergeSession,
+  markSessionIdle,
   mergeMcp,
   getScope,
   isSyncing,
@@ -104,6 +107,16 @@ export function createNotificationHandler({
               }
             : value.snapshot,
         };
+        // 运行终态兜底：sessions 目录的 status 可能因 session.updated 通知
+        // 丢失（重连窗口）而卡在 running，导致 observer 误判、输入框禁用；
+        // 这里直接以 run 事件为准同步置为 idle。
+        if (
+          event.params.state === "done" ||
+          event.params.state === "cancelled" ||
+          event.params.state === "failed"
+        ) {
+          markSessionIdle(getSelectedId());
+        }
         // 叙事流保留：思考/回复段全部标为已结束，工具卡与回复块作为
         // 本轮操作流继续显示在时间线中（不再清空、不再拍平成消息）。
         if (event.params.state === "done" && value.snapshot) {

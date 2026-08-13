@@ -20,8 +20,11 @@ export function SessionStatusBars({
   error,
   onCloseError,
 }: SessionStatusBarsProps) {
+  // 无论是否有提示都渲染占位 div：workspace 是 4 行 grid
+  // （header / 状态条 / 时间线 / 输入区），若状态条缺位，时间线会落到
+  // auto 行、输入区落到 1fr 行被拉伸/压扁，长会话下输入框会消失。
   return (
-    <>
+    <div className={!observer && !error ? "min-h-0" : undefined}>
       {observer && (
         <div
           aria-live="polite"
@@ -75,6 +78,6 @@ export function SessionStatusBars({
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }
