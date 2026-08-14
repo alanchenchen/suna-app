@@ -14,6 +14,7 @@ import {
   LONG_MESSAGE_THRESHOLD,
   LongMessage,
   ReasoningBlock,
+  SkillCard,
   StreamActivity,
   toneClasses,
   ToolCard,
@@ -108,7 +109,7 @@ export function ChatTimeline({
     historyAnchorRef.current = undefined;
   }, [historyWindow]);
   useLayoutEffect(() => {
-    const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
+    const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : s.kind === "skill" ? `sk${s.item.name}:${s.item.status}` : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
     if (lastContentKeyRef.current === key) return;
     lastContentKeyRef.current = key;
     // 只在读者已经位于最新边缘时保持活跃对话锚定；浏览历史时绝不能被
@@ -303,6 +304,14 @@ export function ChatTimeline({
               }
               if (segment.kind === "tool") {
                 return <ToolCard item={segment.item} key={segment.item.id} />;
+              }
+              if (segment.kind === "skill") {
+                return (
+                  <SkillCard
+                    item={segment.item}
+                    key={`skill-${segment.item.name}`}
+                  />
+                );
               }
               const streaming = !segment.done;
               return (

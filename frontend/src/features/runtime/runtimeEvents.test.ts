@@ -111,9 +111,12 @@ describe("createNotificationHandler", () => {
     const active = getActive();
     // current_run 状态收敛为 idle。
     expect(active.snapshot?.current_run?.status).toBe("idle");
-    // 叙事流段全部标为已结束（工具段除外）。
+    // 叙事流段全部标为已结束（工具段/技能段除外）。
     expect(
-      active.flow.every((segment) => segment.kind === "tool" || segment.done),
+      active.flow.every(
+        (segment) =>
+          segment.kind === "tool" || segment.kind === "skill" || segment.done,
+      ),
     ).toBe(true);
   });
 
@@ -362,5 +365,85 @@ describe("createNotificationHandler", () => {
     });
     // 会话不匹配时 ask 不应被保存。
     expect(getActive().ask).toBeUndefined();
+  });
+
+  it("merges skill.load lifecycle into a single flow segment", () => {
+    const { send, getActive } = createHarness();
+    send({ method: "skill.load", params: { name: "web", status: "loading" } });
+    send({
+      method: "skill.load",
+      params: { name: "web", status: "loaded" },
+    });
+    const skills = getActive().flow.filter(
+      (segment): segment is Extract<FlowSegment, { kind: "skill" }> =>
+        segment.kind === "skill",
+    );
+    expect(skills).toHaveLength(1);
+    expect(skills[0].item).toEqual({
+      name: "web",
+      status: "loaded",
+      detail: undefined,
+    });
+  });
+
+  it("tracks skill.review running -> done with review detail", () => {
+    const { send, getActive } = createHarness();
+    send({
+      method: "skill.review",
+      params: { name: "img", status: "running" },
+    });
+    send({
+      method: "skill.review",
+      params: {
+        name: "img",
+        status: "done",
+        review: "safe to use",
+      },
+    });
+    const skills = getActive().flow.filter(
+      (segment): segment is Extract<FlowSegment, { kind: "skill" }> =>
+        segment.kind === "skill",
+    );
+    expect(skills).toHaveLength(1);
+    expect(skills[0].item).toEqual({
+      name: "img",
+      status: "done",
+      detail: "safe to use",
+    });
+  });
+
+  it("records skill.review error detail", () => {
+    const { send, getActive } = createHarness();
+    send({
+      method: "skill.review",
+      params: { name: "bad", status: "error", error: "boom" },
+    });
+    const skills = getActive().flow.filter(
+      (segment): segment is Extract<FlowSegment, { kind: "skill" }> =>
+        segment.kind === "skill",
+    );
+    expect(skills[0].item).toEqual({
+      name: "bad",
+      status: "error",
+      detail: "boom",
+    });
+  });
+
+  it("skips skill events while syncing or for another session", () => {
+    const { deps, send, getActive } = createHarness();
+    deps.isSyncing.mockReturnValue(true);
+    send({ method: "skill.load", params: { name: "web", status: "loading" } });
+    expect(getActive().flow.some((segment) => segment.kind === "skill")).toBe(
+      false,
+    );
+    deps.isSyncing.mockReturnValue(false);
+    deps.getSelectedId.mockReturnValue("other");
+    send({
+      method: "skill.load",
+      params: { name: "web", status: "loaded" },
+    });
+    expect(getActive().flow.some((segment) => segment.kind === "skill")).toBe(
+      false,
+    );
   });
 });

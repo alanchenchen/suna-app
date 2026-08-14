@@ -157,15 +157,24 @@ export type ToolFlowItem = {
   resultTruncated?: boolean;
   error?: boolean;
 };
+/** Skill 加载/校验状态行：由 skill.load / skill.review 通知驱动。 */
+export type SkillFlowItem = {
+  name: string;
+  status: "loading" | "loaded" | "reviewing" | "done" | "error";
+  /** review 结论或错误信息（展示时截断）。 */
+  detail?: string;
+};
 /**
- * 时间线中的一段叙事：思考 / 回复 / 工具，按真实到达顺序排列。
+ * 时间线中的一段叙事：思考 / 回复 / 工具 / 技能，按真实到达顺序排列。
  * reasoning 与 assistant 是流式累积段（done 表示该段已结束），
- * tool 是工具调用生命周期记录。
+ * tool 是工具调用生命周期记录，skill 是 Skill 加载/校验状态。
  */
 export type FlowSegment =
   | { kind: "reasoning"; id: number; text: string; done: boolean }
   | { kind: "assistant"; id: number; text: string; done: boolean }
-  | { kind: "tool"; item: ToolFlowItem };
+  | { kind: "tool"; item: ToolFlowItem }
+  | { kind: "skill"; item: SkillFlowItem };
+
 export type AskUserEvent = {
   question: string;
   options?: string[];

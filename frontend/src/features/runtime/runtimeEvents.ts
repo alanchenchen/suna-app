@@ -242,6 +242,55 @@ export function createNotificationHandler({
       }));
       return;
     }
+    // Skill 加载 / 校验状态：按技能名合并到叙事流中的 skill 段。
+    // 同名的 loading→loaded、reviewing→done/error 是同一段生命周期，
+    // 更新已有段而不是重复插入，保持时间线紧凑。
+    if (event.method === "skill.load" || event.method === "skill.review") {
+      const scope = getScope();
+      if (isSyncing() || !scope || scope.sessionId !== getSelectedId()) return;
+      const name = event.params.name;
+      const nextStatus =
+        event.method === "skill.load"
+          ? event.params.status === "loaded"
+            ? ("loaded" as const)
+            : ("loading" as const)
+          : event.params.status === "done"
+            ? ("done" as const)
+            : event.params.status === "error"
+              ? ("error" as const)
+              : ("reviewing" as const);
+      const detail =
+        event.method === "skill.review"
+          ? event.params.review || event.params.error
+          : undefined;
+      setActive((value) => {
+        const index = value.flow.findIndex(
+          (segment) => segment.kind === "skill" && segment.item.name === name,
+        );
+        if (index < 0) {
+          return {
+            ...value,
+            flow: [
+              ...value.flow,
+              { kind: "skill", item: { name, status: nextStatus, detail } },
+            ],
+          };
+        }
+        const flow = [...value.flow];
+        const segment = flow[index];
+        if (segment.kind !== "skill") return value;
+        flow[index] = {
+          kind: "skill",
+          item: {
+            name,
+            status: nextStatus,
+            detail: detail ?? segment.item.detail,
+          },
+        };
+        return { ...value, flow };
+      });
+      return;
+    }
     if (event.method === "session.user_message") {
       if (!acceptsSession(event.params.session_id)) return;
       const text = event.params.parts

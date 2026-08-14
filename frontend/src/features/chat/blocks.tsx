@@ -3,6 +3,7 @@ import { Icon } from "../../components/Icon";
 import type {
   AskUserEvent,
   GuardConfirmEvent,
+  SkillFlowItem,
   ToolFlowItem,
 } from "../../lib/runtimeBridge";
 import { LazyMarkdown } from "./LazyMarkdown";
@@ -254,6 +255,80 @@ export function ToolCard({ item }: { item: ToolFlowItem }) {
               </pre>
             </div>
           )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+/** Skill 加载/校验状态卡：由 skill.load / skill.review 通知驱动，
+ * 风格对齐 ToolCard 但更轻量——技能生命周期短，只显示状态与可选的
+ * review 结论/错误详情。 */
+export function SkillCard({ item }: { item: SkillFlowItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const statusMeta = {
+    loading: {
+      dot: "bg-blue animate-pulse",
+      label: "加载中",
+      text: "text-blue-strong",
+    },
+    reviewing: {
+      dot: "bg-amber animate-pulse",
+      label: "校验中",
+      text: "text-amber",
+    },
+    loaded: { dot: "bg-green", label: "已加载", text: "text-green" },
+    done: { dot: "bg-green", label: "校验通过", text: "text-green" },
+    error: { dot: "bg-rose", label: "校验失败", text: "text-rose" },
+  }[item.status];
+  const iconTone = {
+    loading: "bg-blue-soft text-blue-strong",
+    reviewing: "bg-amber-soft text-amber",
+    loaded: "bg-green-soft text-green",
+    done: "bg-green-soft text-green",
+    error: "bg-rose/15 text-rose",
+  }[item.status];
+  return (
+    <article className="animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[14px] border border-line bg-surface-solid shadow-sm transition-[border-color] duration-160 hover:border-line-strong">
+      <button
+        aria-expanded={expanded}
+        className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left disabled:cursor-default"
+        disabled={!item.detail}
+        onClick={() => setExpanded((value) => !value)}
+        type="button"
+      >
+        <span
+          aria-hidden="true"
+          className={`h-[7px] w-[7px] shrink-0 rounded-full ${statusMeta.dot}`}
+        />
+        <span
+          className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md ${iconTone}`}
+        >
+          <Icon name="book" size={12} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[11.5px] font-semibold text-ink">
+            技能 {item.name}
+          </span>
+        </span>
+        <span
+          className={`shrink-0 text-[10px] font-extrabold ${statusMeta.text}`}
+        >
+          {statusMeta.label}
+        </span>
+        {item.detail && (
+          <Icon
+            name="chevron-down"
+            size={14}
+            className={`shrink-0 text-ink-muted transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          />
+        )}
+      </button>
+      {expanded && item.detail && (
+        <div className="border-t border-line/70 px-3 py-2.5">
+          <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
+            {item.detail}
+          </pre>
         </div>
       )}
     </article>
