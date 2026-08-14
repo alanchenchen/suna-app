@@ -247,6 +247,10 @@ export type MemoryItem = {
 export type SkillInfo = {
   name: string;
   description?: string;
+  /** 0.5 起引入：global / project；项目 Skill 用精确 path 区分。 */
+  scope?: string;
+  /** 0.5 起：是否允许 UI 切换开关（项目 Skill 可能不可切换）。 */
+  can_toggle?: boolean;
   enabled: boolean;
   valid: boolean;
   reasons?: string[];
@@ -339,7 +343,7 @@ export type RuntimeBridgeMethods = {
     result: { skills: SkillInfo[] };
   };
   "skill.set": {
-    params: { name: string; enabled: boolean };
+    params: { name: string; scope?: string; enabled: boolean };
     result: { status: string };
   };
   "mcp.list": {

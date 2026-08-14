@@ -332,7 +332,13 @@ func bridgeRuntimeError(w http.ResponseWriter, err error) {
 	if errors.As(err, &rpcErr) {
 		kind := rpcErr.Kind()
 		if kind != "" {
-			bridgeError(w, http.StatusBadRequest, kind, safeRPCMessage(kind))
+			// runtime_unavailable 表示 daemon 尚未 ready 或正在退出（0.5 起
+			// 有 starting/ready/stopping 生命周期），语义上可重试，返回 503。
+			status := http.StatusBadRequest
+			if kind == "runtime_unavailable" {
+				status = http.StatusServiceUnavailable
+			}
+			bridgeError(w, status, kind, safeRPCMessage(kind))
 			return
 		}
 	}
@@ -364,6 +370,8 @@ func safeRPCMessage(kind string) string {
 		return "Installed Runtime does not support the required capability."
 	case "handshake_required":
 		return "需要先完成 Runtime 握手。"
+	case "runtime_unavailable":
+		return "Runtime 正在启动或不可用，请稍后重试。"
 	default:
 		return "Runtime 拒绝了该请求。"
 	}

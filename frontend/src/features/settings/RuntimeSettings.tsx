@@ -186,22 +186,29 @@ export function RuntimeSettings({
           {skills.map((skill) => (
             <div
               className="flex items-center justify-between gap-3 border-b border-line py-2 text-[13px]"
-              key={skill.name}
+              key={`${skill.scope ?? "global"}:${skill.name}`}
             >
               <span className="min-w-0">
-                <strong className="block truncate text-ink">
-                  {skill.name}
-                </strong>
+                <span className="flex items-center gap-1.5">
+                  <strong className="truncate text-ink">{skill.name}</strong>
+                  {skill.scope === "project" && (
+                    <span className="rounded-sm bg-surface-raised px-1 py-px text-[10px] font-medium text-ink-muted">
+                      项目
+                    </span>
+                  )}
+                </span>
                 <small className="mt-0.5 block truncate text-[11px] font-normal text-ink-muted">
                   {skill.description}
                 </small>
               </span>
               <Switch
                 checked={skill.enabled}
+                disabled={skill.can_toggle === false}
                 label={`启用技能 ${skill.name}`}
                 onCheckedChange={(enabled) =>
                   void rpc("skill.set", {
                     name: skill.name,
+                    scope: skill.scope,
                     enabled,
                   }).then(() => load())
                 }

@@ -16,7 +16,9 @@ const (
 	ErrorUnavailable ErrorKind = "unavailable"
 	ErrorProtocol    ErrorKind = "protocol_error"
 	ErrorCapability  ErrorKind = "capability_error"
-	ProtocolVersion            = "0.4"
+	// ProtocolVersion 是对接的公开协议版本；runtime 0.5 起只接受 0.5 握手，
+	// 0.4 客户端会收到 unsupported_capability 拒绝（skill scope 等新语义）。
+	ProtocolVersion = "0.5"
 )
 
 type Error struct {
