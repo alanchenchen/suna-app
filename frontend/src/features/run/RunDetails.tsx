@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
 import { Select } from "../../components/ui/Select";
+import { ActivityDots } from "../chat/blocks";
 import type {
   AgentRunEvent,
   AgentUsageEvent,
   AskUserEvent,
+  CompactResultEvent,
   GuardConfirmEvent,
   RuntimeConfig,
   ToolSummary,
@@ -24,12 +26,12 @@ type RunDetailsProps = {
   toolSummary?: ToolSummary;
   ask?: AskUserEvent;
   guard?: GuardConfirmEvent;
+  /** 压缩过程/结果（由 session.compact_result 驱动）。 */
+  compact?: CompactResultEvent;
   config?: RuntimeConfig;
   modelRef?: string;
   canConfigure: boolean;
   controlsDisabled?: boolean;
-  onAskReply: (id: string, answer: string) => Promise<void>;
-  onGuardReply: (id: string, decision: "approve" | "reject") => Promise<void>;
   onCompact: () => Promise<void>;
   onUpdateModel: (model: string) => Promise<void>;
   onResume?: () => Promise<void>;
@@ -51,23 +53,20 @@ export function RunDetails(props: RunDetailsProps) {
     totals,
     ask,
     guard,
+    compact,
     config,
     modelRef,
     canConfigure,
     controlsDisabled,
-    onAskReply,
-    onGuardReply,
     onCompact,
     onUpdateModel,
     onResume,
   } = props;
-  const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    setAnswer("");
     setError(undefined);
   }, [ask?.id, guard?.id]);
 
@@ -110,8 +109,6 @@ export function RunDetails(props: RunDetailsProps) {
     usage?.cache_read_tokens && usage.input_tokens
       ? Math.min(100, (usage.cache_read_tokens / usage.input_tokens) * 100)
       : undefined;
-  const canAskReply = Boolean(ask?.can_reply) && !busy;
-  const canGuardReply = Boolean(guard?.can_reply) && !busy;
   const selectedModel = modelRef ?? "";
   const modelOptions = [
     ...(config?.models.some(
@@ -126,14 +123,14 @@ export function RunDetails(props: RunDetailsProps) {
   ];
   return (
     <>
-      {open && (
-        <button
-          aria-label="关闭任务详情"
-          className="details-scrim"
-          onClick={onClose}
-          type="button"
-        />
-      )}
+      {/* 详情遮罩：常驻 DOM，is-visible 控制淡入淡出（CSS 过渡）。 */}
+      <button
+        aria-label="关闭任务详情"
+        className={`details-scrim ${open ? "is-visible" : ""}`}
+        onClick={onClose}
+        tabIndex={open ? 0 : -1}
+        type="button"
+      />
       <aside
         aria-hidden={!open}
         aria-label="任务详情"
@@ -239,72 +236,22 @@ export function RunDetails(props: RunDetailsProps) {
               <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
                 {guard ? guard.reason : ask?.question}
               </p>
+              {guard?.suggestion && (
+                <p className="mt-1.5 rounded-lg border border-amber/25 bg-amber/10 px-2.5 py-2 text-[12px] leading-relaxed text-ink-soft">
+                  <span className="font-extrabold text-ink">建议改为：</span>
+                  <code className="font-mono">{guard.suggestion}</code>
+                </p>
+              )}
+              {/* 只读摘要：决策按钮在时间线内嵌决策卡上（设计 §7.4），
+                  右栏不重复操作，避免同一决策两处可点分散注意力。 */}
+              <small className="mt-2 block text-[11px] font-semibold text-ink-muted">
+                请在对话中处理此请求
+              </small>
               {(ask && !ask.can_reply) || (guard && !guard.can_reply) ? (
                 <small className="mt-1 block text-[11px] text-ink-muted">
                   此请求由其他客户端处理；当前窗口仅可查看。
                 </small>
               ) : null}
-              {ask?.options && (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {ask.options.map((option) => (
-                    <button
-                      className="cursor-pointer rounded-[7px] border border-line px-2 py-1.5 text-[12px] font-semibold text-ink transition-colors duration-150 hover:bg-surface-solid disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={!canAskReply}
-                      key={option}
-                      onClick={() => void act(() => onAskReply(ask.id, option))}
-                      type="button"
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {ask?.allow_custom && (
-                <div className="mt-2.5 flex gap-1.5">
-                  <input
-                    aria-label="回答"
-                    className="min-w-0 flex-1 rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
-                    disabled={!ask.can_reply || busy}
-                    onChange={(event) => setAnswer(event.target.value)}
-                    placeholder="输入你的回答"
-                    value={answer}
-                  />
-                  <button
-                    className="cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={!answer.trim() || !canAskReply}
-                    onClick={() =>
-                      void act(() => onAskReply(ask.id, answer.trim()))
-                    }
-                    type="button"
-                  >
-                    发送
-                  </button>
-                </div>
-              )}
-              {guard && (
-                <div className="mt-2.5 flex gap-2">
-                  <button
-                    className="flex-1 cursor-pointer rounded-lg border border-line bg-surface px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={!canGuardReply}
-                    onClick={() =>
-                      void act(() => onGuardReply(guard.id, "reject"))
-                    }
-                    type="button"
-                  >
-                    拒绝
-                  </button>
-                  <button
-                    className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={!canGuardReply}
-                    onClick={() =>
-                      void act(() => onGuardReply(guard.id, "approve"))
-                    }
-                    type="button"
-                  >
-                    批准
-                  </button>
-                </div>
-              )}
               {error && (
                 <small className="mt-2 block text-[12px] font-semibold text-rose">
                   {error}
@@ -324,7 +271,8 @@ export function RunDetails(props: RunDetailsProps) {
                 disabled={
                   controlsDisabled ||
                   status === "running" ||
-                  status === "compacting"
+                  status === "compacting" ||
+                  compact?.running
                 }
                 onClick={() => void act(onCompact)}
                 type="button"
@@ -332,6 +280,30 @@ export function RunDetails(props: RunDetailsProps) {
                 压缩
               </button>
             </div>
+            {/* 压缩过程/结果：running 动画 → 完成结果（N→M tokens）→ 失败错误 */}
+            {compact?.running ? (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-blue/25 bg-blue-soft/40 px-2.5 py-2 text-[12px] font-bold text-blue-strong">
+                <ActivityDots />
+                正在压缩上下文…
+              </div>
+            ) : compact?.error ? (
+              <div className="mb-2 rounded-lg border border-rose/25 bg-rose/10 px-2.5 py-2 text-[12px] font-semibold text-rose">
+                压缩失败：{compact.error}
+              </div>
+            ) : compact?.noop ? (
+              <div className="mb-2 rounded-lg border border-line bg-surface-raised/60 px-2.5 py-2 text-[12px] font-semibold text-ink-muted">
+                上下文足够短，无需压缩。
+              </div>
+            ) : compact ? (
+              <div className="mb-2 rounded-lg border border-green/25 bg-green-soft/40 px-2.5 py-2 text-[12px] font-semibold text-ink">
+                <span className="font-bold text-green">✓ 已压缩</span>{" "}
+                {tokenCount(compact.before_tokens)} →{" "}
+                {tokenCount(compact.after_tokens)} tokens
+                {compact.turns_compressed
+                  ? ` · 压缩 ${compact.turns_compressed} 轮`
+                  : ""}
+              </div>
+            ) : null}
             <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
               <span className="text-ink-muted">输入 / 输出</span>
               <b className="text-ink">

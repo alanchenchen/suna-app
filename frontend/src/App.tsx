@@ -72,6 +72,20 @@ export function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 设置关闭动画进行中：先播退出动画再卸载，避免瞬消。 */
+  const [settingsClosing, setSettingsClosing] = useState(false);
+  const closeSettings = () => {
+    if (!settingsOpen) return;
+    setSettingsClosing(true);
+    window.setTimeout(() => {
+      setSettingsOpen(false);
+      setSettingsClosing(false);
+    }, 190);
+  };
+  /** 设置打开来源："models"（Onboarding 引导）时默认进模型 Tab。 */
+  const [settingsInitialTab, setSettingsInitialTab] = useState<
+    "connection" | "models"
+  >("connection");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [composerFocus, setComposerFocus] = useState(0);
@@ -126,6 +140,26 @@ export function App() {
   const sessionActionsFrozen = syncing || !selectedId;
   const current = active.snapshot?.current_run;
 
+  // 多任务通知：其他会话处于 waiting（等待用户）时，文档标题加计数徽标，
+  // 工作台顶部显示通知条（设计 §5.2/§7.1）。侧栏已有 waiting 置顶 + 琥珀点。
+  const otherWaiting = sessions.filter(
+    (session) => session.status === "waiting" && session.id !== selectedId,
+  );
+  const [dismissedWaiting, setDismissedWaiting] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const visibleWaiting = otherWaiting.filter(
+    (session) => !dismissedWaiting.has(session.id),
+  );
+  useEffect(() => {
+    document.title = visibleWaiting.length
+      ? `(${visibleWaiting.length}) Suna App`
+      : "Suna App";
+    return () => {
+      document.title = "Suna App";
+    };
+  }, [visibleWaiting.length]);
+
   if (!connected)
     return (
       <main className="grid min-h-dvh place-items-center p-6">
@@ -168,6 +202,7 @@ export function App() {
         onCreate={create}
         onRequestCreate={() => setCreateOpen(true)}
         onReconnect={() => void initialize()}
+        runtimeVersion={hello?.runtime_version}
         onSelect={(id) => void attach(id).then(() => setMobileMenuOpen(false))}
         onJoinActive={(id) =>
           void attach(id, true).then(() => setMobileMenuOpen(false))
@@ -189,14 +224,14 @@ export function App() {
         }
         onClose={() => setMobileMenuOpen(false)}
       />
-      {mobileMenuOpen && (
-        <button
-          aria-label="关闭会话列表"
-          className="mobile-scrim"
-          onClick={() => setMobileMenuOpen(false)}
-          type="button"
-        />
-      )}
+      {/* 移动端抽屉遮罩：常驻 DOM，is-visible 控制淡入淡出（CSS 过渡）。 */}
+      <button
+        aria-label="关闭会话列表"
+        className={`mobile-scrim ${mobileMenuOpen ? "is-visible" : ""}`}
+        onClick={() => setMobileMenuOpen(false)}
+        tabIndex={mobileMenuOpen ? 0 : -1}
+        type="button"
+      />{" "}
       <section className="workspace">
         <SessionHeader
           canControl={canControl}
@@ -234,21 +269,56 @@ export function App() {
           onCloseError={() => setError(undefined)}
           selected={selected}
         />
+        {visibleWaiting.length > 0 && (
+          <div className="relative z-30 flex items-center gap-2 border-b border-amber/25 bg-amber-soft/70 px-3 py-2">
+            <Icon className="shrink-0 text-amber" name="warning" size={14} />
+            <span className="min-w-0 flex-1 truncate text-[12px] font-bold text-ink">
+              {visibleWaiting.length} 个任务在等待你的回答
+            </span>
+            <button
+              className="shrink-0 cursor-pointer rounded-md bg-surface-solid px-2 py-1 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:text-ink disabled:opacity-45"
+              disabled={syncing}
+              onClick={() => {
+                const first = visibleWaiting[0];
+                if (first) void attach(first.id);
+              }}
+              type="button"
+            >
+              去看看
+            </button>
+            <button
+              aria-label="忽略等待通知"
+              className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
+              onClick={() =>
+                setDismissedWaiting((value) => {
+                  const next = new Set(value);
+                  for (const session of visibleWaiting) next.add(session.id);
+                  return next;
+                })
+              }
+              type="button"
+            >
+              <Icon name="close" size={13} />
+            </button>
+          </div>
+        )}
         {settingsOpen && (
           <>
             <button
               aria-label="关闭设置"
               className="settings-scrim"
-              onClick={() => setSettingsOpen(false)}
+              onClick={closeSettings}
               type="button"
             />
             <RuntimeSettings
               cap={cap}
+              closing={settingsClosing}
               config={config}
               connected={connected}
               hello={hello}
+              initialTab={settingsInitialTab}
               mcpServers={mcpServers}
-              onClose={() => setSettingsOpen(false)}
+              onClose={closeSettings}
               onConfig={setConfig}
               onReconnect={() => void initialize()}
               onThemeChange={setTheme}
@@ -261,7 +331,12 @@ export function App() {
         {!selected ? (
           <TaskOverview
             connected={connected}
+            hasModels={Boolean(config && config.models.length > 0)}
             onCreate={() => setCreateOpen(true)}
+            onOpenSettings={() => {
+              setSettingsInitialTab("models");
+              setSettingsOpen(true);
+            }}
             onReconnect={() => void initialize()}
             onSelect={(id) => void attach(id)}
             pendingId={syncing ? selectedId : undefined}
@@ -308,6 +383,7 @@ export function App() {
       <RunDetails
         ask={active.ask}
         canConfigure={canConfig && !sessionActionsFrozen}
+        compact={active.compact}
         controlsDisabled={syncing || (running && !canControl)}
         config={config}
         guard={active.guard}
@@ -316,11 +392,6 @@ export function App() {
           active.snapshot?.session.model_ref ??
           config?.active_model
         }
-        onAskReply={(id, answer) =>
-          queueSessionOperation(() =>
-            rpc("agent.askReply", { id, answer }),
-          ).then(() => undefined)
-        }
         onClose={() => setDetailsOpen(false)}
         onCompact={() =>
           sessionActionsFrozen
@@ -328,11 +399,6 @@ export function App() {
             : queueSessionOperation(() => rpc("session.compact", {})).then(
                 () => undefined,
               )
-        }
-        onGuardReply={(id, decision) =>
-          queueSessionOperation(() =>
-            rpc("agent.guardReply", { id, decision }),
-          ).then(() => undefined)
         }
         onResume={
           active.run?.resume_available && canControl && !sessionActionsFrozen

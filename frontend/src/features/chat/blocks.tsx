@@ -442,7 +442,9 @@ export function LongMessage({ text }: { text: string }) {
   );
 }
 
-/** 内嵌决策卡：Guard 授权 / AskUser 问答，出现在产生它的上下文旁边。 */
+/** 内嵌决策卡：Guard 授权 / AskUser 问答，出现在产生它的上下文旁边。
+ * guard 带 suggestion 时展示三按钮（按建议执行/拒绝/批准原操作），
+ * 对齐 suna Guard 的 modify 决策语义（设计 §7.4）。 */
 export function DecisionCard({
   ask,
   guard,
@@ -454,7 +456,10 @@ export function DecisionCard({
   guard?: GuardConfirmEvent;
   controlsDisabled: boolean;
   onAskReply?: (id: string, answer: string) => Promise<void>;
-  onGuardReply?: (id: string, decision: "approve" | "reject") => Promise<void>;
+  onGuardReply?: (
+    id: string,
+    decision: "approve" | "reject" | "modify",
+  ) => Promise<void>;
 }) {
   if (!ask && !guard) return null;
   return (
@@ -480,6 +485,12 @@ export function DecisionCard({
       <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
         {guard ? guard.reason : ask?.question}
       </p>
+      {guard?.suggestion && (
+        <p className="mt-1.5 rounded-lg border border-amber/25 bg-amber/10 px-2.5 py-2 text-[12px] leading-relaxed text-ink-soft">
+          <span className="font-extrabold text-ink">建议改为：</span>
+          <code className="font-mono">{guard.suggestion}</code>
+        </p>
+      )}
       {(ask && !ask.can_reply) || (guard && !guard.can_reply) ? (
         <small className="mt-1.5 block text-[11px] font-semibold text-ink-muted">
           此请求由其他客户端处理；当前窗口仅可查看。
@@ -508,6 +519,26 @@ export function DecisionCard({
       )}
       {guard && (
         <div className="mt-2.5 flex gap-2">
+          {guard.suggestion ? (
+            // 有修改建议：三按钮（按建议执行 = modify / 拒绝 / 批准原操作）
+            <button
+              className="flex-1 cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!guard.can_reply || controlsDisabled}
+              onClick={() => void onGuardReply?.(guard.id, "modify")}
+              type="button"
+            >
+              按建议执行
+            </button>
+          ) : (
+            <button
+              className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!guard.can_reply || controlsDisabled}
+              onClick={() => void onGuardReply?.(guard.id, "approve")}
+              type="button"
+            >
+              批准
+            </button>
+          )}
           <button
             className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!guard.can_reply || controlsDisabled}
@@ -516,14 +547,16 @@ export function DecisionCard({
           >
             拒绝
           </button>
-          <button
-            className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!guard.can_reply || controlsDisabled}
-            onClick={() => void onGuardReply?.(guard.id, "approve")}
-            type="button"
-          >
-            批准
-          </button>
+          {guard.suggestion && (
+            <button
+              className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!guard.can_reply || controlsDisabled}
+              onClick={() => void onGuardReply?.(guard.id, "approve")}
+              type="button"
+            >
+              批准原操作
+            </button>
+          )}
         </div>
       )}
     </section>

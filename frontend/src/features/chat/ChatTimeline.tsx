@@ -45,7 +45,10 @@ type ChatTimelineProps = {
   ask?: AskUserEvent;
   guard?: GuardConfirmEvent;
   onAskReply?: (id: string, answer: string) => Promise<void>;
-  onGuardReply?: (id: string, decision: "approve" | "reject") => Promise<void>;
+  onGuardReply?: (
+    id: string,
+    decision: "approve" | "reject" | "modify",
+  ) => Promise<void>;
   /** 另一个客户端拥有 run 时禁用决策控件。 */
   controlsDisabled?: boolean;
   /** Runtime attach 了其他会话时变化，用于重置滚动锚点。 */

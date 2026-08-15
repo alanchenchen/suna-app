@@ -297,6 +297,14 @@ export function createNotificationHandler({
       });
       return;
     }
+    // 压缩（compact）过程/结果：running=true 进入压缩中，running=false
+    // 显示结果或错误。事件为全局通知，按当前作用域过滤。
+    if (event.method === "session.compact_result") {
+      const scope = getScope();
+      if (isSyncing() || !scope || scope.sessionId !== getSelectedId()) return;
+      setActive((value) => ({ ...value, compact: event.params }));
+      return;
+    }
     if (event.method === "session.user_message") {
       if (!acceptsSession(event.params.session_id)) return;
       const text = event.params.parts

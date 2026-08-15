@@ -6,9 +6,12 @@ type TaskOverviewProps = {
   connected: boolean;
   selectedId?: string;
   pendingId?: string;
+  /** 是否已配置模型（false 时显示引导卡）。 */
+  hasModels: boolean;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onReconnect: () => void;
+  onOpenSettings: () => void;
 };
 
 const statusLabels: Record<SessionInfo["status"], string> = {
@@ -83,9 +86,11 @@ export function TaskOverview({
   connected,
   selectedId,
   pendingId,
+  hasModels,
   onSelect,
   onCreate,
   onReconnect,
+  onOpenSettings,
 }: TaskOverviewProps) {
   const waiting = sessions.filter((session) => session.status === "waiting");
   const running = sessions.filter(
@@ -175,6 +180,31 @@ export function TaskOverview({
           </button>
         )}
       </header>
+
+      {connected && !hasModels && (
+        <section className="mb-6 animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-2xl border border-blue/25 bg-blue-soft/40 p-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue text-white shadow-[0_4px_10px_var(--color-blue-glow)]">
+              <Icon name="sparkle" size={16} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <strong className="block text-[13px] font-extrabold text-ink">
+                配置一个模型开始使用
+              </strong>
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+                Suna 还没有可用的模型。添加模型（如 DeepSeek）后即可新建任务。
+              </p>
+              <button
+                className="mt-2.5 cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-[0.98]"
+                onClick={onOpenSettings}
+                type="button"
+              >
+                去配置模型
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="space-y-6">
         {section("需要你处理", waiting.length, "bg-amber", waiting, 60)}

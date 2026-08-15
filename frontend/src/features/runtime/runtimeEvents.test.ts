@@ -473,4 +473,47 @@ describe("createNotificationHandler", () => {
       false,
     );
   });
+
+  it("tracks compact progress then result", () => {
+    const { send, getActive } = createHarness();
+    send({
+      method: "session.compact_result",
+      params: { running: true },
+    });
+    expect(getActive().compact?.running).toBe(true);
+
+    send({
+      method: "session.compact_result",
+      params: {
+        before_tokens: 162000,
+        after_tokens: 45000,
+        context_window: 1000000,
+        turns_compressed: 12,
+        summary_tokens: 3000,
+        truncated_outputs: 0,
+        running: false,
+      },
+    });
+    const compact = getActive().compact;
+    expect(compact?.running).toBe(false);
+    expect(compact?.before_tokens).toBe(162000);
+    expect(compact?.after_tokens).toBe(45000);
+  });
+
+  it("tracks compact failure and ignores for other sessions", () => {
+    const { deps, send, getActive } = createHarness();
+    send({
+      method: "session.compact_result",
+      params: { running: false, error: "context too large" },
+    });
+    expect(getActive().compact?.error).toBe("context too large");
+
+    // 其他会话（getSelectedId 不匹配）时忽略。
+    deps.getSelectedId.mockReturnValue("other");
+    send({
+      method: "session.compact_result",
+      params: { running: true },
+    });
+    expect(getActive().compact?.running).toBe(false);
+  });
 });

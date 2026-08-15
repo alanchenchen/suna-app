@@ -28,6 +28,10 @@ type SettingsProps = {
   onThemeChange: (theme: Theme) => void;
   connected: boolean;
   onReconnect: () => void;
+  /** 初始选中的 Tab（Onboarding 引导直接打开模型配置）。 */
+  initialTab?: TabId;
+  /** 关闭动画进行中：外层容器播放 panel-out 退出动画。 */
+  closing?: boolean;
 };
 
 export type SettingsTabProps = {
@@ -70,8 +74,10 @@ export function RuntimeSettings({
   onThemeChange,
   connected,
   onReconnect,
+  initialTab = "connection",
+  closing = false,
 }: SettingsProps) {
-  const [tab, setTab] = useState<TabId>("connection");
+  const [tab, setTab] = useState<TabId>(initialTab);
   const [memory, setMemory] = useState<MemoryItem[]>([]);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -107,7 +113,11 @@ export function RuntimeSettings({
   return (
     <section
       aria-label="Runtime 设置"
-      className="animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] runtime-settings overflow-hidden rounded-2xl border border-line bg-surface-solid shadow-lg"
+      className={`runtime-settings overflow-hidden rounded-2xl border border-line bg-surface-solid shadow-lg ${
+        closing
+          ? "pointer-events-none animate-[panel-out_180ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+          : "animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+      }`}
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
         <div>

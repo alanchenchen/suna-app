@@ -2,6 +2,7 @@ import type {
   AgentRunEvent,
   AgentUsageEvent,
   AskUserEvent,
+  CompactResultEvent,
   FlowSegment,
   GuardConfirmEvent,
   SessionSnapshot,
@@ -29,6 +30,8 @@ export type ActiveData = {
   guard?: GuardConfirmEvent;
   toolSummary?: ToolSummary;
   activeTool?: ToolStartEvent & { status?: "running" | "guard" | "failed" };
+  /** 最近一次压缩（compact）的过程/结果：由 session.compact_result 驱动。 */
+  compact?: CompactResultEvent;
   pendingUsers: PendingUserMessage[];
 };
 

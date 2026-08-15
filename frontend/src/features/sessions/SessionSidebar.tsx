@@ -50,6 +50,8 @@ type SessionSidebarProps = {
   selectedId?: string;
   open?: boolean;
   connected: boolean;
+  /** Runtime 版本号（连接后展示在底部状态行）。 */
+  runtimeVersion?: string;
   /** Session currently being attached by the application shell. */
   pendingId?: string;
   /** Prevent session-changing controls while the application shell is busy. */
@@ -221,6 +223,7 @@ export function SessionSidebar({
   selectedId,
   open = false,
   connected,
+  runtimeVersion,
   pendingId,
   disabled = false,
   onSelect,
@@ -452,6 +455,11 @@ export function SessionSidebar({
             className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-green" : "bg-[#8a8f9d]"}`}
           />
           {connected ? "Runtime 已连接" : "Runtime 未连接，点击重连"}
+          {connected && runtimeVersion && (
+            <span className="ml-auto text-[10px] font-semibold text-ink-muted">
+              v{runtimeVersion.replace(/^v/, "")}
+            </span>
+          )}
         </button>
         <div className="flex items-center gap-2.5 px-2 py-2">
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[11px] font-extrabold text-white">

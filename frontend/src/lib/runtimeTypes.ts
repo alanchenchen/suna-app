@@ -201,12 +201,13 @@ export type GuardConfirmEvent = {
   can_reply: boolean;
 };
 export type CompactResultEvent = {
-  before_tokens: number;
-  after_tokens: number;
-  context_window: number;
-  turns_compressed: number;
-  summary_tokens: number;
-  truncated_outputs: number;
+  /** 压缩进行中（running=true 时其余字段可省略）。 */
+  before_tokens?: number;
+  after_tokens?: number;
+  context_window?: number;
+  turns_compressed?: number;
+  summary_tokens?: number;
+  truncated_outputs?: number;
   noop?: boolean;
   running?: boolean;
   error?: string;
@@ -337,7 +338,7 @@ export type RuntimeBridgeMethods = {
     result: { status: "ok" };
   };
   "agent.guardReply": {
-    params: { id: string; decision: "approve" | "reject" };
+    params: { id: string; decision: "approve" | "reject" | "modify" };
     result: { status: "ok" };
   };
   "config.get": { params: Record<string, never>; result: RuntimeConfig };
