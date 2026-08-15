@@ -235,12 +235,32 @@ button {
     transform: translateY(0) scale(1);
   }
 }
+/* 弹层/面板退出动画：与 panel-pop 对称，关闭时播放避免瞬消。 */
+@keyframes panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}
 @keyframes scrim-in {
   from {
     opacity: 0;
   }
   to {
     opacity: 1;
+  }
+}
+/* 遮罩淡出：与 scrim-in 对称，关闭时播放。 */
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 @keyframes slide-down {
@@ -525,6 +545,10 @@ button {
       left: 0;
       width: min(82vw, 300px);
       background: var(--color-surface-solid);
+      /* 背景已是实色，去掉桌面样式的 backdrop-filter：移动端合成层
+         开销大（低端机抽屉滑动掉帧），且实色背景本就不需要模糊。 */
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       transform: translateX(-105%);
       transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
       box-shadow: var(--shadow-lg);
@@ -581,8 +605,9 @@ button {
       padding: 22px 20px;
       background: var(--color-surface-solid);
       box-shadow: var(--shadow-lg);
-      transform: translateX(105%);
-      transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      /* 覆盖基础 transition：平板/移动端只用 transform 过渡（宽度固定），
+         必须显式声明 transform，否则 Sheet 瞬移无动画。 */
+      transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     .details-panel.is-open {
       transform: translateX(0);
@@ -633,7 +658,9 @@ button {
     }
   }
 
-  /* 移动端遮罩。 */
+  /* 移动端遮罩：常驻 DOM，用 opacity/visibility 过渡实现淡入淡出
+     （条件渲染会导致瞬显瞬消）。去掉 backdrop-filter：遮罩是半透明
+     纯色，模糊只会增加移动端合成层开销。 */
   .mobile-scrim,
   .details-scrim {
     display: none;
@@ -647,9 +674,19 @@ button {
       width: 100%;
       height: 100%;
       padding: 0;
-      background: rgba(11, 16, 27, 0.2);
+      background: rgba(11, 16, 27, 0.42);
       border: 0;
-      backdrop-filter: blur(1px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition:
+        opacity 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        visibility 260ms;
+    }
+    .details-scrim.is-visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
     }
   }
   @media (max-width: 720px) {
@@ -661,9 +698,19 @@ button {
       width: 100%;
       height: 100%;
       padding: 0;
-      background: rgba(11, 16, 27, 0.2);
+      background: rgba(11, 16, 27, 0.42);
       border: 0;
-      backdrop-filter: blur(1px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition:
+        opacity 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        visibility 260ms;
+    }
+    .mobile-scrim.is-visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
     }
   }
 
