@@ -10,6 +10,8 @@ type SessionDialogsProps = {
   createOpen: boolean;
   onCreateOpenChange: (open: boolean) => void;
   onCreate: (cwd: string, title?: string) => Promise<void>;
+  /** 会话历史工作目录（去重），作为项目选择器候选。 */
+  knownCwds?: string[];
 };
 
 /** 会话级对话框：重命名与新建会话。 */
@@ -22,6 +24,7 @@ export function SessionDialogs({
   createOpen,
   onCreateOpenChange,
   onCreate,
+  knownCwds = [],
 }: SessionDialogsProps) {
   return (
     <>
@@ -67,10 +70,11 @@ export function SessionDialogs({
       <Dialog
         open={createOpen}
         onOpenChange={onCreateOpenChange}
-        title="新建会话"
-        description="选择工作目录，Suna 将在此目录内执行任务。"
+        title="新建任务"
+        description="选择项目目录，Suna 将在此目录内执行任务。"
       >
         <CreateSessionForm
+          knownCwds={knownCwds}
           onCancel={() => onCreateOpenChange(false)}
           onCreate={onCreate}
         />

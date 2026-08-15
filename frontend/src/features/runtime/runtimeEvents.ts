@@ -145,6 +145,8 @@ export function createNotificationHandler({
         intent: event.params.intent,
         params: event.params.params,
         status: "running",
+        // 前端本地计时：tool_start 记录开始时间，tool_end 计算耗时。
+        startedAt: Date.now(),
       };
       setActive((value) => {
         // 工具开始 = 之前的思考/回复段落结束；工具卡按顺序插入叙事流。
@@ -212,6 +214,10 @@ export function createNotificationHandler({
                   result: event.params.result,
                   resultTruncated: event.params.result_truncated,
                   error: event.params.error,
+                  // tool_end 时结算耗时；若缺失 startedAt（如快照恢复）则不计。
+                  durationMs: segment.item.startedAt
+                    ? Date.now() - segment.item.startedAt
+                    : undefined,
                 },
               }
             : segment,

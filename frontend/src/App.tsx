@@ -166,6 +166,7 @@ export function App() {
       <SessionSidebar
         connected={connected}
         onCreate={create}
+        onRequestCreate={() => setCreateOpen(true)}
         onReconnect={() => void initialize()}
         onSelect={(id) => void attach(id).then(() => setMobileMenuOpen(false))}
         onJoinActive={(id) =>
@@ -216,6 +217,7 @@ export function App() {
         <SessionDialogs
           createOpen={createOpen}
           editingTitle={editingTitle}
+          knownCwds={sessions.map((session) => session.cwd)}
           onCreate={(cwd, title) =>
             create(cwd, title).then(() => setCreateOpen(false))
           }

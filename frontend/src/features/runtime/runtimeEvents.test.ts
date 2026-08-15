@@ -240,6 +240,33 @@ describe("createNotificationHandler", () => {
     expect(segment.item.status).toBe("failed");
   });
 
+  it("measures tool duration from tool_start to tool_end", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-15T00:00:00Z"));
+    try {
+      const { send, getActive } = createHarness();
+      send({
+        method: "agent.tool_start",
+        params: { id: "t3", tool: "exec", params: {}, intent: "构建" },
+      });
+      vi.setSystemTime(new Date("2026-08-15T00:00:03Z"));
+      send({
+        method: "agent.tool_end",
+        params: { id: "t3", tool: "exec", result: "ok" },
+      });
+      const segment = getActive().flow.find(
+        (s): s is Extract<FlowSegment, { kind: "tool" }> =>
+          s.kind === "tool" && s.item.id === "t3",
+      );
+      if (segment?.kind !== "tool") {
+        throw new Error("tool segment not found");
+      }
+      expect(segment.item.durationMs).toBe(3000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stores ask and guard with reply permission", () => {
     const { send, getActive } = createHarness();
     send({

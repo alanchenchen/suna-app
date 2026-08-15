@@ -160,8 +160,26 @@ export const toneClasses: Record<string, string> = {
     "bg-blue-soft/60 border-blue/25 [&_.agent-activity-icon]:text-blue-strong [&_.activity-dots]:text-blue",
 };
 
-/** 工具卡：状态点 + 工具名 + 意图，点击展开参数与执行结果。 */
-export function ToolCard({ item }: { item: ToolFlowItem }) {
+/** 格式化工具耗时：不足 1 秒显示毫秒，超过显示秒（一位小数）。 */
+export function formatDuration(ms?: number) {
+  if (ms == null) return undefined;
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** 工具行折叠态的目标摘要：优先 intent，其次 params 里的路径/命令。 */
+export function toolTarget(item: ToolFlowItem) {
+  if (item.intent) return item.intent;
+  const params = item.params ?? {};
+  const candidates = [params.path, params.command, params.url, params.pattern];
+  const found = candidates.find((value) => typeof value === "string" && value);
+  return typeof found === "string" ? found : undefined;
+}
+
+/** 工具行：单行状态 + 工具名 + 目标摘要 + 耗时，点击展开参数与结果。
+ * 紧凑形态是主流 agent UI 的共识（Claude Code / Cursor / OpenHands），
+ * 一屏可扫读更多工具，展开才看细节。 */
+export function ToolRow({ item }: { item: ToolFlowItem }) {
   const [expanded, setExpanded] = useState(false);
   const status = item.status;
   const statusMeta = {
@@ -180,41 +198,47 @@ export function ToolCard({ item }: { item: ToolFlowItem }) {
   }[status];
   const hasDetail =
     Boolean(item.params && Object.keys(item.params).length > 0) ||
-    Boolean(item.result);
+    Boolean(item.result) ||
+    Boolean(item.error);
   const iconTone = {
     running: "bg-blue-soft text-blue-strong",
     guard: "bg-amber-soft text-amber",
     success: "bg-green-soft text-green",
     failed: "bg-rose/15 text-rose",
   }[status];
+  const target = toolTarget(item);
+  const duration = formatDuration(item.durationMs);
   return (
-    <article className="animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[14px] border border-line bg-surface-solid shadow-sm transition-[border-color] duration-160 hover:border-line-strong">
+    <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-transparent transition-colors duration-150 hover:border-line hover:bg-surface-subtle/60">
       <button
         aria-expanded={expanded}
-        className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left disabled:cursor-default"
+        className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-2 py-[5px] text-left disabled:cursor-default"
         disabled={!hasDetail}
         onClick={() => setExpanded((value) => !value)}
         type="button"
       >
         <span
           aria-hidden="true"
-          className={`h-[7px] w-[7px] shrink-0 rounded-full ${statusMeta.dot}`}
+          className={`h-[6px] w-[6px] shrink-0 rounded-full ${statusMeta.dot}`}
         />
         <span
-          className={`grid h-[24px] w-[24px] shrink-0 place-items-center rounded-lg ${iconTone}`}
+          className={`grid h-[19px] w-[19px] shrink-0 place-items-center rounded-md ${iconTone}`}
         >
-          <Icon name="tool" size={13} />
+          <Icon name="tool" size={11} />
         </span>
-        <span className="min-w-0 flex-1">
-          <code className="block truncate font-mono text-[11.5px] font-semibold text-ink">
-            {item.tool}
-          </code>
-          {item.intent && (
-            <span className="block truncate text-[10.5px] text-ink-muted">
-              {item.intent}
-            </span>
-          )}
-        </span>
+        <code className="shrink-0 font-mono text-[11px] font-bold text-ink">
+          {item.tool}
+        </code>
+        {target && (
+          <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-ink-muted">
+            {target}
+          </span>
+        )}
+        {duration && (
+          <time className="shrink-0 font-mono text-[10px] text-ink-muted">
+            {duration}
+          </time>
+        )}
         <span
           className={`shrink-0 text-[10px] font-extrabold ${statusMeta.text}`}
         >
@@ -223,13 +247,13 @@ export function ToolCard({ item }: { item: ToolFlowItem }) {
         {hasDetail && (
           <Icon
             name="chevron-down"
-            size={14}
+            size={12}
             className={`shrink-0 text-ink-muted transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
           />
         )}
       </button>
       {expanded && hasDetail && (
-        <div className="space-y-2 border-t border-line/70 px-3 py-2.5">
+        <div className="mx-2 mb-2 space-y-2 rounded-lg border border-line/70 bg-surface-raised/60 px-2.5 py-2">
           {item.params && Object.keys(item.params).length > 0 && (
             <div>
               <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">
@@ -240,7 +264,7 @@ export function ToolCard({ item }: { item: ToolFlowItem }) {
               </pre>
             </div>
           )}
-          {item.result && (
+          {item.result && !item.error && (
             <div>
               <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">
                 结果
@@ -255,16 +279,24 @@ export function ToolCard({ item }: { item: ToolFlowItem }) {
               </pre>
             </div>
           )}
+          {item.error && (
+            <div>
+              <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-rose">
+                错误
+              </span>
+              <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-rose">
+                {item.result}
+              </pre>
+            </div>
+          )}
         </div>
       )}
     </article>
   );
 }
 
-/** Skill 加载/校验状态卡：由 skill.load / skill.review 通知驱动，
- * 风格对齐 ToolCard 但更轻量——技能生命周期短，只显示状态与可选的
- * review 结论/错误详情。 */
-export function SkillCard({ item }: { item: SkillFlowItem }) {
+/** 技能行：单行状态 + 技能名 + 徽章，review 结论点击展开（SkillCard 行化）。 */
+export function SkillRow({ item }: { item: SkillFlowItem }) {
   const [expanded, setExpanded] = useState(false);
   const statusMeta = {
     loading: {
@@ -289,27 +321,25 @@ export function SkillCard({ item }: { item: SkillFlowItem }) {
     error: "bg-rose/15 text-rose",
   }[item.status];
   return (
-    <article className="animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[14px] border border-line bg-surface-solid shadow-sm transition-[border-color] duration-160 hover:border-line-strong">
+    <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-transparent transition-colors duration-150 hover:border-line hover:bg-surface-subtle/60">
       <button
         aria-expanded={expanded}
-        className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left disabled:cursor-default"
+        className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-2 py-[5px] text-left disabled:cursor-default"
         disabled={!item.detail}
         onClick={() => setExpanded((value) => !value)}
         type="button"
       >
         <span
           aria-hidden="true"
-          className={`h-[7px] w-[7px] shrink-0 rounded-full ${statusMeta.dot}`}
+          className={`h-[6px] w-[6px] shrink-0 rounded-full ${statusMeta.dot}`}
         />
         <span
-          className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md ${iconTone}`}
+          className={`grid h-[19px] w-[19px] shrink-0 place-items-center rounded-md ${iconTone}`}
         >
-          <Icon name="book" size={12} />
+          <Icon name="book" size={11} />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[11.5px] font-semibold text-ink">
-            技能 {item.name}
-          </span>
+        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-ink">
+          技能 {item.name}
         </span>
         <span
           className={`shrink-0 text-[10px] font-extrabold ${statusMeta.text}`}
@@ -319,13 +349,13 @@ export function SkillCard({ item }: { item: SkillFlowItem }) {
         {item.detail && (
           <Icon
             name="chevron-down"
-            size={14}
+            size={12}
             className={`shrink-0 text-ink-muted transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
           />
         )}
       </button>
       {expanded && item.detail && (
-        <div className="border-t border-line/70 px-3 py-2.5">
+        <div className="mx-2 mb-2 rounded-lg border border-line/70 bg-surface-raised/60 px-2.5 py-2">
           <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
             {item.detail}
           </pre>
@@ -334,6 +364,10 @@ export function SkillCard({ item }: { item: SkillFlowItem }) {
     </article>
   );
 }
+
+/** 兼容别名：旧调用点（测试/外部）仍可引用 ToolCard/SkillCard 名称。 */
+export const ToolCard = ToolRow;
+export const SkillCard = SkillRow;
 
 /** AskUser 自定义回答输入：回车发送，IME 组合输入时不误触。 */
 export function AskInlineInput({

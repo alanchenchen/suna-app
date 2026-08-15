@@ -156,6 +156,10 @@ export type ToolFlowItem = {
   result?: string;
   resultTruncated?: boolean;
   error?: boolean;
+  /** 工具执行耗时（毫秒，前端本地计时 tool_start→tool_end）。 */
+  durationMs?: number;
+  /** 工具开始时间戳（仅前端计时用，不渲染）。 */
+  startedAt?: number;
 };
 /** Skill 加载/校验状态行：由 skill.load / skill.review 通知驱动。 */
 export type SkillFlowItem = {

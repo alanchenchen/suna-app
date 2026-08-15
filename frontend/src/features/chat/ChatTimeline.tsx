@@ -290,16 +290,17 @@ export function ChatTimeline({
           </section>
         )}
         {!loading && flow.length > 0 && (
-          <div aria-label="执行过程" className="space-y-7">
+          <div aria-label="执行过程" className="space-y-0.5">
             {flow.map((segment) => {
               if (segment.kind === "reasoning") {
                 return (
-                  <ReasoningBlock
-                    done={segment.done}
-                    key={segment.id}
-                    running={running && !segment.done}
-                    text={segment.text}
-                  />
+                  <div className="mb-6" key={segment.id}>
+                    <ReasoningBlock
+                      done={segment.done}
+                      running={running && !segment.done}
+                      text={segment.text}
+                    />
+                  </div>
                 );
               }
               if (segment.kind === "tool") {
@@ -316,7 +317,7 @@ export function ChatTimeline({
               const streaming = !segment.done;
               return (
                 <article
-                  className="arriving animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]"
+                  className="arriving mb-6 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]"
                   key={segment.id}
                 >
                   <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
