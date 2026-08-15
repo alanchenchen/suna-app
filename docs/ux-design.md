@@ -13,7 +13,9 @@
 > - 去术语化（任务/项目/安全确认/外部工具）
 > - 移动端：底部 tab（总览/任务/设置）、决策卡全宽、safe-area、页面隐藏省电
 >
-> **暂缓不做**：Token 二维码/防暴力、多连接管理、系统通知、离线壳、独立帮助页、虚拟列表、多标签页专项、localStorage 版本化（仅加前缀）、Windows 托盘、开机自启
+> **暂缓不做**：Token 二维码/防暴力、多连接管理、系统通知、离线壳、独立帮助页、虚拟列表、多标签页专项、localStorage 版本化（仅加前缀）、开机自启
+>
+> **修订（2026-08）**：Windows 托盘已从暂缓移入阶段 4 必做（§1B 菜单栏/托盘是唯一符合 GUI 体验的退出入口，也是"进程仍在运行"的可见指示）。
 >
 > **待实测验证**（实施后按真实使用反馈调整）：工具行扫读效率、移动端布局细节。
 
@@ -63,13 +65,13 @@
 
 | TUI 能力 | Web 设计 | 状态 |
 |---|---|---|
-| 模型/Provider 完整管理（9 字段+reasoning） | ✅ 设置·模型表单 | 待实施 |
-| Guard 配置（模式/规则） | ✅ 设置·安全 | 待实施 |
-| 附件面板 | ✅ URL 列表+粘贴提示（Web 限制） | 待实施 |
-| Subtask 面板 | ✅ 时间线内嵌组（近似） | 待实施 |
-| SetupMode 首次引导 | ✅ Onboarding | 待实施 |
+| 模型/Provider 完整管理（9 字段+reasoning） | ✅ 设置·模型表单 | 已实施 |
+| Guard 配置（模式/规则） | ✅ 设置·安全 | 已实施 |
+| 附件面板 | ✅ URL 列表+粘贴提示（Web 限制） | 已实施（多图 chips） |
+| Subtask 面板 | ✅ 时间线内嵌组（精确分组） | 已实施 |
+| SetupMode 首次引导 | ✅ Onboarding | 已实施 |
 | / 命令 | ➖ UI 元素替代（Web 更优） | — |
-| daemon 聚合面板 | ✅ daemon.status 轻量版 | 待实施 |
+| daemon 聚合面板 | ✅ daemon.status 轻量版 | 已实施 |
 
 ### 产品级维度（v2 补充）
 
@@ -205,7 +207,7 @@
 | 平台 | 形态 | 双击效果 | 无终端实现 |
 |---|---|---|---|
 | macOS | `Suna App.app`（zip 分发，拖入 Applications） | 双击图标即开 | 二进制入 `Contents/MacOS/` + Info.plist（`LSUIElement=true` 纯菜单栏 app，无 Dock 图标） |
-| Windows | `.exe`（GUI subsystem） | 双击即开无黑框 | `-ldflags "-H=windowsgui"` + 托盘图标（后续可加 systray） |
+| Windows | `.exe`（GUI subsystem） | 双击即开无黑框 | `-ldflags "-H=windowsgui"` + 托盘图标（systray，阶段 4 必做） |
 | Linux | `.desktop` + 二进制 | 双击图标即开 | `.desktop` 的 `Exec` 不包终端；`xdg-open` 开浏览器 |
 
 ### 1B.3 启动流程
@@ -940,26 +942,32 @@ disconnected ──initialize──▶ connecting ──成功──▶ connecte
 6. **多连接管理（§1D）**：连接页多服务器配置 + 远程信任弹窗 + 登出
 7. **localStorage 版本化（§1F）**：命名空间 + schema 版本 + 迁移函数
 
-### 阶段 1（P0 · 体验与功能缺口）
+### 阶段 1（P0 · 体验与功能缺口）✅ 已完成
 4. 工具/技能行紧凑化（执行流改造，含耗时本地计时）
 5. 项目选择器（新建任务重构）
 6. 侧栏项目分组 + 搜索 + waiting 置顶
 7. 设置中心 Tab 化：连接 / 模型 / 安全 / 记忆 / 技能 / 外部工具（模型表单 + Guard 配置）
 
-### 阶段 2（P1 · 完整性与多任务）
+### 阶段 2（P1 · 完整性与多任务）✅ 已完成
 8. 决策卡 modify 三按钮 + 右栏只读收敛
 9. 多任务通知（通知条 + 徽标 + 文档标题）
 10. 整理（compact）过程/结果展示（补 compact_result 事件）
 11. daemon 状态常驻（侧栏底 + 设置·连接）
 12. Onboarding 引导
 
-### 阶段 3（P2 · 增强）
-13. Subtask 内嵌组
+### 阶段 3（P2 · 增强）✅ 已完成
+13. Subtask 内嵌组（spawn 命名空间精确分组）
 14. Cmd+K 全局命令面板
-15. 移动端底部 tab（总览/任务/设置）+ 安全区 + 省电优化
+15. 移动端底部 tab（总览/任务/设置）+ 安全区 + 省电优化（省电小项待补）
 16. 多图附件 + 粘贴提示
 17. 路由（#/session/:id）
-18. Locale 切换（若协议支持）
+18. Locale 切换（zh/en，机器检测 + 手动切换）
+
+### 阶段 4（产品化收尾 · 未实施）
+19. 局域网访问（`--listen 0.0.0.0`，不做 Token，同 WiFi 信任）
+20. 连接记忆（记住上次地址，localStorage 单键）
+21. 分发形态（§1B）：macOS .app 打包 + 自动开浏览器 + 菜单栏退出 + 设置页退出（shutdown 端点 loopback-only）；Windows GUI subsystem + **托盘图标（systray，与 macOS 菜单栏同级必做）**
+22. PWA manifest（添加到主屏，不做系统通知/离线壳）
 
 ### 协议增强（需 suna 侧，待议）
 - `guard.audit` method（审计记录）
