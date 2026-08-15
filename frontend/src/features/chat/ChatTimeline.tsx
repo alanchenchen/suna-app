@@ -16,6 +16,7 @@ import {
   ReasoningBlock,
   SkillCard,
   StreamActivity,
+  SubtaskCard,
   toneClasses,
   ToolCard,
 } from "./blocks";
@@ -112,7 +113,7 @@ export function ChatTimeline({
     historyAnchorRef.current = undefined;
   }, [historyWindow]);
   useLayoutEffect(() => {
-    const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : s.kind === "skill" ? `sk${s.item.name}:${s.item.status}` : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
+    const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : s.kind === "skill" ? `sk${s.item.name}:${s.item.status}` : s.kind === "subtask" ? `st${s.item.id}:${s.item.status}:${s.item.tools.length}` : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
     if (lastContentKeyRef.current === key) return;
     lastContentKeyRef.current = key;
     // 只在读者已经位于最新边缘时保持活跃对话锚定；浏览历史时绝不能被
@@ -314,6 +315,14 @@ export function ChatTimeline({
                   <SkillCard
                     item={segment.item}
                     key={`skill-${segment.item.name}`}
+                  />
+                );
+              }
+              if (segment.kind === "subtask") {
+                return (
+                  <SubtaskCard
+                    item={segment.item}
+                    key={`subtask-${segment.item.id}`}
                   />
                 );
               }

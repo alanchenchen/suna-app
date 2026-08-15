@@ -4,6 +4,7 @@ import type {
   AskUserEvent,
   GuardConfirmEvent,
   SkillFlowItem,
+  SubtaskFlowItem,
   ToolFlowItem,
 } from "../../lib/runtimeBridge";
 import { LazyMarkdown } from "./LazyMarkdown";
@@ -368,6 +369,83 @@ export function SkillRow({ item }: { item: SkillFlowItem }) {
 /** 兼容别名：旧调用点（测试/外部）仍可引用 ToolCard/SkillCard 名称。 */
 export const ToolCard = ToolRow;
 export const SkillCard = SkillRow;
+
+/** 子任务组：折叠行显示任务目标 + 工具数 + 状态，展开后内嵌工具行。
+ * 由 spawn 工具的 tool_start/end 创建与结算，组内工具来自
+ * `spawn:<spawnID>:<toolID>` 命名空间（suna 协议透传）。 */
+export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const statusMeta = {
+    running: {
+      dot: "bg-blue animate-pulse",
+      label: "运行中",
+      text: "text-blue-strong",
+    },
+    success: { dot: "bg-green", label: "完成", text: "text-green" },
+    failed: { dot: "bg-rose", label: "失败", text: "text-rose" },
+  }[item.status];
+  const iconTone = {
+    running: "bg-blue-soft text-blue-strong",
+    success: "bg-green-soft text-green",
+    failed: "bg-rose/15 text-rose",
+  }[item.status];
+  const toolCount = item.tools.length;
+  return (
+    <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-line/80 bg-surface-solid/70 transition-colors duration-150 hover:border-line-strong">
+      <button
+        aria-expanded={expanded}
+        className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-2 py-[5px] text-left"
+        onClick={() => setExpanded((value) => !value)}
+        type="button"
+      >
+        <Icon
+          className={`shrink-0 text-ink-muted transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+          name="chevron-right"
+          size={12}
+        />
+        <span
+          aria-hidden="true"
+          className={`h-[6px] w-[6px] shrink-0 rounded-full ${statusMeta.dot}`}
+        />
+        <span
+          className={`grid h-[19px] w-[19px] shrink-0 place-items-center rounded-md ${iconTone}`}
+        >
+          <Icon name="users" size={11} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-ink">
+          {item.task || "子任务"}
+        </span>
+        <span className="shrink-0 text-[10px] font-semibold text-ink-muted">
+          {toolCount > 0 ? `${toolCount} 个工具` : ""}
+        </span>
+        <span
+          className={`shrink-0 text-[10px] font-extrabold ${statusMeta.text}`}
+        >
+          {statusMeta.label}
+        </span>
+      </button>
+      {expanded && (
+        <div className="mx-1 mb-1 grid gap-0.5 border-t border-line/60 pt-1">
+          {item.tools.map((tool) => (
+            <ToolRow item={tool} key={tool.id} />
+          ))}
+          {toolCount === 0 && (
+            <p className="px-2 py-1.5 text-[10.5px] text-ink-muted">
+              {item.status === "running"
+                ? "等待子任务执行工具…"
+                : "子任务未执行工具"}
+            </p>
+          )}
+          {item.result && (
+            <pre className="mx-1 mb-1 mt-1 max-h-[160px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
+              {item.result}
+            </pre>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
 
 /** AskUser 自定义回答输入：回车发送，IME 组合输入时不误触。 */
 export function AskInlineInput({

@@ -111,11 +111,14 @@ describe("createNotificationHandler", () => {
     const active = getActive();
     // current_run 状态收敛为 idle。
     expect(active.snapshot?.current_run?.status).toBe("idle");
-    // 叙事流段全部标为已结束（工具段/技能段除外）。
+    // 叙事流段全部标为已结束（工具段/技能段/子任务段除外）。
     expect(
       active.flow.every(
         (segment) =>
-          segment.kind === "tool" || segment.kind === "skill" || segment.done,
+          segment.kind === "tool" ||
+          segment.kind === "skill" ||
+          segment.kind === "subtask" ||
+          segment.done,
       ),
     ).toBe(true);
   });
@@ -515,5 +518,71 @@ describe("createNotificationHandler", () => {
       params: { running: true },
     });
     expect(getActive().compact?.running).toBe(false);
+  });
+
+  it("groups namespaced subtask tools under the spawn segment", () => {
+    const { send, getActive } = createHarness();
+    // spawn 工具自身：创建子任务组段。
+    send({
+      method: "agent.tool_start",
+      params: { id: "s1", tool: "spawn", params: { task: "分析日志" } },
+    });
+    let flow = getActive().flow;
+    const group = flow.find((s) => s.kind === "subtask");
+    expect(group).toMatchObject({
+      kind: "subtask",
+      item: { id: "s1", task: "分析日志", status: "running", tools: [] },
+    });
+    // 子任务内部工具（namespaced id）：归入组，不生成独立工具行。
+    send({
+      method: "agent.tool_start",
+      params: {
+        id: "spawn:s1:t1",
+        tool: "readfile",
+        params: { path: "/tmp/a" },
+      },
+    });
+    send({
+      method: "agent.tool_end",
+      params: { id: "spawn:s1:t1", tool: "readfile", result: "ok" },
+    });
+    flow = getActive().flow;
+    const group2 = flow.find(
+      (s): s is Extract<FlowSegment, { kind: "subtask" }> =>
+        s.kind === "subtask",
+    );
+    expect(group2?.item.tools).toHaveLength(1);
+    expect(group2?.item.tools[0]).toMatchObject({
+      id: "spawn:s1:t1",
+      status: "success",
+    });
+    // 普通工具行数量：spawn 不产生独立行，只有 0 个 kind=tool 段。
+    expect(flow.filter((s) => s.kind === "tool")).toHaveLength(0);
+    // spawn 结束：结算组状态。
+    send({
+      method: "agent.tool_end",
+      params: { id: "s1", tool: "spawn", result: "分析完成" },
+    });
+    const done = getActive().flow.find(
+      (s): s is Extract<FlowSegment, { kind: "subtask" }> =>
+        s.kind === "subtask",
+    );
+    expect(done?.item.status).toBe("success");
+    expect(done?.item.result).toBe("分析完成");
+  });
+
+  it("falls back to plain tool row when spawn group is missing", () => {
+    const { send, getActive } = createHarness();
+    // 未找到对应 spawn 组的 namespaced 工具：忽略组逻辑，不崩溃。
+    send({
+      method: "agent.tool_start",
+      params: {
+        id: "spawn:ghost:t1",
+        tool: "exec",
+        params: { command: "echo hi" },
+      },
+    });
+    expect(getActive().flow.some((s) => s.kind === "subtask")).toBe(false);
+    expect(getActive().flow.some((s) => s.kind === "tool")).toBe(false);
   });
 });

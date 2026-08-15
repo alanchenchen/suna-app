@@ -37,6 +37,8 @@ export function ConnectionTab({
   theme,
   connected,
   onReconnect,
+  locale,
+  onChangeLocale,
 }: SettingsTabProps) {
   const [status, setStatus] = useState<DaemonStatus>();
   useEffect(() => {
@@ -161,6 +163,32 @@ export function ConnectionTab({
           </div>
         </section>
       )}
+
+      {/* 语言：机器检测（浏览器语言），可手动切换中英文（设计 §阶段 3）。 */}
+      <section className="rounded-xl border border-line bg-surface-raised/60 p-3.5">
+        <h3 className="m-0 mb-2 text-[13px] font-extrabold text-ink">语言</h3>
+        <div className="flex gap-1.5">
+          {(
+            [
+              ["zh", "中文"],
+              ["en", "English"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              className={`cursor-pointer rounded-lg border px-2.5 py-1.5 text-[12px] font-bold transition-colors duration-150 ${
+                locale === value
+                  ? "border-blue/60 bg-blue-soft text-blue-strong"
+                  : "border-line bg-surface-raised text-ink-soft hover:bg-surface-subtle"
+              }`}
+              key={value}
+              onClick={() => onChangeLocale(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

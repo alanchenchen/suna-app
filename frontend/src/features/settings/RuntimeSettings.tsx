@@ -32,6 +32,10 @@ type SettingsProps = {
   initialTab?: TabId;
   /** 关闭动画进行中：外层容器播放 panel-out 退出动画。 */
   closing?: boolean;
+  /** 当前界面语言。 */
+  locale: string;
+  /** 切换界面语言。 */
+  onChangeLocale: (locale: "zh" | "en") => void;
 };
 
 export type SettingsTabProps = {
@@ -46,16 +50,20 @@ export type SettingsTabProps = {
   onThemeChange: (theme: Theme) => void;
   connected: boolean;
   onReconnect: () => void;
+  /** 当前界面语言。 */
+  locale: string;
+  /** 切换界面语言。 */
+  onChangeLocale: (locale: "zh" | "en") => void;
 };
 
-/** 设置中心 Tab 定义：名称面向用户（设计 §10 去术语化）。 */
+/** 设置中心 Tab 定义：名称面向用户（设计 §10 去术语化），双语。 */
 const TABS = [
-  { id: "connection", label: "连接", icon: "link" },
-  { id: "models", label: "模型", icon: "sparkle" },
-  { id: "security", label: "安全", icon: "shield" },
-  { id: "memory", label: "记忆", icon: "database" },
-  { id: "skills", label: "技能", icon: "book" },
-  { id: "mcp", label: "外部工具", icon: "plug" },
+  { id: "connection", labelZh: "连接", labelEn: "Connection", icon: "link" },
+  { id: "models", labelZh: "模型", labelEn: "Models", icon: "sparkle" },
+  { id: "security", labelZh: "安全", labelEn: "Security", icon: "shield" },
+  { id: "memory", labelZh: "记忆", labelEn: "Memory", icon: "database" },
+  { id: "skills", labelZh: "技能", labelEn: "Skills", icon: "book" },
+  { id: "mcp", labelZh: "外部工具", labelEn: "External tools", icon: "plug" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -76,6 +84,8 @@ export function RuntimeSettings({
   onReconnect,
   initialTab = "connection",
   closing = false,
+  locale,
+  onChangeLocale,
 }: SettingsProps) {
   const [tab, setTab] = useState<TabId>(initialTab);
   const [memory, setMemory] = useState<MemoryItem[]>([]);
@@ -108,6 +118,8 @@ export function RuntimeSettings({
     onThemeChange,
     connected,
     onReconnect,
+    locale,
+    onChangeLocale,
   };
 
   return (
@@ -122,10 +134,10 @@ export function RuntimeSettings({
       <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
         <div>
           <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-            设置中心
+            {locale === "en" ? "Settings" : "设置中心"}
           </p>
           <h2 className="mt-0.5 text-[16px] font-extrabold text-ink">
-            Suna 设置
+            {locale === "en" ? "Suna Settings" : "Suna 设置"}
           </h2>
         </div>
         <IconButton label="关闭设置" onClick={onClose}>
@@ -138,23 +150,26 @@ export function RuntimeSettings({
         className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2"
         role="tablist"
       >
-        {TABS.map((item) => (
-          <button
-            aria-selected={tab === item.id}
-            className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold transition-colors duration-150 ${
-              tab === item.id
-                ? "bg-blue-soft text-blue-strong"
-                : "text-ink-soft hover:bg-surface-subtle hover:text-ink"
-            }`}
-            key={item.id}
-            onClick={() => setTab(item.id)}
-            role="tab"
-            type="button"
-          >
-            <Icon name={item.icon} size={13} />
-            {item.label}
-          </button>
-        ))}
+        {TABS.map((item) => {
+          const label = locale === "en" ? item.labelEn : item.labelZh;
+          return (
+            <button
+              aria-selected={tab === item.id}
+              className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold transition-colors duration-150 ${
+                tab === item.id
+                  ? "bg-blue-soft text-blue-strong"
+                  : "text-ink-soft hover:bg-surface-subtle hover:text-ink"
+              }`}
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              role="tab"
+              type="button"
+            >
+              <Icon name={item.icon} size={13} />
+              {label}
+            </button>
+          );
+        })}
       </div>
       <div className="max-h-[calc(100vh-230px)] overflow-auto p-4">
         {error && (

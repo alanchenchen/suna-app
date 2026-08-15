@@ -177,7 +177,27 @@ export type FlowSegment =
   | { kind: "reasoning"; id: number; text: string; done: boolean }
   | { kind: "assistant"; id: number; text: string; done: boolean }
   | { kind: "tool"; item: ToolFlowItem }
-  | { kind: "skill"; item: SkillFlowItem };
+  | { kind: "skill"; item: SkillFlowItem }
+  | { kind: "subtask"; item: SubtaskFlowItem };
+
+/**
+ * 子任务（spawn）组：suna 把子任务内工具事件的 id 命名为
+ * `spawn:<spawnID>:<toolID>`，前端据此把属于同一 spawn 的工具
+ * 聚合为一个可折叠组，而不是拍平在主时间线（设计 §7.3）。
+ * 组状态由 spawn 工具自身的 tool_end 结算。
+ */
+export type SubtaskFlowItem = {
+  /** spawn 工具的 tool_call_id（即 spawnID）。 */
+  id: string;
+  /** 子任务目标（来自 spawn params.task / intent）。 */
+  task?: string;
+  status: "running" | "success" | "failed";
+  /** 组内工具执行记录（按到达顺序）。 */
+  tools: ToolFlowItem[];
+  /** spawn 返回的结果摘要。 */
+  result?: string;
+  error?: boolean;
+};
 
 export type AskUserEvent = {
   question: string;

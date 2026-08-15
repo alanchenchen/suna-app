@@ -139,15 +139,9 @@ export function createNotificationHandler({
     if (event.method === "agent.tool_start") {
       const scope = getScope();
       if (isSyncing() || !scope || scope.sessionId !== getSelectedId()) return;
-      const item: ToolFlowItem = {
-        id: event.params.id,
-        tool: event.params.tool,
-        intent: event.params.intent,
-        params: event.params.params,
-        status: "running",
-        // 前端本地计时：tool_start 记录开始时间，tool_end 计算耗时。
-        startedAt: Date.now(),
-      };
+      const id = event.params.id;
+      const subtaskMatch = id.match(/^spawn:([^:]+):(.+)$/);
+      const isSpawn = event.params.tool === "spawn";
       setActive((value) => {
         // 工具开始 = 之前的思考/回复段落结束；工具卡按顺序插入叙事流。
         const flow = value.flow.map((segment) =>
@@ -155,6 +149,67 @@ export function createNotificationHandler({
             ? { ...segment, done: true }
             : segment,
         );
+        // 子任务内部工具（id 前缀 spawn:<spawnID>:）：归入对应子任务组。
+        if (subtaskMatch) {
+          const spawnId = subtaskMatch[1];
+          const index = flow.findIndex(
+            (segment) =>
+              segment.kind === "subtask" && segment.item.id === spawnId,
+          );
+          if (index < 0) return { ...value, flow };
+          const segment = flow[index];
+          if (segment.kind !== "subtask") return { ...value, flow };
+          const item: ToolFlowItem = {
+            id,
+            tool: event.params.tool,
+            intent: event.params.intent,
+            params: event.params.params,
+            status: "running",
+            startedAt: Date.now(),
+          };
+          const next = [...flow];
+          next[index] = {
+            kind: "subtask",
+            item: { ...segment.item, tools: [...segment.item.tools, item] },
+          };
+          return {
+            ...value,
+            activeTool: { ...event.params, status: "running" },
+            flow: next,
+          };
+        }
+        // spawn 工具自身：创建子任务组段（替代普通工具行）。
+        if (isSpawn) {
+          const task =
+            typeof event.params.params?.task === "string"
+              ? event.params.params.task
+              : event.params.intent;
+          return {
+            ...value,
+            activeTool: { ...event.params, status: "running" },
+            flow: [
+              ...flow,
+              {
+                kind: "subtask",
+                item: {
+                  id,
+                  task,
+                  status: "running" as const,
+                  tools: [],
+                },
+              },
+            ],
+          };
+        }
+        const item: ToolFlowItem = {
+          id,
+          tool: event.params.tool,
+          intent: event.params.intent,
+          params: event.params.params,
+          status: "running",
+          // 前端本地计时：tool_start 记录开始时间，tool_end 计算耗时。
+          startedAt: Date.now(),
+        };
         // 单 run 工具卡硬上限：超长 run 会累积大量 DOM，丢弃最旧的
         // 工具段保持叙事顺序，历史细节由 toolSummary 统计兜底。
         const toolCount = flow.filter(
@@ -175,54 +230,145 @@ export function createNotificationHandler({
       return;
     }
     if (event.method === "agent.tool_guard") {
-      setActive((value) => ({
-        ...value,
-        activeTool:
-          value.activeTool?.id === event.params.tool_call_id
-            ? { ...value.activeTool, status: "guard" }
-            : value.activeTool,
-        flow: value.flow.map((segment) =>
-          segment.kind === "tool" &&
-          segment.item.id === event.params.tool_call_id
-            ? {
-                ...segment,
-                item: { ...segment.item, status: "guard" as const },
-              }
-            : segment,
-        ),
-      }));
+      const subtaskMatch =
+        event.params.tool_call_id.match(/^spawn:([^:]+):(.+)$/);
+      setActive((value) => {
+        // 子任务内部工具的 guard：更新组内对应工具状态。
+        if (subtaskMatch) {
+          const spawnId = subtaskMatch[1];
+          return {
+            ...value,
+            flow: value.flow.map((segment) =>
+              segment.kind === "subtask" && segment.item.id === spawnId
+                ? {
+                    ...segment,
+                    item: {
+                      ...segment.item,
+                      tools: segment.item.tools.map((tool) =>
+                        tool.id === event.params.tool_call_id
+                          ? { ...tool, status: "guard" as const }
+                          : tool,
+                      ),
+                    },
+                  }
+                : segment,
+            ),
+          };
+        }
+        return {
+          ...value,
+          activeTool:
+            value.activeTool?.id === event.params.tool_call_id
+              ? { ...value.activeTool, status: "guard" }
+              : value.activeTool,
+          flow: value.flow.map((segment) =>
+            segment.kind === "tool" &&
+            segment.item.id === event.params.tool_call_id
+              ? {
+                  ...segment,
+                  item: { ...segment.item, status: "guard" as const },
+                }
+              : segment,
+          ),
+        };
+      });
       return;
     }
     if (event.method === "agent.tool_end") {
-      setActive((value) => ({
-        ...value,
-        activeTool:
-          value.activeTool?.id === event.params.id
-            ? event.params.error
-              ? { ...value.activeTool, status: "failed" }
-              : undefined
-            : value.activeTool,
-        flow: value.flow.map((segment) =>
-          segment.kind === "tool" && segment.item.id === event.params.id
-            ? {
-                ...segment,
-                item: {
-                  ...segment.item,
-                  status: event.params.error
-                    ? ("failed" as const)
-                    : ("success" as const),
-                  result: event.params.result,
-                  resultTruncated: event.params.result_truncated,
-                  error: event.params.error,
-                  // tool_end 时结算耗时；若缺失 startedAt（如快照恢复）则不计。
-                  durationMs: segment.item.startedAt
-                    ? Date.now() - segment.item.startedAt
-                    : undefined,
-                },
-              }
-            : segment,
-        ),
-      }));
+      const subtaskMatch = event.params.id.match(/^spawn:([^:]+):(.+)$/);
+      const isSpawn = event.params.tool === "spawn";
+      setActive((value) => {
+        // 子任务内部工具结束：更新组内工具状态与耗时。
+        if (subtaskMatch) {
+          const spawnId = subtaskMatch[1];
+          return {
+            ...value,
+            activeTool:
+              value.activeTool?.id === event.params.id
+                ? event.params.error
+                  ? { ...value.activeTool, status: "failed" }
+                  : undefined
+                : value.activeTool,
+            flow: value.flow.map((segment) =>
+              segment.kind === "subtask" && segment.item.id === spawnId
+                ? {
+                    ...segment,
+                    item: {
+                      ...segment.item,
+                      tools: segment.item.tools.map((tool) =>
+                        tool.id === event.params.id
+                          ? {
+                              ...tool,
+                              status: event.params.error
+                                ? ("failed" as const)
+                                : ("success" as const),
+                              result: event.params.result,
+                              resultTruncated: event.params.result_truncated,
+                              error: event.params.error,
+                              durationMs: tool.startedAt
+                                ? Date.now() - tool.startedAt
+                                : undefined,
+                            }
+                          : tool,
+                      ),
+                    },
+                  }
+                : segment,
+            ),
+          };
+        }
+        // spawn 工具自身结束：结算子任务组状态（success/failed + 结果）。
+        if (isSpawn) {
+          return {
+            ...value,
+            activeTool: undefined,
+            flow: value.flow.map((segment) =>
+              segment.kind === "subtask" && segment.item.id === event.params.id
+                ? {
+                    ...segment,
+                    item: {
+                      ...segment.item,
+                      status: event.params.error
+                        ? ("failed" as const)
+                        : ("success" as const),
+                      result: event.params.result,
+                      error: event.params.error,
+                    },
+                  }
+                : segment,
+            ),
+          };
+        }
+        return {
+          ...value,
+          activeTool:
+            value.activeTool?.id === event.params.id
+              ? event.params.error
+                ? { ...value.activeTool, status: "failed" }
+                : undefined
+              : value.activeTool,
+          flow: value.flow.map((segment) =>
+            segment.kind === "tool" && segment.item.id === event.params.id
+              ? {
+                  ...segment,
+                  item: {
+                    ...segment.item,
+                    status: event.params.error
+                      ? ("failed" as const)
+                      : ("success" as const),
+                    result: event.params.result,
+                    resultTruncated: event.params.result_truncated,
+                    error: event.params.error,
+                    // tool_end 时结算耗时；若缺失 startedAt（如快照恢复）则不计。
+                    durationMs: segment.item.startedAt
+                      ? Date.now() - segment.item.startedAt
+                      : undefined,
+                  },
+                }
+              : segment,
+          ),
+        };
+      });
       return;
     }
     if (event.method === "agent.ask_user") {
