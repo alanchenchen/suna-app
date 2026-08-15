@@ -472,8 +472,15 @@ button {
   @media (max-width: 720px) {
     .app-shell,
     .app-shell.details-closed {
-      display: block;
+      display: flex;
+      flex-direction: column;
       height: 100dvh;
+      overflow: hidden;
+    }
+    /* 底部导航占位后，workspace 收缩到剩余高度（flex 布局）。 */
+    .app-shell > .workspace {
+      flex: 1 1 auto;
+      min-height: 0;
     }
   }
 
@@ -492,7 +499,9 @@ button {
     .workspace {
       display: flex;
       flex-direction: column;
-      height: 100%;
+      /* 父级 app-shell 已是 flex column：这里不再设 height:100%
+         （会与 flex 收缩冲突），由 app-shell > .workspace 的
+         flex:1 + min-height:0 决定实际高度。 */
       min-height: 0;
     }
     .workspace > .conversation-wrap {
@@ -742,6 +751,23 @@ button {
       top: 64px;
       width: auto;
     }
+  }
+
+  /* 移动端底部导航：仅窄屏显示，固定底部 + 安全区。 */
+  .mobile-tabbar {
+    display: none;
+  }
+  @media (max-width: 720px) {
+    .mobile-tabbar {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: stretch;
+      padding: 2px 8px max(4px, env(safe-area-inset-bottom));
+      background: var(--color-surface-solid);
+      border-top: 1px solid var(--color-line);
+    }
+    /* 底部导航占用高度后，聊天区 flex 收缩由 workspace 的
+       flex 布局自然处理（composer 固定在 tabbar 上方）。 */
   }
 
   /* 桌面图标按钮基元（移动端在组件里放大触控）。 */

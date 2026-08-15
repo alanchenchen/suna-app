@@ -651,6 +651,28 @@ disconnected ──initialize──▶ connecting ──成功──▶ connecte
 - observer 状态：输入区虚线置灰 + "当前为观察者"提示（现有）。
 - waiting 状态：发送按钮禁用 + 提示"等待你回复其他会话的请求"。
 
+### 7.6 附件能力边界（2026-08 确认）
+
+对外协议 `AttachmentRef.Kind` 只接受三种：`path` / `url` / `attachment`，明确拒绝 base64/blob。
+对第三方 UI 的实际可用性：
+
+| kind | TUI | Web | 说明 |
+|---|---|---|---|
+| `url` | ✅ | ✅ 唯一可用 | 当前多图 chips 已实现 |
+| `path` | ✅ 拖拽/粘贴生成临时文件 | ❌ 浏览器拿不到本地绝对路径 | Web 需 gateway 桥接（见下） |
+| `attachment` | ✅ 附件面板 | ❌ 不可达 | `attachment.*` 方法明确不对第三方开放，无法生成/引用 |
+
+**待议增强：gateway 本地图片上传桥接（转 path）**
+
+```
+浏览器 multipart POST → gateway 落盘临时文件 → 以 path kind 发给 runtime
+```
+
+- runtime 与 gateway 同机，`path` 指向 gateway 写的本地文件即可被 runtime 直接读取
+  （等价于 TUI 拖拽图片的做法：生成临时文件 → path kind），**无需触碰 attachment**
+- 需定：存储位置、生命周期/清理、大小限制、鉴权（是否限本机）
+- 状态：**暂缓**，待有真实本地图片上传需求时再实施
+
 ---
 
 ## 8. 右栏（状态与用量）
@@ -943,6 +965,10 @@ disconnected ──initialize──▶ connecting ──成功──▶ connecte
 - `guard.audit` method（审计记录）
 - subtask 边界事件（精确子任务分组）
 - `session.updated` 携带 phase（总览显示阶段）
+- snapshot 携带工具明细（刷新后完整恢复工具行/子任务组，当前只有 tool_summary 汇总）
+
+### Gateway 增强（待议）
+- 本地图片上传桥接（§7.6）：multipart POST → gateway 落盘 → `path` kind 发 runtime；暂缓
 
 ---
 

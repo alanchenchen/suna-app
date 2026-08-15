@@ -3,6 +3,7 @@ import { Icon } from "./components/Icon";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer } from "./features/chat/Composer";
 import { RunDetails } from "./features/run/RunDetails";
+import { CommandPalette } from "./features/commands/CommandPalette";
 import { useRuntimeSession } from "./features/runtime/useRuntimeSession";
 import { SessionSidebar } from "./features/sessions/SessionSidebar";
 import { SessionHeader } from "./features/sessions/SessionHeader";
@@ -11,6 +12,12 @@ import { SessionDialogs } from "./features/sessions/SessionDialogs";
 import { TaskOverview } from "./features/overview/TaskOverview";
 import { RuntimeSettings } from "./features/settings/RuntimeSettings";
 import type { Theme } from "./lib/models";
+import {
+  createTranslator,
+  detectLocale,
+  saveLocale,
+  type Locale,
+} from "./lib/i18n";
 import "./styles/tailwind.css";
 
 /** 应用壳：主题与 UI 状态 + 会话工作区组合。 */
@@ -22,6 +29,13 @@ export function App() {
       ? saved
       : "system";
   });
+  // 语言：机器检测（浏览器语言）+ 手动切换持久化；t 随 locale 变化重建。
+  const [locale, setLocale] = useState<Locale>(detectLocale);
+  const t = createTranslator(locale);
+  const changeLocale = useCallback((next: Locale) => {
+    setLocale(next);
+    saveLocale(next);
+  }, []);
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
@@ -70,6 +84,16 @@ export function App() {
     return () => media.removeEventListener("change", onChange);
   }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  /** 移动端底部导航：总览 / 任务（工作台）/ 设置。 */
+  const [mobileTab, setMobileTab] = useState<
+    "overview" | "session" | "settings"
+  >(() =>
+    window.matchMedia("(max-width: 720px)").matches
+      ? window.location.hash.includes("/session/")
+        ? "session"
+        : "overview"
+      : "session",
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** 设置关闭动画进行中：先播退出动画再卸载，避免瞬消。 */
@@ -88,13 +112,13 @@ export function App() {
   >("connection");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-  const [composerFocus, setComposerFocus] = useState(0);
-  // Cmd/Ctrl+K 聚焦输入框：桌面快速开始输入。
+  const [commandOpen, setCommandOpen] = useState(false);
+  // Cmd/Ctrl+K 打开全局命令面板（搜索任务 + 快捷动作）。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setComposerFocus((value) => value + 1);
+        setCommandOpen((value) => !value);
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -140,6 +164,38 @@ export function App() {
   const sessionActionsFrozen = syncing || !selectedId;
   const current = active.snapshot?.current_run;
 
+  // 路由（hash 深链 #/session/:id）：
+  // - 刷新页面 / 新标签页 / 手机扫码直达时恢复会话（不需要重新点选）
+  // - 切换会话时同步更新 hash（replaceState 避免历史堆叠）
+  // - 协议 attach 语义不变，hash 只是视图层入口
+  useEffect(() => {
+    const applyHash = () => {
+      if (!connected) return;
+      const match = window.location.hash.match(/^#\/session\/(.+)$/);
+      const target = match ? decodeURIComponent(match[1]) : undefined;
+      if (target && target !== selectedId) void attach(target);
+    };
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, [attach, connected, selectedId]);
+  // 连接建立后（含刷新恢复）应用一次当前 hash。
+  useEffect(() => {
+    if (!connected) return;
+    const match = window.location.hash.match(/^#\/session\/(.+)$/);
+    const target = match ? decodeURIComponent(match[1]) : undefined;
+    if (target && target !== selectedId) void attach(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected]);
+  // 选中会话变化 → 同步 hash；无选中 → 回到根 hash。
+  useEffect(() => {
+    const target = selectedId
+      ? `#/session/${encodeURIComponent(selectedId)}`
+      : "#/";
+    if (window.location.hash !== target) {
+      window.history.replaceState(null, "", target);
+    }
+  }, [selectedId]);
+
   // 多任务通知：其他会话处于 waiting（等待用户）时，文档标题加计数徽标，
   // 工作台顶部显示通知条（设计 §5.2/§7.1）。侧栏已有 waiting 置顶 + 琥珀点。
   const otherWaiting = sessions.filter(
@@ -174,12 +230,12 @@ export function App() {
             Suna App
           </p>
           <h1 className="mt-2.5 mb-2.5 text-[23px] font-extrabold tracking-tight text-ink">
-            {status === "connecting" ? "正在连接你的工作空间" : "连接 Runtime"}
+            {status === "connecting"
+              ? t("connect.connecting")
+              : t("connect.title")}
           </h1>
           <p className="text-[13px] leading-relaxed text-ink-soft">
-            {error ||
-              bridgeError?.message ||
-              "通过本地 Gateway 连接 Suna Runtime。"}
+            {error || bridgeError?.message || t("connect.desc")}
           </p>
           <button
             className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
@@ -187,7 +243,9 @@ export function App() {
             onClick={() => void initialize()}
             type="button"
           >
-            {status === "connecting" ? "正在连接…" : "连接 Runtime"}
+            {status === "connecting"
+              ? t("connect.connectingBtn")
+              : t("connect.button")}
           </button>
         </section>
       </main>
@@ -317,7 +375,9 @@ export function App() {
               connected={connected}
               hello={hello}
               initialTab={settingsInitialTab}
+              locale={locale}
               mcpServers={mcpServers}
+              onChangeLocale={changeLocale}
               onClose={closeSettings}
               onConfig={setConfig}
               onReconnect={() => void initialize()}
@@ -328,17 +388,21 @@ export function App() {
             />
           </>
         )}
-        {!selected ? (
+        {!selected || mobileTab === "overview" ? (
           <TaskOverview
             connected={connected}
             hasModels={Boolean(config && config.models.length > 0)}
+            locale={locale}
             onCreate={() => setCreateOpen(true)}
             onOpenSettings={() => {
               setSettingsInitialTab("models");
               setSettingsOpen(true);
             }}
             onReconnect={() => void initialize()}
-            onSelect={(id) => void attach(id)}
+            onSelect={(id) => {
+              setMobileTab("session");
+              void attach(id);
+            }}
             pendingId={syncing ? selectedId : undefined}
             selectedId={selectedId}
             sessions={sessions}
@@ -370,9 +434,8 @@ export function App() {
               toolSummary={active.toolSummary}
             />
             <Composer
-              canAttachImageUrl={Boolean(hello?.content_sources.url)}
+              canAttachImageUrl={Boolean(hello?.content_sources.image_url)}
               disabled={sessionActionsFrozen || observer}
-              focusTrigger={composerFocus}
               onSubmit={send}
               observer={observer}
               waiting={selected?.status === "waiting"}
@@ -380,6 +443,63 @@ export function App() {
           </>
         )}
       </section>
+      {/* 移动端底部导航：总览 / 任务 / 设置（设计 §12.2）。
+          仅窄屏显示；桌面由侧栏 + Header 承担同等功能。 */}
+      <nav aria-label="主导航" className="mobile-tabbar">
+        <button
+          aria-current={mobileTab === "overview" ? "page" : undefined}
+          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
+          onClick={() => setMobileTab("overview")}
+          type="button"
+        >
+          <Icon
+            className={
+              mobileTab === "overview" ? "text-blue-strong" : "text-ink-muted"
+            }
+            name="message"
+            size={17}
+          />
+          {t("nav.overview")}
+        </button>
+        <button
+          aria-current={
+            mobileTab === "session" && selected ? "page" : undefined
+          }
+          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
+          disabled={!selected}
+          onClick={() => setMobileTab("session")}
+          type="button"
+        >
+          <Icon
+            className={
+              mobileTab === "session" && selected
+                ? "text-blue-strong"
+                : "text-ink-muted"
+            }
+            name="sparkle"
+            size={17}
+          />
+          {t("nav.task")}
+        </button>
+        <button
+          aria-current={mobileTab === "settings" ? "page" : undefined}
+          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150"
+          onClick={() => {
+            setMobileTab("settings");
+            setSettingsOpen(true);
+          }}
+          type="button"
+        >
+          <Icon
+            className={
+              mobileTab === "settings" ? "text-blue-strong" : "text-ink-muted"
+            }
+            name="settings"
+            size={17}
+          />
+          {t("nav.settings")}
+        </button>
+      </nav>
       <RunDetails
         ask={active.ask}
         canConfigure={canConfig && !sessionActionsFrozen}
@@ -415,6 +535,22 @@ export function App() {
         status={current?.status ?? selected?.status}
         totals={usage}
         usage={active.usage}
+      />
+      <CommandPalette
+        open={commandOpen}
+        onCreateTask={() => {
+          setCreateOpen(true);
+        }}
+        onClose={() => setCommandOpen(false)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSelectSession={(id) => {
+          setMobileTab("session");
+          void attach(id);
+        }}
+        onToggleDetails={() => setDetailsOpen((value) => !value)}
+        onToggleTheme={toggleTheme}
+        selectedId={selectedId}
+        sessions={sessions}
       />
     </main>
   );

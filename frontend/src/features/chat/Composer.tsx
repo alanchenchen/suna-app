@@ -22,6 +22,7 @@ export function Composer({
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [showImageInput, setShowImageInput] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
@@ -36,16 +37,35 @@ export function Composer({
     if (focusTrigger > 0 && !disabled) textareaRef.current?.focus();
   }, [disabled, focusTrigger]);
 
+  /** 校验图片 URL 是否合法 http(s)。 */
+  function validateUrl(url: string) {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
+  /** 把输入框的 URL 添加为附件 chip（去重）。 */
+  function addImageUrl() {
+    const url = imageUrl.trim();
+    if (!url) return;
+    if (!validateUrl(url)) {
+      setError("请输入以 http:// 或 https:// 开头的图片地址。");
+      return;
+    }
+    setError(undefined);
+    setImageUrls((value) => (value.includes(url) ? value : [...value, url]));
+    setImageUrl("");
+  }
+
   async function submit() {
     const message = draft.trim();
-    const url = imageUrl.trim();
-    if ((!message && !url) || sending || disabled) return;
-    if (url) {
-      try {
-        const parsed = new URL(url);
-        if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
-          throw new Error();
-      } catch {
+    if ((!message && imageUrls.length === 0) || sending || disabled) return;
+    if (imageUrl.trim()) {
+      // 输入框有未添加的 URL：先校验再视为待提交附件。
+      if (!validateUrl(imageUrl.trim())) {
         setError("请输入以 http:// 或 https:// 开头的图片地址。");
         return;
       }
@@ -55,9 +75,15 @@ export function Composer({
     try {
       const parts: MessagePart[] = [];
       if (message) parts.push({ type: "text", text: message });
-      if (url) parts.push({ type: "image", source: { kind: "url", url } });
+      // 全部附件（已添加 chips + 输入框未添加的一个）一起提交。
+      const urls = imageUrls.map((url) => url.trim()).filter(Boolean);
+      if (imageUrl.trim()) urls.push(imageUrl.trim());
+      for (const url of urls) {
+        parts.push({ type: "image", source: { kind: "url", url } });
+      }
       await onSubmit(parts);
       setDraft("");
+      setImageUrls([]);
       setImageUrl("");
       setShowImageInput(false);
     } catch (reason) {
@@ -94,18 +120,66 @@ export function Composer({
           </div>
         )}
         {showImageInput && (
-          <label className="mb-2 grid gap-1 px-0.5 text-[10px] font-bold text-ink-muted">
-            图片 URL
-            <input
-              autoFocus
-              className="rounded-lg bg-surface-raised px-3 py-2 text-ink outline-none transition-[background-color] duration-150"
-              disabled={disabled || sending}
-              onChange={(event) => setImageUrl(event.target.value)}
-              placeholder="https://example.com/image.png"
-              type="url"
-              value={imageUrl}
-            />
-          </label>
+          <div className="mb-2 grid gap-1.5 px-0.5">
+            <label className="grid gap-1 text-[10px] font-bold text-ink-muted">
+              图片 URL
+              <span className="flex gap-1.5">
+                <input
+                  autoFocus
+                  className="min-w-0 flex-1 rounded-lg bg-surface-raised px-3 py-2 text-ink outline-none transition-[background-color] duration-150"
+                  disabled={disabled || sending}
+                  onChange={(event) => setImageUrl(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault();
+                      addImageUrl();
+                    }
+                  }}
+                  placeholder="https://example.com/image.png"
+                  type="url"
+                  value={imageUrl}
+                />
+                <button
+                  aria-label="添加图片"
+                  className="shrink-0 cursor-pointer rounded-lg bg-surface-raised px-2.5 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:opacity-45"
+                  disabled={disabled || sending || !imageUrl.trim()}
+                  onClick={addImageUrl}
+                  type="button"
+                >
+                  添加
+                </button>
+              </span>
+            </label>
+            {/* 已添加的图片附件 chips：可逐个删除（多图支持，设计 §7.5） */}
+            {imageUrls.length > 0 && (
+              <span className="flex flex-wrap gap-1.5">
+                {imageUrls.map((url) => (
+                  <span
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-surface-raised py-0.5 pr-1 pl-2.5 text-[10.5px] font-semibold text-ink-soft"
+                    key={url}
+                  >
+                    <span className="truncate">{url}</span>
+                    <button
+                      aria-label={`移除图片 ${url}`}
+                      className="grid h-4 w-4 shrink-0 cursor-pointer place-items-center rounded-full text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
+                      disabled={disabled || sending}
+                      onClick={() =>
+                        setImageUrls((value) =>
+                          value.filter((item) => item !== url),
+                        )
+                      }
+                      type="button"
+                    >
+                      <Icon name="close" size={11} />
+                    </button>
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
         )}
         <div className="flex items-end gap-1.5">
           <textarea
@@ -158,7 +232,9 @@ export function Composer({
               aria-label="发送消息"
               className="grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,background,box-shadow] duration-160 hover:shadow-[0_7px_18px_var(--color-blue-glow)] hover:-translate-y-px active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:shadow-none max-[720px]:h-[42px] max-[720px]:w-[42px]"
               disabled={
-                (!draft.trim() && !imageUrl.trim()) || disabled || sending
+                (!draft.trim() && !imageUrl.trim() && imageUrls.length === 0) ||
+                disabled ||
+                sending
               }
               onClick={() => void submit()}
               type="button"
