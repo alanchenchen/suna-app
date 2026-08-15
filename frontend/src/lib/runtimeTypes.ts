@@ -368,6 +368,21 @@ export type RuntimeBridgeMethods = {
     result: { status: string };
   };
   "mcp.reload": { params: { name: string }; result: { status: string } };
+  "daemon.status": {
+    params: Record<string, never>;
+    result: {
+      state: string;
+      pid?: number;
+      uptime?: string;
+      connections?: number;
+      agent_status?: string;
+      provider?: string;
+      model?: string;
+      context_tokens?: number;
+      context_window?: number;
+      usage_today?: UsagePeriod;
+    };
+  };
 };
 export type RuntimeBridgeMethod = keyof RuntimeBridgeMethods;
 export type RuntimeBridgeParams<M extends RuntimeBridgeMethod> =

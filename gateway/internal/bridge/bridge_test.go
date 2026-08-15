@@ -88,6 +88,7 @@ func TestDefaultAllowedMethodIsExactV03ProtocolAllowlist(t *testing.T) {
 		"memory.list", "memory.delete", "memory.clear",
 		"skill.list", "skill.set",
 		"mcp.list", "mcp.toggle", "mcp.reload",
+		"daemon.status",
 	}
 	for _, method := range allowed {
 		if !defaultAllowedMethod(method) {

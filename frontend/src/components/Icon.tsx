@@ -6,17 +6,21 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Database,
   Ellipsis,
   Eye,
   Folder,
   Image,
+  Link,
   MessageSquare,
   Moon,
   PanelRight,
   Pause,
+  Plug,
   Plus,
   Search,
   Settings,
+  Shield,
   Sparkles,
   Sun,
   TriangleAlert,
@@ -34,10 +38,12 @@ export type IconName =
   | "chevron-down"
   | "chevron-right"
   | "close"
+  | "database"
   | "ellipsis"
   | "eye"
   | "folder"
   | "image"
+  | "link"
   | "message"
   | "moon"
   | "panel"
@@ -45,11 +51,13 @@ export type IconName =
   | "plus"
   | "search"
   | "settings"
+  | "shield"
   | "sparkle"
   | "sun"
   | "tool"
   | "users"
-  | "warning";
+  | "warning"
+  | "plug";
 
 const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "arrow-up": ArrowUp,
@@ -59,10 +67,12 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "chevron-down": ChevronDown,
   "chevron-right": ChevronRight,
   close: X,
+  database: Database,
   ellipsis: Ellipsis,
   eye: Eye,
   folder: Folder,
   image: Image,
+  link: Link,
   message: MessageSquare,
   moon: Moon,
   panel: PanelRight,
@@ -70,11 +80,13 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   plus: Plus,
   search: Search,
   settings: Settings,
+  shield: Shield,
   sparkle: Sparkles,
   sun: Sun,
   tool: Wrench,
   users: Users,
   warning: TriangleAlert,
+  plug: Plug,
 };
 
 export function Icon({

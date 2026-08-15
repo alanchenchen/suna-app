@@ -429,7 +429,8 @@ func defaultAllowedMethod(method string) bool {
 		"config.get", "config.set",
 		"memory.list", "memory.delete", "memory.clear",
 		"skill.list", "skill.set",
-		"mcp.list", "mcp.toggle", "mcp.reload":
+		"mcp.list", "mcp.toggle", "mcp.reload",
+		"daemon.status":
 		return true
 	default:
 		return false

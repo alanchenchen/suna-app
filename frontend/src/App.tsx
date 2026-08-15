@@ -245,9 +245,12 @@ export function App() {
             <RuntimeSettings
               cap={cap}
               config={config}
+              connected={connected}
+              hello={hello}
               mcpServers={mcpServers}
               onClose={() => setSettingsOpen(false)}
               onConfig={setConfig}
+              onReconnect={() => void initialize()}
               onThemeChange={setTheme}
               refreshMcp={() => void refreshMcp()}
               rpc={rpc}
