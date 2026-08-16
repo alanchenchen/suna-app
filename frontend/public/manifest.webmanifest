@@ -1,0 +1,16 @@
+{
+  "name": "Suna App",
+  "short_name": "Suna",
+  "description": "Suna Runtime 的跨设备 Session 控制台：看进度、接管任务、处理安全确认",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101314",
+  "theme_color": "#5b67f1",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

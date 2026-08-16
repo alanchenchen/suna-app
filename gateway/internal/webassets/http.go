@@ -41,12 +41,19 @@ func HandlerFromFS(assets fs.FS) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		// 缓存策略：入口 HTML（含 SPA fallback）每次重新验证，确保拿到最新
-		// 资源引用；带 hash 的静态资源（/assets/*.js|css）可长期缓存，加快回访。
-		if cleanPath == "/" || path.Ext(cleanPath) == "" {
-			w.Header().Set("Cache-Control", "no-cache")
-		} else {
+		// 缓存策略：只有 /assets/ 下的 hash 资源（Vite 产物，内容寻址）可长期缓存；
+		// 其余入口元数据（HTML/SPA fallback/manifest/图标）每次重新验证——
+		// 这些文件路径不带 hash，若 immutable 缓存一年，更新图标/名称/UI 后
+		// 用户浏览器会长期拿到旧版本（manifest 引用的 icon-192.png 尤其如此）。
+		if strings.HasPrefix(cleanPath, "/assets/") {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		// PWA manifest 扩展名不在 Go 内置 mime 表（默认 text/plain），
+		// 部分浏览器会拒绝加载；显式声明正确类型。
+		if strings.EqualFold(path.Ext(cleanPath), ".webmanifest") {
+			w.Header().Set("Content-Type", "application/manifest+json")
 		}
 		if cleanPath != "/" && path.Ext(cleanPath) == "" {
 			r2 := r.Clone(r.Context())

@@ -25,6 +25,11 @@ type Server struct {
 	probeTimeout time.Duration
 	bridge       *bridge.Service
 
+	// allowRemote 为真时监听非 loopback 地址（远程模式），CSRF 校验从"仅 loopback
+	// 同源"放宽为"任意同源"——浏览器仍无法跨站调用，但可信边界从本机扩展到
+	// 监听网段（局域网 / Tailscale 虚拟网）。
+	allowRemote bool
+
 	probeMu       sync.Mutex
 	lastProbe     probeResult
 	probeInFlight *probeFlight
@@ -50,17 +55,19 @@ func NewServer(prober RuntimeProber, probeTimeout time.Duration, services ...*br
 	if len(services) != 0 {
 		service = services[0]
 	}
-	return newServer(prober, probeTimeout, service)
+	return newServer(prober, probeTimeout, service, false)
 }
 
 // NewServerWithBridge makes the browser bridge dependency explicit for callers
-// that create a public runtime.ConnectionManager.
-func NewServerWithBridge(prober RuntimeProber, probeTimeout time.Duration, service *bridge.Service) http.Handler {
-	return newServer(prober, probeTimeout, service)
+// that create a public runtime.ConnectionManager. allowRemote 为可选变参：
+// 传 true 表示监听非 loopback 地址（远程模式，见 Server.allowRemote 注释）。
+func NewServerWithBridge(prober RuntimeProber, probeTimeout time.Duration, service *bridge.Service, allowRemote ...bool) http.Handler {
+	remote := len(allowRemote) > 0 && allowRemote[0]
+	return newServer(prober, probeTimeout, service, remote)
 }
 
-func newServer(prober RuntimeProber, probeTimeout time.Duration, service *bridge.Service) http.Handler {
-	s := &Server{prober: prober, probeTimeout: probeTimeout, bridge: service}
+func newServer(prober RuntimeProber, probeTimeout time.Duration, service *bridge.Service, allowRemote bool) http.Handler {
+	s := &Server{prober: prober, probeTimeout: probeTimeout, bridge: service, allowRemote: allowRemote}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/runtime/status", s.runtimeStatus)
@@ -145,7 +152,7 @@ func (s *Server) probe(ctx context.Context) (runtime.HelloResult, error) {
 }
 
 func (s *Server) bridgeConnect(w http.ResponseWriter, r *http.Request) {
-	if !sameOriginUnsafe(r) {
+	if !s.sameOriginUnsafe(r) {
 		bridgeError(w, http.StatusForbidden, "origin_denied", "Request origin is not allowed.")
 		return
 	}
@@ -161,7 +168,7 @@ func (s *Server) bridgeConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) bridgeRPC(w http.ResponseWriter, r *http.Request) {
-	if !sameOriginUnsafe(r) {
+	if !s.sameOriginUnsafe(r) {
 		bridgeError(w, http.StatusForbidden, "origin_denied", "Request origin is not allowed.")
 		return
 	}
@@ -196,7 +203,7 @@ func (s *Server) bridgeRPC(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) bridgeEvents(w http.ResponseWriter, r *http.Request) {
-	if !sameOriginUnsafe(r) {
+	if !s.sameOriginUnsafe(r) {
 		bridgeError(w, http.StatusForbidden, "origin_denied", "Request origin is not allowed.")
 		return
 	}
@@ -255,7 +262,7 @@ func (s *Server) bridgeEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) bridgeDisconnect(w http.ResponseWriter, r *http.Request) {
-	if !sameOriginUnsafe(r) {
+	if !s.sameOriginUnsafe(r) {
 		bridgeError(w, http.StatusForbidden, "origin_denied", "Request origin is not allowed.")
 		return
 	}
@@ -266,10 +273,11 @@ func (s *Server) bridgeDisconnect(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// sameOriginUnsafe permits browser requests with no Origin (native clients and
-// same-origin navigation) but rejects any supplied non-loopback or cross-origin
-// Origin. The process is loopback-only, so this is the CSRF boundary.
-func sameOriginUnsafe(r *http.Request) bool {
+// sameOriginUnsafe 是浏览器 CSRF 边界。本机模式（loopback 监听）只允许
+// loopback 同源请求；远程模式（allowRemote）放宽为任意同源（origin 主机与
+// 请求主机一致），浏览器跨站页面依旧被拒绝，可信边界从本机扩展到监听网段。
+// 无 Origin 的请求（原生客户端 / 同源导航）始终放行。
+func (s *Server) sameOriginUnsafe(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return true
@@ -286,10 +294,15 @@ func sameOriginUnsafe(r *http.Request) bool {
 		return false
 	}
 	requestHost, requestPort, err := net.SplitHostPort(r.Host)
-	if err != nil || originPort != requestPort || !sameLoopbackHost(originHost, requestHost) {
+	if err != nil {
 		return false
 	}
-	return true
+	if s.allowRemote {
+		// 远程模式：同源即放行（host 不区分大小写，port 必须一致）。
+		return originPort == requestPort &&
+			strings.EqualFold(originHost, requestHost)
+	}
+	return originPort == requestPort && sameLoopbackHost(originHost, requestHost)
 }
 
 func requestScheme(r *http.Request) string {

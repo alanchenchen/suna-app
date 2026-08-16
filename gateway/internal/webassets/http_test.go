@@ -25,6 +25,7 @@ func TestHandlerFromFSServesShellAssetsAndSPAPaths(t *testing.T) {
 		{name: "nested SPA path", method: http.MethodGet, path: "/sessions/example", status: http.StatusOK, contentType: "text/html", contains: `<div id="root">`},
 		{name: "javascript asset", method: http.MethodGet, path: "/assets/app.js", status: http.StatusOK, contentType: "text/javascript", contains: "console.log"},
 		{name: "stylesheet asset", method: http.MethodGet, path: "/assets/app.css", status: http.StatusOK, contentType: "text/css", contains: "body"},
+		{name: "manifest asset", method: http.MethodGet, path: "/manifest.webmanifest", status: http.StatusOK, contentType: "application/manifest+json", contains: "Suna App"},
 		{name: "unknown asset is not SPA fallback", method: http.MethodGet, path: "/assets/missing.js", status: http.StatusNotFound},
 		{name: "API path is never UI fallback", method: http.MethodGet, path: "/api/v1/missing", status: http.StatusNotFound},
 		{name: "API root is never UI fallback", method: http.MethodGet, path: "/api", status: http.StatusNotFound},
@@ -53,8 +54,9 @@ func TestHandlerFromFSSetsSaneCacheHeaders(t *testing.T) {
 
 	handler := HandlerFromFS(testAssets())
 
-	// 入口 HTML（含 SPA fallback）必须每次重新验证，避免浏览器一直加载旧版 UI。
-	for _, path := range []string{"/", "/sessions/example"} {
+	// 入口 HTML（含 SPA fallback）、PWA manifest 与图标必须每次重新验证
+	// （路径不带 hash，immutable 会导致更新不生效）。
+	for _, path := range []string{"/", "/sessions/example", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/apple-touch-icon.png"} {
 		response := serve(handler, http.MethodGet, path)
 		if got := response.Header().Get("Cache-Control"); got != "no-cache" {
 			t.Fatalf("%s: Cache-Control = %q, want %q", path, got, "no-cache")
@@ -133,9 +135,13 @@ func TestHandlerFromFSMissingIndexHeadReturnsNoBody(t *testing.T) {
 
 func testAssets() fs.FS {
 	return fstest.MapFS{
-		"dist/index.html":     &fstest.MapFile{Data: []byte(`<!doctype html><html><body><div id="root"></div><script type="module" src="/assets/app.js"></script><link rel="stylesheet" href="/assets/app.css"></body></html>`)},
-		"dist/assets/app.js":  &fstest.MapFile{Data: []byte("console.log('app')")},
-		"dist/assets/app.css": &fstest.MapFile{Data: []byte("body { color: black; }")},
+		"dist/index.html":           &fstest.MapFile{Data: []byte(`<!doctype html><html><body><div id="root"></div><script type="module" src="/assets/app.js"></script><link rel="stylesheet" href="/assets/app.css"></body></html>`)},
+		"dist/assets/app.js":        &fstest.MapFile{Data: []byte("console.log('app')")},
+		"dist/assets/app.css":       &fstest.MapFile{Data: []byte("body { color: black; }")},
+		"dist/manifest.webmanifest": &fstest.MapFile{Data: []byte(`{"name": "Suna App"}`)},
+		"dist/icon.svg":             &fstest.MapFile{Data: []byte(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`)},
+		"dist/icon-192.png":         &fstest.MapFile{Data: []byte("png")},
+		"dist/apple-touch-icon.png": &fstest.MapFile{Data: []byte("png")},
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,22 +25,22 @@ var buildVersion = "dev"
 
 func main() {
 	cfg := config.Default()
-	flag.StringVar(&cfg.ListenAddress, "listen", cfg.ListenAddress, "loopback HTTP listen address")
+	flag.StringVar(&cfg.ListenAddress, "listen", cfg.ListenAddress, "HTTP listen address (default 0.0.0.0:7633)")
 	flag.StringVar(&cfg.SunaBinary, "suna-binary", cfg.SunaBinary, "path to the installed suna executable")
 	// 记录用户是否显式指定了 --listen：显式指定时不做端口回退，
 	// 尊重用户意图（与 Suna Runtime 的 --listen 语义一致）。
+	// 注意：flag.Visit 必须在 flag.Parse() 之后调用，否则看不到任何已设置 flag。
+	flag.Parse()
 	listenExplicit := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "listen" {
 			listenExplicit = true
 		}
 	})
-	flag.Parse()
 
-	if !isLoopbackAddress(cfg.ListenAddress) {
-		fmt.Fprintln(os.Stderr, "suna-app only supports a loopback listen address")
-		os.Exit(2)
-	}
+	// 监听地址自由指定：默认 0.0.0.0 覆盖本机 loopback、局域网与 Tailscale 虚拟网
+	// （手机远程场景）；显式 --listen 127.0.0.1 可退回纯本机模式。
+	// 显式 --listen 时不做端口回退，尊重用户意图。
 
 	listener, err := listenWithFallback(cfg.ListenAddress, !listenExplicit)
 	if err != nil {
@@ -66,7 +67,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "suna-app could not configure the browser bridge")
 		os.Exit(1)
 	}
-	handler := httpapi.NewServerWithBridge(connections, cfg.CommandTimeout+cfg.DialTimeout+cfg.HelloTimeout, browserBridge)
+	// 非 loopback 监听时启用远程模式：CSRF 校验从"仅 loopback 同源"放宽为"任意同源"。
+	// 默认 0.0.0.0 监听下总是远程模式；显式 --listen 127.0.0.1 则退回严格本机模式。
+	allowRemote := !isLoopbackAddress(cfg.ListenAddress)
+	handler := httpapi.NewServerWithBridge(connections, cfg.CommandTimeout+cfg.DialTimeout+cfg.HelloTimeout, browserBridge, allowRemote)
 	mux := http.NewServeMux()
 	mux.Handle("/api/", handler)
 	mux.Handle("/healthz", handler)
@@ -112,13 +116,18 @@ func isLoopbackAddress(address string) bool {
 	if err != nil {
 		return false
 	}
+	// 主机名 localhost 也是 loopback 别名（net.ParseIP 不识别字符串）。
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }
 
 // listenWithFallback 在默认地址上监听；若端口被占用且 allowFallback 为真，
-// 先探测占用者是否已是 Suna App（复用已有实例），否则回退到随机 loopback
-// 端口继续启动（对齐 Suna Runtime 的端口冲突策略）。显式 --listen 时不回退。
+// 先探测占用者是否已是 Suna App（复用已有实例），否则回退到随机端口继续启动
+// （对齐 Suna Runtime 的端口冲突策略；默认 0.0.0.0 监听下回退仍保持 0.0.0.0，
+// 避免丢失局域网/Tailscale 可达性）。显式 --listen 时不回退。
 func listenWithFallback(address string, allowFallback bool) (net.Listener, error) {
 	listener, err := net.Listen("tcp", address)
 	if err == nil || !allowFallback || !errors.Is(err, syscall.EADDRINUSE) {
@@ -126,13 +135,29 @@ func listenWithFallback(address string, allowFallback bool) (net.Listener, error
 	}
 	// 占用者很可能就是另一个 Suna App 实例：探测 /healthz 确认后直接复用，
 	// 不启动第二个实例（避免双实例各自 attach 同一 Runtime 会话）。
-	if isSunaAppRunning("http://" + address) {
+	// 注意：0.0.0.0 / :: 不是可路由目标地址，探测前须映射为 loopback，
+	// 否则永远探测失败，导致双实例回归。probeURL 不含 /healthz，
+	// isSunaAppRunning 内部会拼接（避免双重拼接落到 SPA fallback 误判）。
+	probeURL := "http://" + address
+	if host, port, err := net.SplitHostPort(address); err == nil {
+		if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
+			probeURL = "http://127.0.0.1:" + port
+		}
+	}
+	if isSunaAppRunning(probeURL) {
 		fmt.Fprintf(os.Stderr, "suna-app: 检测到已有 Suna App 正在运行，请直接打开 http://%s\n", address)
 		os.Exit(0)
 	}
 	// 其他程序占用了默认端口：回退随机端口，实际地址由启动日志告知用户。
-	fmt.Fprintf(os.Stderr, "suna-app: 默认端口 %s 被其他程序占用，已改用随机 loopback 端口。\n", address)
-	return net.Listen("tcp", "127.0.0.1:0")
+	// 回退保持与请求地址相同的监听范围（loopback 或全网卡）。
+	fallback := "0.0.0.0:0"
+	if host, _, err := net.SplitHostPort(address); err == nil {
+		if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+			fallback = "127.0.0.1:0"
+		}
+	}
+	fmt.Fprintf(os.Stderr, "suna-app: 默认端口 %s 被其他程序占用，已改用随机端口 %s。\n", address, fallback)
+	return net.Listen("tcp", fallback)
 }
 
 // isSunaAppRunning 探测目标地址是否已有 Suna App Gateway 在服务（/healthz）。

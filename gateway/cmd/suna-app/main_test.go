@@ -74,6 +74,75 @@ func TestListenWithFallback_OccupiedByOtherApp(t *testing.T) {
 	}
 }
 
+// TestListenWithFallback_DefaultWildcardKeepsWildcard 验证默认 0.0.0.0 监听被占用时，
+// 回退仍保持全网卡（0.0.0.0:0），不会退回 loopback 丢失局域网/Tailscale 可达性。
+func TestListenWithFallback_DefaultWildcardKeepsWildcard(t *testing.T) {
+	listener := occupyAddress(t, "0.0.0.0:0")
+	address := listener.Addr().String()
+	defer listener.Close()
+
+	fallback, err := listenWithFallback(address, true)
+	if err != nil {
+		t.Fatalf("listenWithFallback(%s) with fallback = %v", address, err)
+	}
+	defer fallback.Close()
+	ip, _, err := net.SplitHostPort(fallback.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed := net.ParseIP(ip); parsed == nil || parsed.IsLoopback() {
+		t.Fatalf("fallback address %s must stay wildcard (non-loopback)", fallback.Addr().String())
+	}
+}
+
+// TestProbeURLRewritesUnspecifiedHost 验证 0.0.0.0 / :: 监听地址在探测
+// /healthz 前会被映射为 127.0.0.1——否则 0.0.0.0 不可路由，探测永远失败，
+// 已有 Suna App 实例无法被复用（双实例回归）。
+func TestProbeURLRewritesUnspecifiedHost(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	_, port, err := net.SplitHostPort(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 模拟默认 0.0.0.0 监听：探测地址被重写为 127.0.0.1:<port> 后可达。
+	// probeURL 不含 /healthz（isSunaAppRunning 内部拼接），避免双重拼接
+	// 落到 SPA fallback 造成"任意 200 服务都被误判为 suna-app"。
+	probeURL := "http://0.0.0.0:" + port
+	if host, p, err := net.SplitHostPort(probeURL); err == nil {
+		if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
+			probeURL = "http://127.0.0.1:" + p
+		}
+	}
+	if !isSunaAppRunning(probeURL) {
+		t.Fatal("rewritten probe URL should reach the suna-app healthz endpoint")
+	}
+}
+
+func TestIsLoopbackAddress(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		address string
+		want    bool
+	}{
+		{address: "127.0.0.1:7633", want: true},
+		{address: "[::1]:7633", want: true},
+		{address: "localhost:7633", want: true},
+		{address: "0.0.0.0:7633", want: false},
+		{address: "192.168.1.10:7633", want: false},
+		{address: "not-an-address", want: false},
+	}
+	for _, tc := range cases {
+		if got := isLoopbackAddress(tc.address); got != tc.want {
+			t.Fatalf("isLoopbackAddress(%q) = %v, want %v", tc.address, got, tc.want)
+		}
+	}
+}
+
 func TestListenWithFallback_ExplicitListenDoesNotFallback(t *testing.T) {
 	listener := occupyAddress(t, "127.0.0.1:0")
 	address := listener.Addr().String()

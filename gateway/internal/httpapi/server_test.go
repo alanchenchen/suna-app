@@ -116,3 +116,50 @@ func TestBridgeRPCErrorMapsStableKind(t *testing.T) {
 		t.Fatal("error message must be readable")
 	}
 }
+
+// TestSameOriginUnsafeRemoteMode 验证远程模式（--listen 0.0.0.0 / Tailscale）下
+// CSRF 边界：同源请求放行、跨源请求拒绝、无 Origin 放行；本机模式仍只认 loopback。
+func TestSameOriginUnsafeRemoteMode(t *testing.T) {
+	t.Parallel()
+
+	remote := &Server{allowRemote: true}
+	local := &Server{allowRemote: false}
+
+	cases := []struct {
+		name   string
+		srv    *Server
+		host   string
+		origin string
+		want   bool
+	}{
+		// 远程模式：Tailscale IP 同源放行。
+		{name: "remote same-origin tailscale", srv: remote, host: "100.64.0.5:7633", origin: "http://100.64.0.5:7633", want: true},
+		// 远程模式：host 大小写不敏感。
+		{name: "remote same-origin hostname case", srv: remote, host: "MyMac:7633", origin: "http://mymac:7633", want: true},
+		// 远程模式：跨源仍拒绝（恶意网站无法调用）。
+		{name: "remote cross-origin rejected", srv: remote, host: "100.64.0.5:7633", origin: "http://evil.example.com", want: false},
+		// 远程模式：端口不同视为跨源。
+		{name: "remote cross-port rejected", srv: remote, host: "100.64.0.5:7633", origin: "http://100.64.0.5:9999", want: false},
+		// 远程模式：无 Origin（原生客户端 / 同源导航）放行。
+		{name: "remote no origin", srv: remote, host: "100.64.0.5:7633", origin: "", want: true},
+		// 本机模式：远程 origin 一律拒绝（即使同源）。
+		{name: "local rejects remote origin", srv: local, host: "127.0.0.1:7633", origin: "http://100.64.0.5:7633", want: false},
+		// 本机模式：loopback 同源放行（回归保护）。
+		{name: "local loopback same-origin", srv: local, host: "127.0.0.1:7633", origin: "http://127.0.0.1:7633", want: true},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			r := httptest.NewRequest(http.MethodPost, "/api/v1/bridge/connect", nil)
+			r.Host = tc.host
+			if tc.origin != "" {
+				r.Header.Set("Origin", tc.origin)
+			}
+			if got := tc.srv.sameOriginUnsafe(r); got != tc.want {
+				t.Fatalf("sameOriginUnsafe(host=%q, origin=%q) = %v, want %v", tc.host, tc.origin, got, tc.want)
+			}
+		})
+	}
+}

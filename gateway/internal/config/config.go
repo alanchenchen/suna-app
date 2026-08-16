@@ -3,7 +3,9 @@ package config
 import "time"
 
 const (
-	DefaultListenAddress = "127.0.0.1:7633"
+	// DefaultListenAddress 默认监听所有网卡：本机 loopback、局域网与 Tailscale
+	// 虚拟网均可访问（手机远程控制场景）；显式 --listen 127.0.0.1 可退回本机模式。
+	DefaultListenAddress = "0.0.0.0:7633"
 	DefaultSunaBinary    = "suna"
 )
 
