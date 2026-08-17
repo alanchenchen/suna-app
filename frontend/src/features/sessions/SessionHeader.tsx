@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
 import { Tooltip } from "../../components/ui/Tooltip";
 import type { SessionInfo } from "../../lib/runtimeBridge";
@@ -32,8 +33,20 @@ export function SessionHeader({
   onToggleDetails,
   onOpenMobileMenu,
 }: SessionHeaderProps) {
+  // 停止两段式：第一次点击进入 3 秒确认窗口，再点才真正取消，防误触。
+  const [stopArming, setStopArming] = useState(false);
+  useEffect(() => {
+    if (!stopArming) return;
+    const timer = window.setTimeout(() => setStopArming(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [stopArming]);
   return (
-    <header className="flex min-h-[74px] items-center justify-between gap-4 border-b border-line px-7 py-3.5 max-[720px]:min-h-[65px] max-[720px]:gap-2.5 max-[720px]:px-3.5 max-[720px]:pt-[max(10px,env(safe-area-inset-top))] max-[720px]:pb-2.5">
+    <header className="relative flex min-h-[74px] items-center justify-between gap-4 border-b border-line bg-surface/75 px-7 py-3.5 backdrop-blur-xl max-[720px]:min-h-[65px] max-[720px]:gap-2.5 max-[720px]:px-3.5 max-[720px]:pt-[max(10px,env(safe-area-inset-top))] max-[720px]:pb-2.5">
+      {/* 顶部品牌渐变细条：与用户消息/发送按钮统一视觉语言。 */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#5b67f1,#6d5df0_55%,#7c54e8)] opacity-80"
+      />
       <div className="flex min-w-0 items-center gap-2.5">
         <IconButton
           className="hidden max-[720px]:inline-grid"
@@ -106,12 +119,26 @@ export function SessionHeader({
         </Tooltip>
         {running && canControl && !syncing && (
           <button
-            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-rose/10 px-2.5 text-[11px] font-bold text-rose transition-colors duration-150 hover:bg-rose/15 active:scale-95 max-[720px]:h-8 max-[720px]:px-2"
-            onClick={onStop}
+            aria-live="polite"
+            className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-colors duration-150 active:scale-95 max-[720px]:h-8 max-[720px]:px-2 ${
+              stopArming
+                ? "bg-rose text-white shadow-[0_4px_10px_rgba(212,92,103,0.35)]"
+                : "bg-rose/10 text-rose hover:bg-rose/15"
+            }`}
+            onClick={() => {
+              if (stopArming) {
+                setStopArming(false);
+                onStop();
+              } else {
+                setStopArming(true);
+              }
+            }}
             type="button"
           >
             <Icon name="pause" size={15} />
-            <span className="max-[390px]:hidden">停止</span>
+            <span className="max-[390px]:hidden">
+              {stopArming ? "确认停止？" : "停止"}
+            </span>
           </button>
         )}
         <Tooltip label={detailsOpen ? "关闭任务详情" : "打开任务详情"}>

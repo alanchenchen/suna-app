@@ -182,6 +182,7 @@ export function toolTarget(item: ToolFlowItem) {
  * 一屏可扫读更多工具，展开才看细节。 */
 export function ToolRow({ item }: { item: ToolFlowItem }) {
   const [expanded, setExpanded] = useState(false);
+  const [resultCopied, setResultCopied] = useState(false);
   const status = item.status;
   const statusMeta = {
     running: {
@@ -194,7 +195,11 @@ export function ToolRow({ item }: { item: ToolFlowItem }) {
       label: "等待授权",
       text: "text-amber",
     },
-    success: { dot: "bg-green", label: "完成", text: "text-green" },
+    success: {
+      dot: "bg-green animate-[pop-in_260ms_cubic-bezier(0.2,0.8,0.2,1)_both]",
+      label: "完成",
+      text: "text-green",
+    },
     failed: { dot: "bg-rose", label: "失败", text: "text-rose" },
   }[status];
   const hasDetail =
@@ -267,9 +272,30 @@ export function ToolRow({ item }: { item: ToolFlowItem }) {
           )}
           {item.result && !item.error && (
             <div>
-              <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">
-                结果
-              </span>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="block text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">
+                  结果
+                </span>
+                <button
+                  aria-label={resultCopied ? "已复制工具结果" : "复制工具结果"}
+                  className={`grid h-5 w-5 cursor-pointer place-items-center rounded-md transition-colors duration-150 hover:bg-surface-subtle ${
+                    resultCopied
+                      ? "text-green"
+                      : "text-ink-muted hover:text-ink"
+                  }`}
+                  onClick={() => {
+                    // 剪贴板写入失败静默忽略（非安全上下文等场景）。
+                    void navigator.clipboard
+                      ?.writeText(item.result ?? "")
+                      .catch(() => undefined);
+                    setResultCopied(true);
+                    window.setTimeout(() => setResultCopied(false), 1600);
+                  }}
+                  type="button"
+                >
+                  <Icon name={resultCopied ? "check" : "copy"} size={11} />
+                </button>
+              </div>
               <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
                 {item.result}
                 {item.resultTruncated && (
@@ -381,7 +407,11 @@ export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
       label: "运行中",
       text: "text-blue-strong",
     },
-    success: { dot: "bg-green", label: "完成", text: "text-green" },
+    success: {
+      dot: "bg-green animate-[pop-in_260ms_cubic-bezier(0.2,0.8,0.2,1)_both]",
+      label: "完成",
+      text: "text-green",
+    },
     failed: { dot: "bg-rose", label: "失败", text: "text-rose" },
   }[item.status];
   const iconTone = {
@@ -539,7 +569,18 @@ export function DecisionCard({
     decision: "approve" | "reject" | "modify",
   ) => Promise<void>;
 }) {
+  const [busy, setBusy] = useState(false);
   if (!ask && !guard) return null;
+  // 提交中禁用全部决策按钮，避免快速连点重复入队。
+  async function reply(fn: () => Promise<void> | undefined) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section
       aria-atomic="true"
@@ -579,9 +620,9 @@ export function DecisionCard({
           {ask.options.map((option) => (
             <button
               className="cursor-pointer rounded-[7px] border border-line bg-surface-solid px-2.5 py-1.5 text-[12px] font-semibold text-ink transition-colors duration-150 hover:border-blue/40 hover:text-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!ask.can_reply || controlsDisabled}
+              disabled={!ask.can_reply || controlsDisabled || busy}
               key={option}
-              onClick={() => void onAskReply?.(ask.id, option)}
+              onClick={() => void reply(() => onAskReply?.(ask.id, option))}
               type="button"
             >
               {option}
@@ -592,7 +633,7 @@ export function DecisionCard({
       {ask && ask.allow_custom && (
         <AskInlineInput
           disabled={!ask.can_reply || controlsDisabled}
-          onSubmit={(answer) => onAskReply?.(ask.id, answer)}
+          onSubmit={(answer) => void reply(() => onAskReply?.(ask.id, answer))}
         />
       )}
       {guard && (
@@ -601,8 +642,10 @@ export function DecisionCard({
             // 有修改建议：三按钮（按建议执行 = modify / 拒绝 / 批准原操作）
             <button
               className="flex-1 cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!guard.can_reply || controlsDisabled}
-              onClick={() => void onGuardReply?.(guard.id, "modify")}
+              disabled={!guard.can_reply || controlsDisabled || busy}
+              onClick={() =>
+                void reply(() => onGuardReply?.(guard.id, "modify"))
+              }
               type="button"
             >
               按建议执行
@@ -610,8 +653,10 @@ export function DecisionCard({
           ) : (
             <button
               className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!guard.can_reply || controlsDisabled}
-              onClick={() => void onGuardReply?.(guard.id, "approve")}
+              disabled={!guard.can_reply || controlsDisabled || busy}
+              onClick={() =>
+                void reply(() => onGuardReply?.(guard.id, "approve"))
+              }
               type="button"
             >
               批准
@@ -619,8 +664,8 @@ export function DecisionCard({
           )}
           <button
             className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!guard.can_reply || controlsDisabled}
-            onClick={() => void onGuardReply?.(guard.id, "reject")}
+            disabled={!guard.can_reply || controlsDisabled || busy}
+            onClick={() => void reply(() => onGuardReply?.(guard.id, "reject"))}
             type="button"
           >
             拒绝
@@ -628,8 +673,10 @@ export function DecisionCard({
           {guard.suggestion && (
             <button
               className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!guard.can_reply || controlsDisabled}
-              onClick={() => void onGuardReply?.(guard.id, "approve")}
+              disabled={!guard.can_reply || controlsDisabled || busy}
+              onClick={() =>
+                void reply(() => onGuardReply?.(guard.id, "approve"))
+              }
               type="button"
             >
               批准原操作

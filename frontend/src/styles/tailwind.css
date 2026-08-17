@@ -296,6 +296,17 @@ button {
     opacity: 0;
   }
 }
+/* 状态点完成弹入：工具成功等瞬态状态的小幅强调。 */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 
 /* 主题切换 View Transition（不支持的浏览器自动降级）。 */
 ::view-transition-old(root),
