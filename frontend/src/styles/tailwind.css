@@ -307,12 +307,58 @@ button {
     transform: scale(1);
   }
 }
+/* 空状态/品牌图标轻柔漂浮：给无交互的静态图形一点呼吸感。 */
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+/* hover 浮现元素（复制按钮等）：从右侧滑入，避免闪现。 */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+/* 发送图标 hover 上浮：给主要动作一个微小的"起飞"反馈。 */
+@keyframes icon-lift {
+  from {
+    transform: translateY(1px);
+  }
+  to {
+    transform: translateY(-1px);
+  }
+}
 
 /* 主题切换 View Transition（不支持的浏览器自动降级）。 */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 240ms;
   animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* 主题切换时遮罩旧画面：避免过渡中途露出未换肤的背景。 */
+::view-transition-old(root) {
+  animation-name: none;
+}
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation-name: view-fade-in;
+}
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* 减少动态效果：所有动画/过渡立即完成。 */
