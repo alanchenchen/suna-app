@@ -6,6 +6,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   Database,
   Ellipsis,
   Eye,
@@ -16,6 +17,7 @@ import {
   Moon,
   PanelRight,
   Pause,
+  Pin,
   Plug,
   Plus,
   Search,
@@ -38,6 +40,7 @@ export type IconName =
   | "chevron-down"
   | "chevron-right"
   | "close"
+  | "copy"
   | "database"
   | "ellipsis"
   | "eye"
@@ -48,6 +51,7 @@ export type IconName =
   | "moon"
   | "panel"
   | "pause"
+  | "pin"
   | "plus"
   | "search"
   | "settings"
@@ -67,6 +71,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "chevron-down": ChevronDown,
   "chevron-right": ChevronRight,
   close: X,
+  copy: Copy,
   database: Database,
   ellipsis: Ellipsis,
   eye: Eye,
@@ -77,6 +82,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   moon: Moon,
   panel: PanelRight,
   pause: Pause,
+  pin: Pin,
   plus: Plus,
   search: Search,
   settings: Settings,

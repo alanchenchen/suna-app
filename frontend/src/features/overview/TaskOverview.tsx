@@ -1,3 +1,4 @@
+import { useEffect, useReducer } from "react";
 import { Icon } from "../../components/Icon";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
@@ -103,6 +104,12 @@ export function TaskOverview({
   onOpenSettings,
   locale = "zh",
 }: TaskOverviewProps) {
+  // 每分钟刷新相对时间（"刚刚/分钟前"不长期停留在旧值）。
+  const [, tick] = useReducer((value: number) => value + 1, 0);
+  useEffect(() => {
+    const timer = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const waiting = sessions.filter((session) => session.status === "waiting");
   const running = sessions.filter(
     (session) =>

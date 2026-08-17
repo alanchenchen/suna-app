@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "./components/Icon";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
-import { Composer } from "./features/chat/Composer";
+import { Composer, type ComposerHandle } from "./features/chat/Composer";
 import { RunDetails } from "./features/run/RunDetails";
 import { CommandPalette } from "./features/commands/CommandPalette";
 import { useRuntimeSession } from "./features/runtime/useRuntimeSession";
@@ -113,18 +113,31 @@ export function App() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
-  // Cmd/Ctrl+K 打开全局命令面板（搜索任务 + 快捷动作）。
+  // 全局快捷键：Cmd/Ctrl+K 命令面板、Cmd/Ctrl+N 新建任务、Cmd/Ctrl+, 设置。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandOpen((value) => !value);
+        return;
+      }
+      if (mod && event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        setCreateOpen(true);
+        return;
+      }
+      if (mod && event.key === ",") {
+        event.preventDefault();
+        setSettingsOpen(true);
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // 空状态建议卡 → 输入框填充草稿的桥。
+  const composerRef = useRef<ComposerHandle>(null);
   const session = useRuntimeSession();
   const {
     sessions,
@@ -426,6 +439,12 @@ export function App() {
                   rpc("agent.guardReply", { id, decision }),
                 ).then(() => undefined)
               }
+              onSuggestion={
+                // 只读模式（observer）下不引导输入：建议卡隐藏，避免填入后无法发送。
+                observer
+                  ? undefined
+                  : (text) => composerRef.current?.fillDraft(text)
+              }
               pending={active.pendingUsers.length > 0}
               phase={active.run?.phase ?? current?.phase}
               flow={active.flow}
@@ -438,6 +457,7 @@ export function App() {
               disabled={sessionActionsFrozen || observer}
               onSubmit={send}
               observer={observer}
+              ref={composerRef}
               waiting={selected?.status === "waiting"}
             />
           </>
@@ -537,18 +557,37 @@ export function App() {
         usage={active.usage}
       />
       <CommandPalette
-        open={commandOpen}
+        canCompact={
+          Boolean(selected) &&
+          !sessionActionsFrozen &&
+          !running &&
+          selected?.status !== "compacting"
+        }
+        locale={locale}
+        onChangeLocale={() => changeLocale(locale === "zh" ? "en" : "zh")}
+        onClose={() => setCommandOpen(false)}
+        onCompact={() =>
+          queueSessionOperation(() => rpc("session.compact", {})).then(
+            () => undefined,
+          )
+        }
         onCreateTask={() => {
           setCreateOpen(true);
         }}
-        onClose={() => setCommandOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
         onSelectSession={(id) => {
           setMobileTab("session");
           void attach(id);
         }}
+        onStopTask={() =>
+          queueSessionOperation(() => rpc("agent.cancel", {})).then(
+            () => undefined,
+          )
+        }
         onToggleDetails={() => setDetailsOpen((value) => !value)}
         onToggleTheme={toggleTheme}
+        open={commandOpen}
+        running={running}
         selectedId={selectedId}
         sessions={sessions}
       />

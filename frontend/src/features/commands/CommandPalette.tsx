@@ -1,39 +1,54 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "../../components/Icon";
+import { Icon, type IconName } from "../../components/Icon";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
 type CommandPaletteProps = {
   open: boolean;
   sessions: SessionInfo[];
   selectedId?: string;
+  /** 当前会话是否在运行（控制“停止当前任务”动作是否可用）。 */
+  running?: boolean;
+  /** 当前会话是否可压缩（无选中/同步中时禁用）。 */
+  canCompact?: boolean;
+  /** 当前界面语言（显示切换动作文案）。 */
+  locale: "zh" | "en";
   onClose: () => void;
   onSelectSession: (id: string) => void;
   onCreateTask: () => void;
   onOpenSettings: () => void;
   onToggleTheme: () => void;
   onToggleDetails: () => void;
+  onStopTask: () => void;
+  onCompact: () => void;
+  onChangeLocale: () => void;
 };
 
 type Command = {
   id: string;
   label: string;
   detail?: string;
-  icon: "message" | "plus" | "settings" | "sun" | "panel";
+  icon: IconName;
   kind: "session" | "action";
   run: () => void;
 };
 
-/** Cmd/Ctrl+K 全局命令面板：搜索任务 + 快捷动作（设计 §阶段 3）。 */
+/** Cmd/Ctrl+K 全局命令面板：搜索任务 + 快捷动作（分组展示）。 */
 export function CommandPalette({
   open,
   sessions,
   selectedId,
+  running = false,
+  canCompact = false,
+  locale = "zh",
   onClose,
   onSelectSession,
   onCreateTask,
   onOpenSettings,
   onToggleTheme,
   onToggleDetails,
+  onStopTask,
+  onCompact,
+  onChangeLocale,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
@@ -85,6 +100,28 @@ export function CommandPalette({
         kind: "action" as const,
         run: onCreateTask,
       },
+      ...(running
+        ? [
+            {
+              id: "stop",
+              label: "停止当前任务",
+              icon: "pause" as const,
+              kind: "action" as const,
+              run: onStopTask,
+            },
+          ]
+        : []),
+      ...(canCompact
+        ? [
+            {
+              id: "compact",
+              label: "压缩上下文",
+              icon: "tool" as const,
+              kind: "action" as const,
+              run: onCompact,
+            },
+          ]
+        : []),
       {
         id: "settings",
         label: "打开设置",
@@ -106,45 +143,119 @@ export function CommandPalette({
         kind: "action" as const,
         run: onToggleDetails,
       },
+      {
+        id: "locale",
+        label:
+          locale === "zh" ? "切换语言（English）" : "Switch language（中文）",
+        icon: "message" as const,
+        kind: "action" as const,
+        run: onChangeLocale,
+      },
     ].filter((action) => {
       if (!q) return true;
       return action.label.toLowerCase().includes(q);
     });
-    return [...sessionCommands, ...actions];
+    return { sessions: sessionCommands, actions };
   }, [
+    canCompact,
+    locale,
+    onCompact,
+    onChangeLocale,
     onCreateTask,
     onOpenSettings,
     onSelectSession,
+    onStopTask,
     onToggleDetails,
     onToggleTheme,
     query,
+    running,
     sessions,
   ]);
 
   // 打开时重置高亮；命令列表变化时夹紧高亮。
+  const flat = useMemo(
+    () => [...commands.sessions, ...commands.actions],
+    [commands],
+  );
   useEffect(() => {
     setHighlight(0);
   }, [open, query]);
   useEffect(() => {
-    setHighlight((value) => Math.min(value, Math.max(0, commands.length - 1)));
-  }, [commands.length]);
+    setHighlight((value) => Math.min(value, Math.max(0, flat.length - 1)));
+  }, [flat.length]);
 
   // 键盘导航：上下移动高亮，回车执行。
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlight((value) => Math.min(value + 1, commands.length - 1));
+      setHighlight((value) => Math.min(value + 1, flat.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setHighlight((value) => Math.max(value - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const command = commands[highlight];
+      const command = flat[highlight];
       if (command) {
         command.run();
         onClose();
       }
     }
+  };
+
+  /** 渲染一组命令：任务/动作分区，组内连续索引用于高亮定位。 */
+  const renderGroup = (title: string, group: Command[], offset: number) => {
+    if (group.length === 0) return null;
+    return (
+      <div className="pb-1">
+        <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-extrabold tracking-[0.09em] text-ink-muted uppercase">
+          {title}
+        </p>
+        {group.map((command, index) => {
+          const active = index + offset === highlight;
+          return (
+            <button
+              aria-selected={active}
+              className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-80 ${
+                active ? "bg-blue-soft/70" : "hover:bg-surface-subtle"
+              }`}
+              key={command.id}
+              onMouseEnter={() => setHighlight(index + offset)}
+              onClick={() => {
+                command.run();
+                onClose();
+              }}
+              type="button"
+            >
+              <span
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${
+                  active
+                    ? "bg-blue text-white"
+                    : "bg-surface-subtle text-ink-muted"
+                }`}
+              >
+                <Icon name={command.icon} size={14} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <strong className="block truncate text-[12.5px] font-bold text-ink">
+                  {command.label}
+                </strong>
+                {command.detail && (
+                  <small className="block truncate font-mono text-[10px] text-ink-muted">
+                    {command.detail}
+                  </small>
+                )}
+              </span>
+              {command.kind === "session" &&
+                command.id === `session-${selectedId}` && (
+                  <span className="shrink-0 text-[10px] font-bold text-blue-strong">
+                    当前
+                  </span>
+                )}
+            </button>
+          );
+        })}
+      </div>
+    );
   };
 
   if (!open) return null;
@@ -175,55 +286,13 @@ export function CommandPalette({
           </kbd>
         </div>
         <div className="max-h-[300px] overflow-y-auto p-1.5">
-          {commands.length === 0 && (
+          {flat.length === 0 && (
             <p className="p-3 text-center text-[12px] text-ink-muted">
               没有匹配的结果
             </p>
           )}
-          {commands.map((command, index) => {
-            const active = index === highlight;
-            return (
-              <button
-                aria-selected={active}
-                className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-80 ${
-                  active ? "bg-blue-soft/70" : "hover:bg-surface-subtle"
-                }`}
-                key={command.id}
-                onMouseEnter={() => setHighlight(index)}
-                onClick={() => {
-                  command.run();
-                  onClose();
-                }}
-                type="button"
-              >
-                <span
-                  className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${
-                    active
-                      ? "bg-blue text-white"
-                      : "bg-surface-subtle text-ink-muted"
-                  }`}
-                >
-                  <Icon name={command.icon} size={14} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong className="block truncate text-[12.5px] font-bold text-ink">
-                    {command.label}
-                  </strong>
-                  {command.detail && (
-                    <small className="block truncate font-mono text-[10px] text-ink-muted">
-                      {command.detail}
-                    </small>
-                  )}
-                </span>
-                {command.kind === "session" &&
-                  command.id === `session-${selectedId}` && (
-                    <span className="shrink-0 text-[10px] font-bold text-blue-strong">
-                      当前
-                    </span>
-                  )}
-              </button>
-            );
-          })}
+          {renderGroup("任务", commands.sessions, 0)}
+          {renderGroup("动作", commands.actions, commands.sessions.length)}
         </div>
       </div>
     </div>

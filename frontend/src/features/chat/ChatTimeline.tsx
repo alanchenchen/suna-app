@@ -56,6 +56,8 @@ type ChatTimelineProps = {
   sessionId?: string;
   /** 会话快照加载中时显示骨架占位。 */
   loading?: boolean;
+  /** 空状态建议卡点击：把示例 prompt 交给外层（填入输入框）。 */
+  onSuggestion?: (text: string) => void;
 };
 
 export function ChatTimeline({
@@ -73,6 +75,7 @@ export function ChatTimeline({
   controlsDisabled = false,
   sessionId,
   loading = false,
+  onSuggestion,
 }: ChatTimelineProps) {
   const [historyWindow, setHistoryWindow] = useState(80);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -177,24 +180,42 @@ export function ChatTimeline({
               <p className="m-0 max-w-[300px] text-[12.5px] leading-relaxed text-ink-muted">
                 告诉 Suna 你想在这个工作目录中完成什么，它会负责执行与推进。
               </p>
-              <div className="mt-6 grid gap-2 text-left">
-                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-blue/25 hover:shadow-md">
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-blue-soft text-blue-strong">
-                    <Icon name="search" size={14} />
-                  </span>
-                  <span className="text-[12px] text-ink-soft">
-                    让 Suna 分析代码、查找问题并解释架构
-                  </span>
+              {onSuggestion && (
+                <div className="mt-6 grid gap-2 text-left">
+                  <button
+                    className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 text-left shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-blue/25 hover:shadow-md active:scale-[0.985]"
+                    onClick={() =>
+                      onSuggestion?.(
+                        "分析当前项目的代码结构，找出潜在问题并解释整体架构",
+                      )
+                    }
+                    type="button"
+                  >
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-blue-soft text-blue-strong">
+                      <Icon name="search" size={14} />
+                    </span>
+                    <span className="text-[12px] text-ink-soft">
+                      让 Suna 分析代码、查找问题并解释架构
+                    </span>
+                  </button>
+                  <button
+                    className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 text-left shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-green/30 hover:shadow-md active:scale-[0.985]"
+                    onClick={() =>
+                      onSuggestion?.(
+                        "修改项目中的问题文件、运行测试，并汇报最终结果",
+                      )
+                    }
+                    type="button"
+                  >
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-green-soft text-green">
+                      <Icon name="check" size={14} />
+                    </span>
+                    <span className="text-[12px] text-ink-soft">
+                      让它修改文件、运行测试并汇报结果
+                    </span>
+                  </button>
                 </div>
-                <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-green/30 hover:shadow-md">
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-green-soft text-green">
-                    <Icon name="check" size={14} />
-                  </span>
-                  <span className="text-[12px] text-ink-soft">
-                    让它修改文件、运行测试并汇报结果
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           )}
         {!loading && messages.length > historyWindow && (
@@ -217,12 +238,25 @@ export function ChatTimeline({
         {!loading &&
           messages.slice(-historyWindow).map((message, index) => (
             <article
-              className={`mb-8 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-7`}
+              className={`group mb-8 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-7`}
               key={`${messages.length - historyWindow + index}-${message.role}`}
             >
               <div
                 className={`mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft ${message.role === "user" ? "flex-row-reverse" : ""}`}
               >
+                <button
+                  aria-label="复制消息"
+                  className="grid h-6 w-6 cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
+                  onClick={() => {
+                    // 剪贴板写入失败静默忽略（非安全上下文等场景）。
+                    void navigator.clipboard
+                      ?.writeText(message.content)
+                      .catch(() => undefined);
+                  }}
+                  type="button"
+                >
+                  <Icon name="copy" size={12} />
+                </button>
                 <span
                   className={
                     message.role === "user"

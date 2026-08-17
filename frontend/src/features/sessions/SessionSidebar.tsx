@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
@@ -11,6 +11,19 @@ const statusLabels: Record<SessionInfo["status"], string> = {
 
 /** 组折叠记忆：localStorage 按项目路径记录折叠状态。 */
 const COLLAPSED_KEY = "suna-app:collapsed-projects";
+/** 会话置顶记忆：localStorage 记录手动置顶的会话 id。 */
+const PINNED_KEY = "suna-app:pinned-sessions";
+
+function loadPinned(): Set<string> {
+  try {
+    const raw = localStorage.getItem(PINNED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
 
 function loadCollapsed(): Set<string> {
   try {
@@ -77,6 +90,8 @@ function SessionRow({
   onJoinActive,
   onRename,
   onSelect,
+  onTogglePin,
+  pinned,
   selected,
   session,
 }: {
@@ -87,6 +102,8 @@ function SessionRow({
   onJoinActive: (id: string) => void;
   onRename?: () => void;
   onSelect: (id: string) => void;
+  onTogglePin?: () => void;
+  pinned?: boolean;
   selected: boolean;
   session: SessionInfo;
 }) {
@@ -153,12 +170,12 @@ function SessionRow({
           加入
         </button>
       )}
-      {selected && (onDetach || onDelete || onRename) && (
+      {selected && (onDetach || onDelete || onRename || onTogglePin) && (
         <div className="absolute top-1 right-1.5" ref={menuRef}>
           <button
             aria-expanded={menuFor}
             aria-label={`会话操作：${session.title || "未命名会话"}`}
-            className="grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-ink-muted opacity-0 transition-[opacity,background] duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100"
+            className="grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-ink-muted opacity-0 transition-[opacity,background] duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
             onClick={(event) => {
               event.stopPropagation();
               setMenuFor((value) => !value);
@@ -169,6 +186,19 @@ function SessionRow({
           </button>
           {menuFor && (
             <div className="absolute top-8 right-0 z-10 w-36 animate-[panel-pop_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-xl border border-line bg-surface-solid py-1 shadow-lg">
+              {onTogglePin && (
+                <button
+                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuFor(false);
+                    onTogglePin();
+                  }}
+                  type="button"
+                >
+                  {pinned ? "取消置顶" : "置顶会话"}
+                </button>
+              )}
               {onRename && (
                 <button
                   className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
@@ -239,6 +269,13 @@ export function SessionSidebar({
 }: SessionSidebarProps) {
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [pinned, setPinned] = useState<Set<string>>(loadPinned);
+  // 每分钟刷新相对时间（"刚刚/5m 前"不会一直停留在旧值）。
+  const [, tick] = useReducer((value: number) => value + 1, 0);
+  useEffect(() => {
+    const timer = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // 移动端（≤720px）侧栏是抽屉：未打开时对屏幕阅读器和 Tab 聚焦隐藏，
   // 避免读屏读到屏幕外的会话列表、键盘焦点落到不可见元素上。
@@ -267,17 +304,49 @@ export function SessionSidebar({
     });
   }
 
-  // 排序：waiting 置顶（设计 §6.2），其余按更新时间倒序。
+  function togglePin(id: string) {
+    setPinned((value) => {
+      const next = new Set(value);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(PINNED_KEY, JSON.stringify([...next]));
+      } catch {
+        // localStorage 不可用时仅内存生效。
+      }
+      return next;
+    });
+  }
+
+  /** 删除会话时同步清理置顶记忆，避免残留失效 id。 */
+  function handleDelete(id: string) {
+    setPinned((value) => {
+      const next = new Set(value);
+      next.delete(id);
+      try {
+        localStorage.setItem(PINNED_KEY, JSON.stringify([...next]));
+      } catch {
+        // localStorage 不可用时仅内存生效。
+      }
+      return next;
+    });
+    onDelete?.(id);
+  }
+
+  // 排序：手动置顶 > waiting 置顶（设计 §6.2）> 其余按更新时间倒序。
   const sorted = useMemo(
     () =>
       [...sessions].sort((a, b) => {
+        const pa = pinned.has(a.id) ? 0 : 1;
+        const pb = pinned.has(b.id) ? 0 : 1;
+        if (pa !== pb) return pa - pb;
         const rank = waitingRank[a.status] - waitingRank[b.status];
         if (rank !== 0) return rank;
         return (
           new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
         );
       }),
-    [sessions],
+    [pinned, sessions],
   );
 
   // 搜索：过滤标题 + 路径，搜索时平铺（临时取消分组）。
@@ -377,11 +446,13 @@ export function SessionSidebar({
                 disabled={disabled}
                 joining={session.id === pendingId}
                 key={session.id}
-                onDelete={onDelete}
+                onDelete={handleDelete}
                 onDetach={onDetach}
                 onJoinActive={onJoinActive}
                 onRename={onRename}
                 onSelect={onSelect}
+                onTogglePin={() => togglePin(session.id)}
+                pinned={pinned.has(session.id)}
                 selected={session.id === selectedId}
                 session={session}
               />
@@ -426,11 +497,13 @@ export function SessionSidebar({
                           disabled={disabled}
                           joining={session.id === pendingId}
                           key={session.id}
-                          onDelete={onDelete}
+                          onDelete={handleDelete}
                           onDetach={onDetach}
                           onJoinActive={onJoinActive}
                           onRename={onRename}
                           onSelect={onSelect}
+                          onTogglePin={() => togglePin(session.id)}
+                          pinned={pinned.has(session.id)}
                           selected={session.id === selectedId}
                           session={session}
                         />
