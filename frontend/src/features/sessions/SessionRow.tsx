@@ -1,0 +1,170 @@
+import { useEffect, useRef, useState } from "react";
+import { Icon } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
+import type { SessionInfo } from "../../lib/runtimeBridge";
+import { relativeTime, statusLabels } from "./sidebarUtils";
+
+export function SessionRow({
+  disabled,
+  joining,
+  onDelete,
+  onDetach,
+  onJoinActive,
+  onRename,
+  onSelect,
+  onTogglePin,
+  pinned,
+  selected,
+  session,
+}: {
+  disabled: boolean;
+  joining: boolean;
+  onDelete?: (id: string) => void;
+  onDetach?: () => void;
+  onJoinActive: (id: string) => void;
+  onRename?: () => void;
+  onSelect: (id: string) => void;
+  onTogglePin?: () => void;
+  pinned?: boolean;
+  selected: boolean;
+  session: SessionInfo;
+}) {
+  const t = useT();
+  const [menuFor, setMenuFor] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const canJoin =
+    session.status === "running" && !selected && !disabled && !joining;
+
+  // 点击会话菜单外部时关闭菜单，避免菜单残留。
+  useEffect(() => {
+    if (!menuFor) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node))
+        setMenuFor(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuFor]);
+
+  return (
+    <div
+      className={`group relative my-0.5 ${selected ? "rounded-xl border border-line bg-surface-solid shadow-sm" : ""} ${joining ? "opacity-60" : ""}`}
+    >
+      {/* 选中态左侧品牌色指示条：现代导航的经典做法 */}
+      {selected && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1/2 left-0 h-[60%] w-[3px] -translate-y-1/2 rounded-r-full bg-blue shadow-[0_0_8px_var(--color-blue-glow)]"
+        />
+      )}
+      <button
+        aria-current={selected ? "page" : undefined}
+        aria-label={`${session.title || t("sidebar.untitled")}，${joining ? t("sidebar.opening") : t(statusLabels[session.status])}`}
+        className={`grid w-full cursor-pointer grid-cols-[8px_minmax(0,1fr)_auto] items-start gap-2 rounded-xl px-2 py-2.5 text-left transition-[background,border-color,transform,opacity] duration-180 ${selected ? "text-ink" : "text-ink-soft"} hover:bg-surface-subtle active:scale-[0.985] disabled:cursor-wait disabled:opacity-60`}
+        disabled={disabled || joining}
+        onClick={() => onSelect(session.id)}
+        type="button"
+      >
+        <span
+          aria-hidden="true"
+          className={`mt-1.5 h-[7px] w-[7px] rounded-full ${session.status === "running" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]" : session.status === "waiting" ? "bg-amber" : session.status === "compacting" ? "animate-[breathe_1.8s_ease-in-out_infinite] bg-blue shadow-[0_0_0_3px_var(--color-blue-soft)]" : "bg-ink-muted"}`}
+        />
+        <span className="grid min-w-0 gap-0.5">
+          <strong className="truncate text-[12px] font-extrabold text-ink">
+            {session.title || t("sidebar.untitled")}
+          </strong>
+          <span
+            className={`text-[10px] font-bold ${session.status === "running" ? "text-blue-strong" : session.status === "waiting" ? "text-amber" : "text-ink-muted"}`}
+          >
+            {joining ? t("sidebar.opening") : t(statusLabels[session.status])}
+          </span>
+        </span>
+        <time className="text-[10px] text-ink-muted">
+          {t(relativeTime(session.updated_at))}
+        </time>
+      </button>
+      {canJoin && (
+        <button
+          aria-label={t("sidebar.joinRunning")}
+          className="absolute top-1.5 right-2 cursor-pointer rounded-md bg-blue px-2 py-1 text-[10px] font-bold text-white shadow-sm transition-colors duration-150 hover:bg-blue-strong"
+          onClick={() => onJoinActive(session.id)}
+          type="button"
+        >
+          {t("sidebar.join")}
+        </button>
+      )}
+      {selected && (onDetach || onDelete || onRename || onTogglePin) && (
+        <div className="absolute top-1 right-1.5" ref={menuRef}>
+          <button
+            aria-expanded={menuFor}
+            aria-label={t("sidebar.sessionActions")}
+            className="grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-ink-muted opacity-0 transition-[opacity,background] duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuFor((value) => !value);
+            }}
+            type="button"
+          >
+            <Icon name="ellipsis" size={15} />
+          </button>
+          {menuFor && (
+            <div className="absolute top-8 right-0 z-10 w-36 animate-[panel-pop_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-xl border border-line bg-surface-solid py-1 shadow-lg">
+              {onTogglePin && (
+                <button
+                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuFor(false);
+                    onTogglePin();
+                  }}
+                  type="button"
+                >
+                  {pinned ? t("sidebar.unpin") : t("sidebar.pin")}
+                </button>
+              )}
+              {onRename && (
+                <button
+                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuFor(false);
+                    onRename();
+                  }}
+                  type="button"
+                >
+                  {t("sidebar.rename")}
+                </button>
+              )}
+              {onDetach && (
+                <button
+                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuFor(false);
+                    onDetach();
+                  }}
+                  type="button"
+                >
+                  {t("sidebar.detach")}
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-rose transition-colors duration-100 hover:bg-rose/10"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuFor(false);
+                    onDelete(session.id);
+                  }}
+                  type="button"
+                >
+                  {t("sidebar.delete")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

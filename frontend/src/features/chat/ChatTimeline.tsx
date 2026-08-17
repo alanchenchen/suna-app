@@ -10,17 +10,15 @@ import type {
 import {
   activityCopy,
   ActivityDots,
-  DecisionCard,
-  LONG_MESSAGE_THRESHOLD,
-  LongMessage,
   ReasoningBlock,
-  SkillCard,
   StreamActivity,
-  SubtaskCard,
   toneClasses,
-  ToolCard,
-} from "./blocks";
+} from "./activity";
+import { DecisionCard } from "./decisionCard";
+import { LONG_MESSAGE_THRESHOLD, LongMessage } from "./longMessage";
+import { SkillCard, SubtaskCard, ToolCard } from "./toolCards";
 import { LazyMarkdown } from "./LazyMarkdown";
+import { useT } from "../../lib/i18n";
 
 type ActiveTool = {
   id?: string;
@@ -77,6 +75,7 @@ export function ChatTimeline({
   loading = false,
   onSuggestion,
 }: ChatTimelineProps) {
+  const t = useT();
   const [historyWindow, setHistoryWindow] = useState(80);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -139,14 +138,14 @@ export function ChatTimeline({
       !segment.done,
   );
   const showActivityCard = Boolean((running || pending) && !hasStream);
-  const streamActivity = activityCopy(phase, false, activeTool);
-  const activity = activityCopy(phase, pending, activeTool);
+  const streamActivity = activityCopy(t, phase, false, activeTool);
+  const activity = activityCopy(t, phase, pending, activeTool);
   const toneClass = toneClasses[activity.tone] ?? toneClasses.default;
 
   return (
     <div className="conversation-wrap" onScroll={onScroll} ref={scrollRef}>
       <section
-        aria-label="会话消息"
+        aria-label={t("chat.timelineLabel")}
         className="animate-[message-in_300ms_cubic-bezier(0.2,0.8,0.2,1)_both] mx-auto w-[min(720px,calc(100%-48px))] px-0 pt-8 pb-12 max-[720px]:w-[min(100%-28px,640px)] max-[720px]:pt-6 max-[720px]:pb-7"
         key={sessionId ?? "none"}
       >
@@ -171,47 +170,39 @@ export function ChatTimeline({
           flow.length === 0 &&
           !showActivityCard && (
             <div className="flex min-h-[300px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_8px_24px_rgba(91,103,241,0.32)]">
+              <span className="grid h-12 w-12 animate-[float-y_5s_ease-in-out_infinite] place-items-center rounded-2xl bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_8px_24px_rgba(91,103,241,0.32)]">
                 <Icon name="sparkle" size={22} />
               </span>
               <h2 className="mt-4 mb-1.5 text-[17px] font-extrabold tracking-tight text-ink">
-                开始一个任务
+                {t("chat.empty.title")}
               </h2>
               <p className="m-0 max-w-[300px] text-[12.5px] leading-relaxed text-ink-muted">
-                告诉 Suna 你想在这个工作目录中完成什么，它会负责执行与推进。
+                {t("chat.empty.desc")}
               </p>
               {onSuggestion && (
                 <div className="mt-6 grid gap-2 text-left">
                   <button
                     className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 text-left shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-blue/25 hover:shadow-md active:scale-[0.985]"
-                    onClick={() =>
-                      onSuggestion?.(
-                        "分析当前项目的代码结构，找出潜在问题并解释整体架构",
-                      )
-                    }
+                    onClick={() => onSuggestion?.(t("chat.suggestion.analyze"))}
                     type="button"
                   >
                     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-blue-soft text-blue-strong">
                       <Icon name="search" size={14} />
                     </span>
                     <span className="text-[12px] text-ink-soft">
-                      让 Suna 分析代码、查找问题并解释架构
+                      {t("chat.suggestion.analyzeLabel")}
                     </span>
                   </button>
                   <button
                     className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 text-left shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-green/30 hover:shadow-md active:scale-[0.985]"
-                    onClick={() =>
-                      onSuggestion?.(
-                        "修改项目中的问题文件、运行测试，并汇报最终结果",
-                      )
-                    }
+                    onClick={() => onSuggestion?.(t("chat.suggestion.fix"))}
                     type="button"
                   >
                     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-green-soft text-green">
                       <Icon name="check" size={14} />
                     </span>
                     <span className="text-[12px] text-ink-soft">
-                      让它修改文件、运行测试并汇报结果
+                      {t("chat.suggestion.fixLabel")}
                     </span>
                   </button>
                 </div>
@@ -232,7 +223,9 @@ export function ChatTimeline({
             }}
             type="button"
           >
-            显示更早的 {Math.min(80, messages.length - historyWindow)} 条消息
+            {t("chat.moreHistory", {
+              count: Math.min(80, messages.length - historyWindow),
+            })}
           </button>
         )}
         {!loading &&
@@ -245,8 +238,8 @@ export function ChatTimeline({
                 className={`mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft ${message.role === "user" ? "flex-row-reverse" : ""}`}
               >
                 <button
-                  aria-label="复制消息"
-                  className="grid h-6 w-6 cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
+                  aria-label={t("chat.copyMessage")}
+                  className="grid h-6 w-6 animate-[slide-in-right_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
                   onClick={() => {
                     // 剪贴板写入失败静默忽略（非安全上下文等场景）。
                     void navigator.clipboard
@@ -265,13 +258,13 @@ export function ChatTimeline({
                   }
                 >
                   {message.role === "user" ? (
-                    "你"
+                    t("chat.user")
                   ) : (
                     <Icon name="sparkle" size={14} />
                   )}
                 </span>
                 <strong className="text-ink">
-                  {message.role === "user" ? "你" : "Suna"}
+                  {message.role === "user" ? t("chat.user") : "Suna"}
                 </strong>
               </div>
               <div
@@ -328,7 +321,7 @@ export function ChatTimeline({
           </section>
         )}
         {!loading && flow.length > 0 && (
-          <div aria-label="执行过程" className="space-y-0.5">
+          <div aria-label={t("chat.processLabel")} className="space-y-0.5">
             {flow.map((segment) => {
               if (segment.kind === "reasoning") {
                 return (
@@ -373,7 +366,7 @@ export function ChatTimeline({
                     <strong className="text-ink">Suna</strong>
                     {streaming && (running || pending) && (
                       <StreamActivity
-                        label="正在回复"
+                        label={t("chat.replying")}
                         detail={streamActivity.detail}
                       />
                     )}
@@ -410,14 +403,19 @@ export function ChatTimeline({
                   <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-blue-strong">
                     <Icon name="tool" size={13} />
                   </span>
-                  工具执行
+                  {t("toolSummary.title")}
                 </span>
                 <span className="text-[10px] font-bold text-ink-muted">
-                  共 {toolSummary.total} 次 · {toolSummary.success} 成功
+                  {t("toolSummary.total", {
+                    total: toolSummary.total,
+                    success: toolSummary.success,
+                  })}
                   {toolSummary.failed > 0 && (
                     <span className="text-rose">
                       {" "}
-                      · {toolSummary.failed} 失败
+                      {t("toolSummary.failed", {
+                        failed: toolSummary.failed,
+                      })}
                     </span>
                   )}
                 </span>
@@ -452,7 +450,7 @@ export function ChatTimeline({
           type="button"
         >
           <Icon name="arrow-up" size={14} />
-          回到最新消息
+          {t("chat.backToLatest")}
         </button>
       )}
     </div>

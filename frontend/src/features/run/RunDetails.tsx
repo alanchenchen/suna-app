@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
 import { Select } from "../../components/ui/Select";
-import { ActivityDots } from "../chat/blocks";
+import { useT } from "../../lib/i18n";
+import { ActivityDots } from "../chat/activity";
 import type {
   AgentRunEvent,
   AgentUsageEvent,
@@ -42,6 +43,7 @@ function tokenCount(value?: number) {
     : "—";
 }
 export function RunDetails(props: RunDetailsProps) {
+  const t = useT();
   const {
     id = "run-details",
     open,
@@ -94,7 +96,9 @@ export function RunDetails(props: RunDetailsProps) {
     try {
       await fn();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "请求失败。");
+      setError(
+        reason instanceof Error ? reason.message : t("run.requestFailed"),
+      );
     } finally {
       setBusy(false);
     }
@@ -115,7 +119,12 @@ export function RunDetails(props: RunDetailsProps) {
       (model) => `${model.provider}/${model.model}` === selectedModel,
     ) || !selectedModel
       ? []
-      : [{ value: selectedModel, label: `${selectedModel}（不可用）` }]),
+      : [
+          {
+            value: selectedModel,
+            label: t("run.unavailableBadge", { model: selectedModel }),
+          },
+        ]),
     ...(config?.models.map((model) => {
       const ref = `${model.provider}/${model.model}`;
       return { value: ref, label: ref };
@@ -125,7 +134,7 @@ export function RunDetails(props: RunDetailsProps) {
     <>
       {/* 详情遮罩：常驻 DOM，is-visible 控制淡入淡出（CSS 过渡）。 */}
       <button
-        aria-label="关闭任务详情"
+        aria-label={t("run.close")}
         className={`details-scrim ${open ? "is-visible" : ""}`}
         onClick={onClose}
         tabIndex={open ? 0 : -1}
@@ -133,7 +142,7 @@ export function RunDetails(props: RunDetailsProps) {
       />
       <aside
         aria-hidden={!open}
-        aria-label="任务详情"
+        aria-label={t("run.detailsLabel")}
         className={`details-panel ${open ? "is-open" : ""}`}
         id={id}
         inert={!open ? true : undefined}
@@ -141,15 +150,15 @@ export function RunDetails(props: RunDetailsProps) {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-              当前会话
+              {t("run.currentSession")}
             </p>
             <h2 className="mt-1 text-[16px] font-extrabold text-ink">
-              状态与用量
+              {t("run.title")}
             </h2>
           </div>
           <IconButton
             buttonRef={closeButtonRef}
-            label="关闭任务详情"
+            label={t("run.close")}
             onClick={onClose}
           >
             <Icon name="close" size={18} />
@@ -172,21 +181,21 @@ export function RunDetails(props: RunDetailsProps) {
               <div className="min-w-0 flex-1">
                 <strong className="block text-[13px] font-extrabold text-ink">
                   {status === "running"
-                    ? "正在执行任务"
+                    ? t("run.running")
                     : status === "waiting"
-                      ? "等待你的输入"
+                      ? t("run.waiting")
                       : status === "compacting"
-                        ? "正在压缩上下文"
-                        : "会话空闲"}
+                        ? t("run.compacting")
+                        : t("run.idle")}
                 </strong>
                 <small className="block truncate text-[11px] text-ink-muted">
                   {phase
-                    ? `阶段：${phase}`
+                    ? t("run.phase", { phase })
                     : status === "running"
-                      ? "Suna 正在处理任务"
+                      ? t("run.processing")
                       : status === "waiting"
-                        ? "回复后将继续处理"
-                        : "可开始新任务或加入运行中的会话"}
+                        ? t("run.replyToContinue")
+                        : t("run.idleHint")}
                 </small>
               </div>
               {status !== "running" && onResume && (
@@ -196,14 +205,18 @@ export function RunDetails(props: RunDetailsProps) {
                   onClick={() => void act(onResume)}
                   type="button"
                 >
-                  恢复执行
+                  {t("run.resume")}
                 </button>
               )}
             </div>
             <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
               {run?.state === "retrying"
-                ? `正在重试${run.attempt && run.max_attempts ? `（${run.attempt}/${run.max_attempts}）` : ""}${run.delay_ms ? `，${Math.ceil(run.delay_ms / 1000)} 秒后继续` : ""}。`
-                : run?.message || "实时状态和工具活动来自当前 Runtime 会话。"}
+                ? t("run.retrying", {
+                    attempt: run.attempt ?? 0,
+                    max: run.max_attempts ?? 0,
+                    seconds: run.delay_ms ? Math.ceil(run.delay_ms / 1000) : 0,
+                  })
+                : run?.message || t("run.liveStatus")}
             </p>
             {run?.error && (
               <small className="mt-1 block text-[12px] font-semibold text-rose">
@@ -213,8 +226,10 @@ export function RunDetails(props: RunDetailsProps) {
             {run?.run_error && (
               <small className="mt-1 block text-[12px] font-semibold text-rose">
                 {run.run_error.kind === "session_model_unavailable"
-                  ? `会话模型不可用：${run.run_error.model_ref ?? "—"}`
-                  : "尚未配置模型。"}
+                  ? t("run.modelUnavailable", {
+                      model: run.run_error.model_ref ?? "—",
+                    })
+                  : t("run.noModel")}
               </small>
             )}
           </section>
@@ -226,10 +241,10 @@ export function RunDetails(props: RunDetailsProps) {
                 </span>
                 <div>
                   <strong className="block text-[13px] font-extrabold text-ink">
-                    {guard ? "需要你的授权" : "Suna 有一个问题"}
+                    {guard ? t("guard.title") : t("ask.title")}
                   </strong>
                   <small className="text-[11px] text-ink-muted">
-                    {guard ? guard.tool : "请回复后继续"}
+                    {guard ? guard.tool : t("ask.replyToContinue")}
                   </small>
                 </div>
               </div>
@@ -238,18 +253,20 @@ export function RunDetails(props: RunDetailsProps) {
               </p>
               {guard?.suggestion && (
                 <p className="mt-1.5 rounded-lg border border-amber/25 bg-amber/10 px-2.5 py-2 text-[12px] leading-relaxed text-ink-soft">
-                  <span className="font-extrabold text-ink">建议改为：</span>
+                  <span className="font-extrabold text-ink">
+                    {t("guard.suggest")}
+                  </span>
                   <code className="font-mono">{guard.suggestion}</code>
                 </p>
               )}
               {/* 只读摘要：决策按钮在时间线内嵌决策卡上（设计 §7.4），
                   右栏不重复操作，避免同一决策两处可点分散注意力。 */}
               <small className="mt-2 block text-[11px] font-semibold text-ink-muted">
-                请在对话中处理此请求
+                {t("run.approveInChat")}
               </small>
               {(ask && !ask.can_reply) || (guard && !guard.can_reply) ? (
                 <small className="mt-1 block text-[11px] text-ink-muted">
-                  此请求由其他客户端处理；当前窗口仅可查看。
+                  {t("decision.otherClient")}
                 </small>
               ) : null}
               {error && (
@@ -264,9 +281,11 @@ export function RunDetails(props: RunDetailsProps) {
             key={`usage-${usage?.run_id ?? "none"}-${status ?? "none"}`}
           >
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="m-0 text-[13px] font-bold text-ink">本次用量</h3>
+              <h3 className="m-0 text-[13px] font-bold text-ink">
+                {t("run.usage")}
+              </h3>
               <button
-                aria-label="压缩上下文"
+                aria-label={t("run.compact")}
                 className="cursor-pointer rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={
                   controlsDisabled ||
@@ -277,35 +296,39 @@ export function RunDetails(props: RunDetailsProps) {
                 onClick={() => void act(onCompact)}
                 type="button"
               >
-                压缩
+                {t("run.compact")}
               </button>
             </div>
             {/* 压缩过程/结果：running 动画 → 完成结果（N→M tokens）→ 失败错误 */}
             {compact?.running ? (
               <div className="mb-2 flex items-center gap-2 rounded-lg border border-blue/25 bg-blue-soft/40 px-2.5 py-2 text-[12px] font-bold text-blue-strong">
                 <ActivityDots />
-                正在压缩上下文…
+                {t("run.compactingNow")}
               </div>
             ) : compact?.error ? (
               <div className="mb-2 rounded-lg border border-rose/25 bg-rose/10 px-2.5 py-2 text-[12px] font-semibold text-rose">
-                压缩失败：{compact.error}
+                {t("run.compactFailed", { error: compact.error })}
               </div>
             ) : compact?.noop ? (
               <div className="mb-2 rounded-lg border border-line bg-surface-raised/60 px-2.5 py-2 text-[12px] font-semibold text-ink-muted">
-                上下文足够短，无需压缩。
+                {t("run.compactNoop")}
               </div>
             ) : compact ? (
               <div className="mb-2 rounded-lg border border-green/25 bg-green-soft/40 px-2.5 py-2 text-[12px] font-semibold text-ink">
-                <span className="font-bold text-green">✓ 已压缩</span>{" "}
-                {tokenCount(compact.before_tokens)} →{" "}
-                {tokenCount(compact.after_tokens)} tokens
+                <span className="font-bold text-green">✓</span>{" "}
+                {t("run.compacted", {
+                  before: tokenCount(compact.before_tokens),
+                  after: tokenCount(compact.after_tokens),
+                })}
                 {compact.turns_compressed
-                  ? ` · 压缩 ${compact.turns_compressed} 轮`
+                  ? ` · ${t("run.turnsCompressed", {
+                      count: compact.turns_compressed,
+                    })}`
                   : ""}
               </div>
             ) : null}
             <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
-              <span className="text-ink-muted">输入 / 输出</span>
+              <span className="text-ink-muted">{t("run.inputOutput")}</span>
               <b className="text-ink">
                 {tokenCount(usage?.input_tokens)} /{" "}
                 {tokenCount(usage?.output_tokens)}
@@ -315,7 +338,7 @@ export function RunDetails(props: RunDetailsProps) {
               cachePercent !== undefined && (
                 <>
                   <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
-                    <span className="text-ink-muted">缓存命中</span>
+                    <span className="text-ink-muted">{t("run.cacheHit")}</span>
                     <b className="text-green">{cachePercent.toFixed(0)}%</b>
                   </div>
                   <div className="mt-2 mb-2.5 h-[5px] overflow-hidden rounded-full bg-surface-subtle">
@@ -327,7 +350,7 @@ export function RunDetails(props: RunDetailsProps) {
                 </>
               )}
             <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
-              <span className="text-ink-muted">今日请求</span>
+              <span className="text-ink-muted">{t("run.todayRequests")}</span>
               <b className="text-ink">{totals?.requests ?? "—"}</b>
             </div>
             <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-surface-subtle">
@@ -338,18 +361,20 @@ export function RunDetails(props: RunDetailsProps) {
             </div>
             {usage?.context_window && (
               <small className="mt-1.5 block text-[11px] text-ink-muted">
-                上下文 {tokenCount(context)} /{" "}
-                {tokenCount(usage.context_window)}
+                {t("run.context", {
+                  used: tokenCount(context),
+                  total: tokenCount(usage.context_window),
+                })}
               </small>
             )}
           </section>
           {canConfigure && config && (
             <section className="border-t border-line pt-4 mt-4">
               <h3 className="m-0 mb-2 text-[13px] font-bold text-ink">
-                会话模型
+                {t("run.sessionModel")}
               </h3>
               <Select
-                ariaLabel="会话模型"
+                ariaLabel={t("run.sessionModel")}
                 disabled={!selectedModel || controlsDisabled}
                 onValueChange={(value) => void act(() => onUpdateModel(value))}
                 options={modelOptions}
