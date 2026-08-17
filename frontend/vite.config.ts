@@ -6,6 +6,13 @@ const gatewayTarget = "http://127.0.0.1:7633";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Vitest 组件测试环境：jsdom + 组件库（testing-library）。
+  test: {
+    environment: "jsdom",
+    globals: true,
+    include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/test/setup.ts"],
+  },
   build: {
     rollupOptions: {
       output: {
