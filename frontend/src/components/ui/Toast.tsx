@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { Check, Info, TriangleAlert, X } from "lucide-react";
+import { useT } from "../../lib/i18n";
 
 export type ToastKind = "success" | "error" | "info";
 
@@ -27,6 +28,7 @@ const ToastContext = createContext<ToastContextValue | undefined>(undefined);
  * 用于操作反馈（发送成功、模型切换、设置保存等），不承载阻塞决策。
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const t = useT();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
 
@@ -71,7 +73,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {item.message}
             </span>
             <button
-              aria-label="关闭通知"
+              aria-label={t("common.closeNotice")}
               className="ml-1 grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
               onClick={() => dismiss(item.id)}
               type="button"

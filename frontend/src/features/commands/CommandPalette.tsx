@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "../../components/Icon";
+import { useChangeLocale, useLocale, useT } from "../../lib/i18n";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
 type CommandPaletteProps = {
@@ -10,8 +11,6 @@ type CommandPaletteProps = {
   running?: boolean;
   /** 当前会话是否可压缩（无选中/同步中时禁用）。 */
   canCompact?: boolean;
-  /** 当前界面语言（显示切换动作文案）。 */
-  locale: "zh" | "en";
   onClose: () => void;
   onSelectSession: (id: string) => void;
   onCreateTask: () => void;
@@ -20,7 +19,6 @@ type CommandPaletteProps = {
   onToggleDetails: () => void;
   onStopTask: () => void;
   onCompact: () => void;
-  onChangeLocale: () => void;
 };
 
 type Command = {
@@ -39,7 +37,6 @@ export function CommandPalette({
   selectedId,
   running = false,
   canCompact = false,
-  locale = "zh",
   onClose,
   onSelectSession,
   onCreateTask,
@@ -48,8 +45,10 @@ export function CommandPalette({
   onToggleDetails,
   onStopTask,
   onCompact,
-  onChangeLocale,
 }: CommandPaletteProps) {
+  const t = useT();
+  const locale = useLocale();
+  const changeLocale = useChangeLocale();
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +85,7 @@ export function CommandPalette({
       .slice(0, 8)
       .map((session) => ({
         id: `session-${session.id}`,
-        label: session.title || "未命名任务",
+        label: session.title || t("cmd.untitled"),
         detail: session.cwd,
         icon: "message" as const,
         kind: "session" as const,
@@ -95,7 +94,7 @@ export function CommandPalette({
     const actions: Command[] = [
       {
         id: "create",
-        label: "新建任务…",
+        label: t("cmd.newTask"),
         icon: "plus" as const,
         kind: "action" as const,
         run: onCreateTask,
@@ -104,7 +103,7 @@ export function CommandPalette({
         ? [
             {
               id: "stop",
-              label: "停止当前任务",
+              label: t("cmd.stopTask"),
               icon: "pause" as const,
               kind: "action" as const,
               run: onStopTask,
@@ -115,7 +114,7 @@ export function CommandPalette({
         ? [
             {
               id: "compact",
-              label: "压缩上下文",
+              label: t("cmd.compact"),
               icon: "tool" as const,
               kind: "action" as const,
               run: onCompact,
@@ -124,32 +123,31 @@ export function CommandPalette({
         : []),
       {
         id: "settings",
-        label: "打开设置",
+        label: t("cmd.settings"),
         icon: "settings" as const,
         kind: "action" as const,
         run: onOpenSettings,
       },
       {
         id: "theme",
-        label: "切换主题",
+        label: t("cmd.theme"),
         icon: "sun" as const,
         kind: "action" as const,
         run: onToggleTheme,
       },
       {
         id: "details",
-        label: "切换状态面板",
+        label: t("cmd.details"),
         icon: "panel" as const,
         kind: "action" as const,
         run: onToggleDetails,
       },
       {
         id: "locale",
-        label:
-          locale === "zh" ? "切换语言（English）" : "Switch language（中文）",
+        label: locale === "zh" ? t("cmd.localeZh") : t("cmd.localeEn"),
         icon: "message" as const,
         kind: "action" as const,
-        run: onChangeLocale,
+        run: () => changeLocale(locale === "zh" ? "en" : "zh"),
       },
     ].filter((action) => {
       if (!q) return true;
@@ -158,9 +156,9 @@ export function CommandPalette({
     return { sessions: sessionCommands, actions };
   }, [
     canCompact,
+    changeLocale,
     locale,
     onCompact,
-    onChangeLocale,
     onCreateTask,
     onOpenSettings,
     onSelectSession,
@@ -170,6 +168,7 @@ export function CommandPalette({
     query,
     running,
     sessions,
+    t,
   ]);
 
   // 打开时重置高亮；命令列表变化时夹紧高亮。
@@ -248,7 +247,7 @@ export function CommandPalette({
               {command.kind === "session" &&
                 command.id === `session-${selectedId}` && (
                   <span className="shrink-0 text-[10px] font-bold text-blue-strong">
-                    当前
+                    {t("cmd.current")}
                   </span>
                 )}
             </button>
@@ -263,7 +262,7 @@ export function CommandPalette({
     <div className="fixed inset-0 z-40 grid place-items-start justify-items-center p-4 pt-[12vh]">
       {/* 遮罩 */}
       <button
-        aria-label="关闭命令面板"
+        aria-label={t("cmd.close")}
         className="absolute inset-0 h-full w-full cursor-default border-0 bg-[rgb(15_18_28_/_0.4)] animate-[scrim-in_160ms_ease_both]"
         onClick={onClose}
         tabIndex={-1}
@@ -273,11 +272,11 @@ export function CommandPalette({
         <div className="flex items-center gap-2 border-b border-line px-3.5">
           <Icon className="shrink-0 text-ink-muted" name="search" size={15} />
           <input
-            aria-label="搜索任务或命令"
+            aria-label={t("cmd.searchPlaceholder")}
             className="min-w-0 flex-1 bg-transparent py-3 text-[13px] text-ink outline-none placeholder:text-ink-muted"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="搜索任务或输入命令…"
+            placeholder={t("cmd.searchPlaceholder")}
             ref={inputRef}
             value={query}
           />
@@ -288,11 +287,15 @@ export function CommandPalette({
         <div className="max-h-[300px] overflow-y-auto p-1.5">
           {flat.length === 0 && (
             <p className="p-3 text-center text-[12px] text-ink-muted">
-              没有匹配的结果
+              {t("cmd.noResults")}
             </p>
           )}
-          {renderGroup("任务", commands.sessions, 0)}
-          {renderGroup("动作", commands.actions, commands.sessions.length)}
+          {renderGroup(t("cmd.groupTasks"), commands.sessions, 0)}
+          {renderGroup(
+            t("cmd.groupActions"),
+            commands.actions,
+            commands.sessions.length,
+          )}
         </div>
       </div>
     </div>

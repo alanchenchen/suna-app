@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../lib/i18n";
 import type { ConfigModel } from "../../lib/runtimeBridge";
 import type { SettingsTabProps } from "./RuntimeSettings";
 
@@ -57,6 +58,7 @@ function fromModel(model: ConfigModel): ModelDraft {
 
 /** 模型 Tab：列表 + 新增/编辑（对齐 TUI 表单）+ 删除 + 激活（设计 §10.2）。 */
 export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
+  const t = useT();
   const [editing, setEditing] = useState<ConfigModel | "new" | undefined>();
   const [draft, setDraft] = useState<ModelDraft>(EMPTY_DRAFT);
   const [error, setError] = useState<string>();
@@ -69,11 +71,11 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
 
   async function save() {
     if (!draft.provider.trim() || !draft.model.trim()) {
-      setError("Provider 与模型名必填。");
+      setError(t("models.error.required"));
       return;
     }
     if (!draft.base_url.trim()) {
-      setError("Endpoint 必填。");
+      setError(t("models.error.endpoint"));
       return;
     }
     const payload = {
@@ -109,15 +111,17 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
       onConfig(next);
       setEditing(undefined);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法保存模型。");
+      setError(
+        reason instanceof Error ? reason.message : t("models.error.save"),
+      );
     }
   }
 
   async function remove(model: ConfigModel) {
     const hasKey = model.has_api_key;
     const message = hasKey
-      ? `删除模型 ${modelRef(model)}？\n同时删除已保存的 API key。`
-      : `删除模型 ${modelRef(model)}？`;
+      ? t("models.deleteConfirm", { name: modelRef(model) })
+      : t("models.deleteConfirmSimple", { name: modelRef(model) });
     if (!window.confirm(message)) return;
     try {
       const next = await rpc("config.set", {
@@ -127,7 +131,9 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
       });
       onConfig(next);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法删除模型。");
+      setError(
+        reason instanceof Error ? reason.message : t("models.error.delete"),
+      );
     }
   }
 
@@ -139,7 +145,9 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
       });
       onConfig(next);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法激活模型。");
+      setError(
+        reason instanceof Error ? reason.message : t("models.error.activate"),
+      );
     }
   }
 
@@ -149,13 +157,15 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
   return (
     <div className="grid gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="m-0 text-[13px] font-extrabold text-ink">模型列表</h3>
+        <h3 className="m-0 text-[13px] font-extrabold text-ink">
+          {t("models.title")}
+        </h3>
         <button
           className="cursor-pointer rounded-lg bg-blue px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong"
           onClick={() => startEdit("new")}
           type="button"
         >
-          添加模型
+          {t("models.add")}
         </button>
       </div>
 
@@ -175,9 +185,9 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
               value={draft.provider}
             />
             <label className="grid gap-1 text-[11px] font-bold text-ink-soft">
-              协议
+              {t("models.protocol")}
               <Select
-                ariaLabel="协议"
+                ariaLabel={t("models.protocol")}
                 onValueChange={(value) =>
                   setDraft({ ...draft, protocol: value })
                 }
@@ -187,7 +197,7 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
             </label>
           </div>
           <Field
-            label="模型名"
+            label={t("models.modelName")}
             onChange={(value) => setDraft({ ...draft, model: value })}
             required
             value={draft.model}
@@ -204,8 +214,8 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
             onChange={(value) => setDraft({ ...draft, api_key: value })}
             placeholder={
               editing !== "new" && editing.has_api_key
-                ? "已设置，留空则不修改"
-                : "（可选）"
+                ? t("models.endpointKeep")
+                : t("models.endpointOptional")
             }
             type="password"
             value={draft.api_key}
@@ -231,12 +241,12 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
             />
           </div>
           <Field
-            label="Strengths（逗号分隔，可选）"
+            label={t("models.strengths")}
             onChange={(value) => setDraft({ ...draft, strengths: value })}
             value={draft.strengths}
           />
           <Field
-            label="Subtask For（逗号分隔，可选）"
+            label={t("models.subtaskFor")}
             onChange={(value) => setDraft({ ...draft, subtask_for: value })}
             value={draft.subtask_for}
           />
@@ -251,13 +261,13 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
               onClick={() => setEditing(undefined)}
               type="button"
             >
-              取消
+              {t("models.cancel")}
             </button>
             <button
               className="cursor-pointer rounded-lg bg-blue px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong"
               type="submit"
             >
-              保存
+              {t("models.save")}
             </button>
           </div>
         </form>
@@ -275,7 +285,7 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
                   <strong className="truncate text-ink">{ref}</strong>
                   {active && (
                     <span className="rounded-sm bg-green-soft px-1.5 py-px text-[10px] font-bold text-green">
-                      使用中
+                      {t("models.inUse")}
                     </span>
                   )}
                 </span>
@@ -292,7 +302,7 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
                     onClick={() => void activate(model)}
                     type="button"
                   >
-                    设为默认
+                    {t("models.setDefault")}
                   </button>
                 )}
                 <button
@@ -300,14 +310,14 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
                   onClick={() => startEdit(model)}
                   type="button"
                 >
-                  编辑
+                  {t("models.edit")}
                 </button>
                 <button
                   className="cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
                   onClick={() => void remove(model)}
                   type="button"
                 >
-                  删除
+                  {t("models.delete")}
                 </button>
               </span>
             </div>
@@ -315,9 +325,7 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
         })
       )}
       {!editing && config.models.length === 0 && (
-        <p className="text-[13px] text-ink-muted">
-          还没有模型。点击"添加模型"配置第一个。
-        </p>
+        <p className="text-[13px] text-ink-muted">{t("models.empty")}</p>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import { Icon } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
 import type { RuntimeState } from "../../lib/runtimeStatus";
 
 type RuntimeStatusPanelProps = {
@@ -8,19 +9,19 @@ type RuntimeStatusPanelProps = {
 
 const copy = {
   unavailable: {
-    title: "未检测到 Suna Runtime",
-    description: "请确认已在本机安装并启动 Suna Runtime，然后重试连接。",
-    hint: "在终端运行 suna serve --json 后，保持本地 Gateway 运行。",
+    titleKey: "status.noRuntime.title",
+    descKey: "status.noRuntime.desc",
+    hintKey: "status.noRuntime.hint",
   },
   protocol_error: {
-    title: "Runtime 响应不兼容",
-    description: "本机 Runtime 返回了当前 Gateway 无法识别的响应。",
-    hint: "请检查 Suna App 和 Suna Runtime 是否使用兼容版本，然后重试。",
+    titleKey: "status.incompatible.title",
+    descKey: "status.incompatible.desc",
+    hintKey: "status.incompatible.hint",
   },
   capability_error: {
-    title: "Runtime 版本不兼容",
-    description: "已检测到 Suna Runtime，但它不支持所需的公开协议。",
-    hint: "请更新 Suna Runtime 后重试。",
+    titleKey: "status.version.title",
+    descKey: "status.version.desc",
+    hintKey: "status.version.hint",
   },
 } as const;
 
@@ -28,6 +29,7 @@ export function RuntimeStatusPanel({
   state,
   onRetry,
 }: RuntimeStatusPanelProps) {
+  const t = useT();
   if (state.kind === "loading") {
     return (
       <main aria-busy="true" className="grid min-h-dvh place-items-center p-6">
@@ -42,10 +44,10 @@ export function RuntimeStatusPanel({
             Suna App
           </p>
           <h1 className="mt-2.5 mb-2.5 text-[23px] font-extrabold tracking-tight text-ink">
-            正在连接你的工作空间
+            {t("status.connecting")}
           </h1>
           <p className="text-[13px] leading-relaxed text-ink-soft">
-            正在检测本机 Suna Runtime…
+            {t("status.detecting")}
           </p>
         </section>
       </main>
@@ -65,22 +67,22 @@ export function RuntimeStatusPanel({
           <Icon name="warning" size={22} />
         </span>
         <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-          连接需要你的注意
+          {t("status.needsAttention")}
         </p>
         <h1 className="mt-2.5 mb-2.5 text-[23px] font-extrabold tracking-tight text-ink">
-          {content.title}
+          {t(content.titleKey)}
         </h1>
         <p className="text-[13px] leading-relaxed text-ink-soft">
-          {content.description}
+          {t(content.descKey)}
         </p>
         <div className="mt-6 mb-3 rounded-xl border border-line bg-surface-subtle p-3.5 text-left text-[11px] leading-relaxed text-ink-soft">
           <strong className="block text-[10px] font-extrabold tracking-wide text-ink uppercase">
-            下一步
+            {t("status.next")}
           </strong>
-          <span>{content.hint}</span>
+          <span>{t(content.hintKey)}</span>
         </div>
         <div className="flex justify-between px-0.5 text-[10px] text-ink-muted">
-          <span>状态代码</span>
+          <span>{t("status.code")}</span>
           <code className="font-mono text-ink-soft">{state.code}</code>
         </div>
         <button
@@ -89,7 +91,7 @@ export function RuntimeStatusPanel({
           type="button"
         >
           <Icon name="arrow-up" size={16} />
-          重新检测
+          {t("status.retry")}
         </button>
       </section>
     </main>

@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { MessagePart, SessionInfo } from "../../lib/runtimeBridge";
+import { t } from "../../lib/i18n";
 import type { useRuntimeBridge } from "./useRuntimeBridge";
 import { flowFromSnapshot, messageId } from "./sessionState";
 import type { ActiveData, Scope } from "./sessionState";
@@ -77,11 +78,13 @@ export function createSessionActions({
           pendingUsers: [],
         });
         mergeSession(snapshot.session);
-        toast("success", "会话已创建");
+        toast("success", t("action.sessionCreated"));
       });
     } catch (reason) {
       if (intent === attachIntentRef.current)
-        setError(reason instanceof Error ? reason.message : "无法创建会话。");
+        setError(
+          reason instanceof Error ? reason.message : t("action.createFailed"),
+        );
       throw reason;
     } finally {
       if (intent === attachIntentRef.current) setSyncBoundary(false);
@@ -97,14 +100,15 @@ export function createSessionActions({
       parts
         .filter((part) => part.type === "text")
         .map((part) => part.text)
-        .join("\n") || "[图片]";
+        .join("\n") || t("action.imagePlaceholder");
     setActive((value) => ({
       ...value,
       pendingUsers: [...value.pendingUsers, { id, content }],
     }));
     try {
       await queueSessionOperation(async () => {
-        if (!activeScopeMatches(scope)) throw new Error("会话已切换。");
+        if (!activeScopeMatches(scope))
+          throw new Error(t("action.sessionSwitched"));
         await rpc("agent.sendMessage", { client_msg_id: id, parts });
         // idle 会话没有 run_id；发送成功后立即重新 attach，让后续
         // run-only 事件拥有权威作用域。
@@ -145,7 +149,8 @@ export function createSessionActions({
     const scope = scopeRef.current;
     if (!scope || isSessionActionsFrozen()) return;
     const snapshot = await queueSessionOperation(async () => {
-      if (!activeScopeMatches(scope)) throw new Error("会话已切换。");
+      if (!activeScopeMatches(scope))
+        throw new Error(t("action.sessionSwitched"));
       return rpc("session.update", { session_id: scope.sessionId, model_ref });
     });
     if (!activeScopeMatches(scope)) return;
@@ -159,7 +164,7 @@ export function createSessionActions({
     }));
     mergeSession(snapshot.session);
     await loadSessions();
-    toast("success", `已切换模型：${model_ref}`);
+    toast("success", t("action.modelSwitched", { model: model_ref }));
   }
 
   async function rename(title: string) {
@@ -167,7 +172,8 @@ export function createSessionActions({
     if (!scope || isSessionActionsFrozen()) return;
     try {
       const snapshot = await queueSessionOperation(async () => {
-        if (!activeScopeMatches(scope)) throw new Error("会话已切换。");
+        if (!activeScopeMatches(scope))
+          throw new Error(t("action.sessionSwitched"));
         return rpc("session.update", {
           session_id: scope.sessionId,
           title: title.trim() || null,
@@ -179,9 +185,13 @@ export function createSessionActions({
       setActive((value) => ({ ...value, snapshot }));
       mergeSession(snapshot.session);
       await loadSessions();
-      toast("success", "会话标题已更新");
+      toast("success", t("action.titleUpdated"));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法更新会话标题。");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : t("action.titleUpdateFailed"),
+      );
     }
   }
 
@@ -197,11 +207,13 @@ export function createSessionActions({
         if (intent !== attachIntentRef.current) return;
         setSelectedId(undefined);
         setActive({ flow: [], pendingUsers: [] });
-        toast("info", "已离开当前会话");
+        toast("info", t("action.detached"));
       });
     } catch (reason) {
       if (intent === attachIntentRef.current)
-        setError(reason instanceof Error ? reason.message : "无法分离会话。");
+        setError(
+          reason instanceof Error ? reason.message : t("action.detachFailed"),
+        );
     } finally {
       if (intent === attachIntentRef.current) setSyncBoundary(false);
     }
@@ -209,7 +221,7 @@ export function createSessionActions({
 
   async function remove(id: string) {
     if (isSyncing() || !canDelete()) return;
-    if (!window.confirm("删除此会话？此操作无法撤销。")) return;
+    if (!window.confirm(t("action.deleteConfirm"))) return;
     const intent = ++attachIntentRef.current;
     resetQueuedDeltas();
     scopeRef.current = undefined;
@@ -244,11 +256,13 @@ export function createSessionActions({
           });
           mergeSession(snapshot.session);
         }
-        toast("success", "会话已删除");
+        toast("success", t("action.deleted"));
       });
     } catch (reason) {
       if (intent === attachIntentRef.current)
-        setError(reason instanceof Error ? reason.message : "无法删除会话。");
+        setError(
+          reason instanceof Error ? reason.message : t("action.deleteFailed"),
+        );
     } finally {
       if (intent === attachIntentRef.current) setSyncBoundary(false);
     }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
 
 type CreateSessionFormProps = {
   onCancel: () => void;
@@ -90,10 +91,11 @@ export function CreateSessionForm({
   const effectiveCwd = manualOpen
     ? manual.trim()
     : selected || exactMatch || (filtered.length === 0 ? query.trim() : "");
+  const t = useT();
 
   async function submit() {
     if (!effectiveCwd) {
-      setError("请选择或输入一个项目目录。");
+      setError(t("create.error.required"));
       return;
     }
     setSubmitting(true);
@@ -102,7 +104,9 @@ export function CreateSessionForm({
       await onCreate(effectiveCwd, title.trim() || undefined);
       rememberRecentCwd(effectiveCwd);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法创建会话。");
+      setError(
+        reason instanceof Error ? reason.message : t("create.error.failed"),
+      );
       setSubmitting(false);
     }
   }
@@ -116,7 +120,7 @@ export function CreateSessionForm({
       }}
     >
       <label className="grid gap-1.5 text-[12px] font-bold text-ink-soft">
-        项目
+        {t("create.project")}
         <span className="grid gap-1.5">
           <span className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-2.5 grid place-items-center text-ink-muted">
@@ -129,7 +133,7 @@ export function CreateSessionForm({
                 setQuery(event.target.value);
                 setSelected("");
               }}
-              placeholder="搜索或输入路径…"
+              placeholder={t("create.searchPlaceholder")}
               value={query}
             />
           </span>
@@ -183,11 +187,11 @@ export function CreateSessionForm({
           }}
           type="button"
         >
-          手动输入新路径…
+          {t("create.manualPath")}
         </button>
       ) : (
         <label className="grid gap-1.5 text-[12px] font-bold text-ink-soft">
-          新路径
+          {t("create.newPath")}
           <input
             autoFocus
             className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 font-mono text-[12px] text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
@@ -199,12 +203,12 @@ export function CreateSessionForm({
         </label>
       )}
       <label className="grid gap-1.5 text-[12px] font-bold text-ink-soft">
-        标题（可选）
+        {t("create.titleOptional")}
         <input
           className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
           disabled={submitting}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="新任务"
+          placeholder={t("create.titlePlaceholder")}
           value={title}
         />
       </label>
@@ -218,14 +222,14 @@ export function CreateSessionForm({
           onClick={onCancel}
           type="button"
         >
-          取消
+          {t("create.cancel")}
         </button>
         <button
           className="cursor-pointer rounded-lg bg-blue px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-50"
           disabled={submitting || !effectiveCwd}
           type="submit"
         >
-          {submitting ? "正在创建…" : "创建任务"}
+          {submitting ? t("create.creating") : t("create.create")}
         </button>
       </div>
     </form>

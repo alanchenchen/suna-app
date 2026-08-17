@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
+import { t } from "../../lib/i18n";
 import type {
   MCPServerInfo,
   RuntimeConfig,
@@ -257,7 +258,9 @@ export function useRuntimeSession() {
             setSelectedId(undefined);
             setActive(blankActive());
             setError(
-              reason instanceof Error ? reason.message : "无法附加会话。",
+              reason instanceof Error
+                ? reason.message
+                : t("action.attachFailed"),
             );
           }
           throw reason;
@@ -316,7 +319,9 @@ export function useRuntimeSession() {
       await connect();
       await restore();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法连接 Runtime。");
+      setError(
+        reason instanceof Error ? reason.message : t("action.connectFailed"),
+      );
     }
   }, [connect, restore]);
   useEffect(() => {

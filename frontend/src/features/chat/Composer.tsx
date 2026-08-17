@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { Icon } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
 import type { MessagePart } from "../../lib/runtimeBridge";
 
 type ComposerProps = {
@@ -35,6 +36,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
     },
     ref,
   ) {
+    const t = useT();
     const [draft, setDraft] = useState("");
     const [imageUrl, setImageUrl] = useState("");
     const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -80,7 +82,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       const url = imageUrl.trim();
       if (!url) return;
       if (!validateUrl(url)) {
-        setError("请输入以 http:// 或 https:// 开头的图片地址。");
+        setError(t("chat.invalidImageUrl"));
         return;
       }
       setError(undefined);
@@ -94,7 +96,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       if (imageUrl.trim()) {
         // 输入框有未添加的 URL：先校验再视为待提交附件。
         if (!validateUrl(imageUrl.trim())) {
-          setError("请输入以 http:// 或 https:// 开头的图片地址。");
+          setError(t("chat.invalidImageUrl"));
           return;
         }
       }
@@ -123,7 +125,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
         setDraft(prevDraft);
         setImageUrls(prevUrls);
         setImageUrl(prevImageUrl);
-        setError(reason instanceof Error ? reason.message : "消息发送失败。");
+        setError(
+          reason instanceof Error ? reason.message : t("chat.sendError"),
+        );
       } finally {
         setSending(false);
       }
@@ -138,7 +142,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-amber/15">
                   <Icon name="warning" size={13} />
                 </span>
-                等待你的回答
+                {t("chat.waitingReply")}
               </span>
             )}
             {error && (
@@ -154,13 +158,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           {observer && (
             <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10.5px] font-semibold text-rose/80">
               <Icon name="eye" size={12} />
-              其他客户端正在运行此会话，任务结束后可在此输入
+              {t("chat.observerNotice")}
             </div>
           )}
           {showImageInput && (
             <div className="mb-2 grid gap-1.5 px-0.5">
               <label className="grid gap-1 text-[10px] font-bold text-ink-muted">
-                图片 URL
+                {t("chat.imageUrl")}
                 <span className="flex gap-1.5">
                   <input
                     autoFocus
@@ -181,13 +185,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                     value={imageUrl}
                   />
                   <button
-                    aria-label="添加图片"
+                    aria-label={t("chat.addImage")}
                     className="shrink-0 cursor-pointer rounded-lg bg-surface-raised px-2.5 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:opacity-45"
                     disabled={disabled || sending || !imageUrl.trim()}
                     onClick={addImageUrl}
                     type="button"
                   >
-                    添加
+                    {t("chat.addImage")}
                   </button>
                 </span>
               </label>
@@ -201,7 +205,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                     >
                       <span className="truncate">{url}</span>
                       <button
-                        aria-label={`移除图片 ${url}`}
+                        aria-label={t("chat.removeImage", { url })}
                         className="grid h-4 w-4 shrink-0 cursor-pointer place-items-center rounded-full text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
                         disabled={disabled || sending}
                         onClick={() =>
@@ -221,7 +225,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           )}
           <div className="flex items-end gap-1.5">
             <textarea
-              aria-label="给 Suna 发送消息"
+              aria-label={t("chat.inputLabel")}
               className="min-h-[38px] max-h-[132px] flex-1 resize-none bg-transparent px-1 py-[9px] text-[13px] leading-[20px] text-ink outline-none placeholder:text-ink-muted max-[720px]:min-h-[44px] max-[720px]:py-[11px]"
               disabled={disabled || sending}
               onChange={(event) => setDraft(event.target.value)}
@@ -248,9 +252,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
               placeholder={
                 disabled
                   ? observer
-                    ? "其他客户端正在运行此会话，当前仅可查看…"
-                    : "请先选择一个会话…"
-                  : "给 Suna 发送消息…"
+                    ? t("chat.observerPlaceholder")
+                    : t("chat.selectSessionFirst")
+                  : t("chat.sendPlaceholder")
               }
               ref={textareaRef}
               rows={1}
@@ -260,7 +264,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
               {canAttachImageUrl && (
                 <button
                   aria-expanded={showImageInput}
-                  aria-label="通过图片 URL 附加图片"
+                  aria-label={t("chat.imageUrl")}
                   className={`grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] transition-colors duration-150 ${showImageInput ? "bg-blue-soft text-blue-strong" : "text-ink-muted hover:bg-surface-subtle hover:text-ink"}`}
                   disabled={disabled || sending}
                   onClick={() => setShowImageInput((value) => !value)}
@@ -270,8 +274,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 </button>
               )}
               <button
-                aria-label="发送消息"
-                className="grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,background,box-shadow] duration-160 hover:shadow-[0_7px_18px_var(--color-blue-glow)] hover:-translate-y-px active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:shadow-none max-[720px]:h-[42px] max-[720px]:w-[42px]"
+                aria-label={t("chat.send")}
+                className="group/send grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,background,box-shadow] duration-160 hover:shadow-[0_7px_18px_var(--color-blue-glow)] hover:-translate-y-px active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:shadow-none max-[720px]:h-[42px] max-[720px]:w-[42px]"
                 disabled={
                   (!draft.trim() &&
                     !imageUrl.trim() &&
@@ -282,14 +286,18 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 onClick={() => void submit()}
                 type="button"
               >
-                <Icon name="arrow-up" size={17} />
+                <Icon
+                  className="transition-transform duration-160 group-hover/send:animate-[icon-lift_240ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+                  name="arrow-up"
+                  size={17}
+                />
               </button>
             </div>
           </div>
         </div>
         {/* 提示行仅桌面显示（窄屏空间有限且用户熟悉触屏输入）。 */}
         <p className="mx-auto mt-1.5 w-[min(720px,100%)] text-center text-[10px] font-semibold text-ink-muted/70 max-[720px]:hidden">
-          Enter 发送 · Shift+Enter 换行
+          {t("chat.composerHint")}
         </p>
       </footer>
     );

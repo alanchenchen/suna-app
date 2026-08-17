@@ -1,5 +1,6 @@
 import { useEffect, useReducer } from "react";
 import { Icon } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
 type TaskOverviewProps = {
@@ -13,31 +14,28 @@ type TaskOverviewProps = {
   onCreate: () => void;
   onReconnect: () => void;
   onOpenSettings: () => void;
-  /** 界面语言（zh/en），用于双语文案。 */
-  locale: string;
 };
 
 const statusLabels: Record<SessionInfo["status"], string> = {
-  idle: "空闲",
-  running: "正在运行",
-  waiting: "等待你的回答",
-  compacting: "正在压缩上下文",
+  idle: "session.status.idle",
+  running: "session.status.running",
+  waiting: "session.status.waiting",
+  compacting: "session.status.compacting",
 };
 
-function relativeTime(value: string) {
+function relativeTime(
+  value: string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
   const seconds = Math.max(0, (Date.now() - new Date(value).getTime()) / 1000);
-  if (seconds < 60) return "刚刚";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`;
+  if (seconds < 60) return t("time.justNow");
+  if (seconds < 3600) {
+    return t("time.minutesAgo", { m: Math.floor(seconds / 60) });
+  }
+  if (seconds < 86400) {
+    return t("time.hoursAgo", { h: Math.floor(seconds / 3600) });
+  }
   return new Date(value).toLocaleDateString();
-}
-
-/** 中文区块标题 → 英文（总览页三区块）。 */
-function titleEn(title: string) {
-  if (title === "需要你处理") return "Needs you";
-  if (title === "运行中") return "Running";
-  if (title === "最近任务") return "Recent";
-  return title;
 }
 
 function SessionRow({
@@ -51,9 +49,10 @@ function SessionRow({
   pending: boolean;
   onClick: () => void;
 }) {
+  const t = useT();
   return (
     <button
-      aria-label={`${session.title || "未命名会话"}，${pending ? "正在打开" : statusLabels[session.status]}`}
+      aria-label={`${session.title || t("sidebar.untitled")}，${pending ? t("sidebar.opening") : t(statusLabels[session.status])}`}
       className={`grid w-full cursor-pointer grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background,transform] duration-180 hover:bg-surface-subtle active:scale-[0.985] disabled:cursor-wait disabled:opacity-60 ${selected ? "bg-surface-solid shadow-sm" : ""}`}
       disabled={pending}
       onClick={onClick}
@@ -65,7 +64,7 @@ function SessionRow({
       />
       <span className="grid min-w-0 gap-0.5">
         <strong className="truncate text-[13px] font-extrabold text-ink">
-          {session.title || "未命名会话"}
+          {session.title || t("sidebar.untitled")}
         </strong>
         <small className="truncate text-[11px] text-ink-muted">
           {session.cwd}
@@ -73,12 +72,12 @@ function SessionRow({
       </span>
       <span className="grid justify-items-end gap-0.5">
         <time className="text-[10px] text-ink-muted">
-          {relativeTime(session.updated_at)}
+          {t(relativeTime(session.updated_at, t))}
         </time>
         <span
           className={`text-[10px] font-bold ${session.status === "running" ? "text-blue-strong" : session.status === "waiting" ? "text-amber" : "text-ink-muted"}`}
         >
-          {pending ? "正在打开…" : statusLabels[session.status]}
+          {pending ? t("sidebar.opening") : t(statusLabels[session.status])}
         </span>
       </span>
     </button>
@@ -102,8 +101,8 @@ export function TaskOverview({
   onCreate,
   onReconnect,
   onOpenSettings,
-  locale = "zh",
 }: TaskOverviewProps) {
+  const t = useT();
   // 每分钟刷新相对时间（"刚刚/分钟前"不长期停留在旧值）。
   const [, tick] = useReducer((value: number) => value + 1, 0);
   useEffect(() => {
@@ -134,7 +133,7 @@ export function TaskOverview({
     >
       <h2 className="mb-1.5 flex items-center gap-2 px-1 text-[11px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
         <span className={`h-2 w-2 rounded-full ${tone}`} />
-        {locale === "zh" ? title : titleEn(title)}
+        {t(title)}
         {count > 0 && (
           <span className="rounded-full bg-surface-subtle px-1.5 py-px text-[10px] text-ink-soft">
             {count}
@@ -143,13 +142,11 @@ export function TaskOverview({
       </h2>
       {items.length === 0 ? (
         <p className="px-1 pb-2 text-[12px] text-ink-muted">
-          {locale === "zh"
-            ? title === "需要你处理"
-              ? "没有待处理的事项"
-              : "暂无"
-            : title === "需要你处理"
-              ? "Nothing needs you"
-              : "None"}
+          {t(
+            title === "overview.needsYou"
+              ? "overview.empty.needsYou"
+              : "overview.empty",
+          )}
         </p>
       ) : (
         <div className="space-y-1">
@@ -176,20 +173,16 @@ export function TaskOverview({
           </span>
           <div className="min-w-0 flex-1">
             <h1 className="text-[20px] font-extrabold tracking-tight text-ink">
-              {locale === "zh" ? "任务总览" : "Tasks"}
+              {t("overview.title")}
             </h1>
             <p className="text-[12px] text-ink-muted">
               {connected
-                ? locale === "zh"
-                  ? "Suna Runtime 已连接，随时可接管任务"
-                  : "Runtime connected — take over any task"
-                : locale === "zh"
-                  ? "Suna Runtime 未连接"
-                  : "Runtime disconnected"}
+                ? t("overview.subtitle.connected")
+                : t("overview.subtitle.disconnected")}
             </p>
           </div>
           <button
-            aria-label={locale === "zh" ? "新建任务" : "New task"}
+            aria-label={t("overview.new")}
             className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl bg-blue text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,background] duration-150 hover:bg-blue-strong active:scale-90"
             onClick={onCreate}
             type="button"
@@ -204,7 +197,7 @@ export function TaskOverview({
             type="button"
           >
             <span className="h-2 w-2 rounded-full bg-[#8a8f9d]" />
-            {locale === "zh" ? "重新连接 Runtime" : "Reconnect Runtime"}
+            {t("overview.reconnect")}
           </button>
         )}
       </header>
@@ -217,21 +210,17 @@ export function TaskOverview({
             </span>
             <div className="min-w-0 flex-1">
               <strong className="block text-[13px] font-extrabold text-ink">
-                {locale === "zh"
-                  ? "配置一个模型开始使用"
-                  : "Configure a model to get started"}
+                {t("overview.onboarding.title")}
               </strong>
               <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
-                {locale === "zh"
-                  ? "Suna 还没有可用的模型。添加模型（如 DeepSeek）后即可新建任务。"
-                  : "No model configured yet. Add one (e.g. DeepSeek) to start new tasks."}
+                {t("overview.onboarding.desc")}
               </p>
               <button
                 className="mt-2.5 cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-[0.98]"
                 onClick={onOpenSettings}
                 type="button"
               >
-                {locale === "zh" ? "去配置模型" : "Configure model"}
+                {t("overview.onboarding.cta")}
               </button>
             </div>
           </div>
@@ -239,9 +228,9 @@ export function TaskOverview({
       )}
 
       <div className="space-y-6">
-        {section("需要你处理", waiting.length, "bg-amber", waiting, 60)}
-        {section("运行中", running.length, "bg-blue", running, 120)}
-        {section("最近会话", rest.length, "bg-ink-muted", rest, 180)}
+        {section("overview.needsYou", waiting.length, "bg-amber", waiting, 60)}
+        {section("overview.running", running.length, "bg-blue", running, 120)}
+        {section("overview.recent", rest.length, "bg-ink-muted", rest, 180)}
       </div>
     </div>
   );

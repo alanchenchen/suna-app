@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useT } from "../../lib/i18n";
 
 /**
  * 轻量 Dialog：自管 mounted/closing 状态，打开播放 panel-pop / scrim-in，
@@ -24,6 +25,8 @@ export function Dialog({
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const t = useT();
 
   // 挂载/卸载控制：打开立即挂载，关闭先播动画再卸载。
   useEffect(() => {
@@ -78,7 +81,7 @@ export function Dialog({
     >
       {/* 遮罩：点击关闭 */}
       <button
-        aria-label="关闭"
+        aria-label={t("common.close")}
         className={`absolute inset-0 h-full w-full cursor-default border-0 bg-[rgb(15_18_28_/_0.55)] ${scrimAnimation}`}
         onClick={() => onOpenChange(false)}
         tabIndex={-1}
@@ -105,7 +108,7 @@ export function Dialog({
             )}
           </div>
           <button
-            aria-label="关闭"
+            aria-label={t("common.close")}
             className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
             onClick={() => onOpenChange(false)}
             type="button"

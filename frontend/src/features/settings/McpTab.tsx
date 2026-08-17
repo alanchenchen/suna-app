@@ -1,26 +1,28 @@
 import { Switch } from "../../components/ui/Switch";
+import { useT } from "../../lib/i18n";
 import type { SettingsTabProps } from "./RuntimeSettings";
 
 /** MCP server 状态徽章：文字 + 图标 + 颜色三重表达（不只用颜色）。 */
 function MCPStateBadge({ state }: { state: string }) {
+  const t = useT();
   const config: Record<string, { label: string; cls: string; dot: string }> = {
     starting: {
-      label: "加载中",
+      label: t("mcp.loading"),
       cls: "bg-amber-soft text-amber-strong",
       dot: "bg-amber",
     },
     active: {
-      label: "已启用",
+      label: t("mcp.enabled"),
       cls: "bg-emerald-soft text-emerald-strong",
       dot: "bg-emerald",
     },
     error: {
-      label: "失败",
+      label: t("mcp.failed"),
       cls: "bg-rose-soft text-rose-strong",
       dot: "bg-rose",
     },
     disabled: {
-      label: "已禁用",
+      label: t("mcp.disabled"),
       cls: "bg-surface-subtle text-ink-muted",
       dot: "bg-ink-muted",
     },
@@ -38,10 +40,13 @@ function MCPStateBadge({ state }: { state: string }) {
 
 /** 外部工具 Tab：MCP 服务管理（原设置面板内容，独立成 Tab）。 */
 export function McpTab({ cap, mcpServers, refreshMcp, rpc }: SettingsTabProps) {
+  const t = useT();
   if (!cap("mcp")) return null;
   return (
     <div>
-      <h3 className="m-0 mb-2 text-[13px] font-extrabold text-ink">外部工具</h3>
+      <h3 className="m-0 mb-2 text-[13px] font-extrabold text-ink">
+        {t("mcp.title")}
+      </h3>
       {mcpServers.map((server) => {
         const state = server.state ?? (server.active ? "active" : "disabled");
         return (
@@ -56,7 +61,7 @@ export function McpTab({ cap, mcpServers, refreshMcp, rpc }: SettingsTabProps) {
               </span>
               <small className="mt-0.5 block truncate text-[11px] font-normal text-ink-muted">
                 {server.transport ? `${server.transport} · ` : ""}
-                {server.tool_count} 个工具
+                {t("mcp.toolCount", { count: server.tool_count })}
               </small>
               {server.error && (
                 <small className="mt-0.5 block truncate text-[11px] font-normal text-rose">
@@ -72,12 +77,12 @@ export function McpTab({ cap, mcpServers, refreshMcp, rpc }: SettingsTabProps) {
                 }
                 type="button"
               >
-                重载
+                {t("mcp.reload")}
               </button>
               <Switch
                 checked={state === "active" || state === "starting"}
                 disabled={state === "starting"}
-                label={`启用外部工具 ${server.name}`}
+                label={t("mcp.toggle", { name: server.name })}
                 onCheckedChange={(active) =>
                   void rpc("mcp.toggle", { name: server.name, active }).then(
                     refreshMcp,

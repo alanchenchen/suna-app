@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ComponentProps } from "react";
 import { Icon } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
 
 type MarkdownProps = ComponentProps<typeof Markdown>;
 
@@ -20,6 +21,7 @@ function extractText(node: ReactNode): string {
 
 /** 代码块：语言标签 + 复制按钮；内容超高时内部滚动（不撑爆消息卡片）。 */
 function CodeBlock({ children }: { children?: ReactNode }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const child = Children.toArray(children)[0] as ReactElement | undefined;
   const props = (child?.props ?? {}) as {
@@ -46,13 +48,13 @@ function CodeBlock({ children }: { children?: ReactNode }) {
           {lang}
         </span>
         <button
-          aria-label="复制代码"
+          aria-label={t("chat.copyCode")}
           className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
           onClick={() => void copy()}
           type="button"
         >
           <Icon name="copy" size={11} />
-          {copied ? "已复制" : "复制"}
+          {copied ? t("chat.copied") : t("chat.copyCode")}
         </button>
       </div>
       {/* 覆盖 .markdown-body pre 的底色/边框/圆角/外边距：容器已承担视觉，

@@ -1,20 +1,34 @@
 import { useState } from "react";
+import { useT } from "../../lib/i18n";
 import type { SettingsTabProps } from "./RuntimeSettings";
 
 /** Guard 模式：面向用户的日常语言（设计 §10.3）。 */
 const GUARD_MODES = [
-  { value: "readonly", label: "只读（仅查看）", desc: "禁止一切修改操作" },
-  { value: "ask", label: "每次确认", desc: "每次修改前都询问你" },
-  { value: "auto", label: "自动放行", desc: "不询问，直接执行" },
+  {
+    value: "readonly",
+    labelKey: "security.mode.readonly",
+    descKey: "security.mode.readonlyDesc",
+  },
+  {
+    value: "ask",
+    labelKey: "security.mode.ask",
+    descKey: "security.mode.askDesc",
+  },
+  {
+    value: "auto",
+    labelKey: "security.mode.auto",
+    descKey: "security.mode.autoDesc",
+  },
   {
     value: "smart",
-    label: "智能确认",
-    desc: "低风险自动执行，高风险询问（推荐）",
+    labelKey: "security.mode.smart",
+    descKey: "security.mode.smartDesc",
   },
 ] as const;
 
 /** 安全 Tab：Guard 确认模式 + 工作目录（设计 §10.3）。 */
 export function SecurityTab({ config, onConfig, rpc }: SettingsTabProps) {
+  const t = useT();
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState<string>();
 
@@ -29,7 +43,9 @@ export function SecurityTab({ config, onConfig, rpc }: SettingsTabProps) {
       });
       onConfig(next);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法保存确认模式。");
+      setError(
+        reason instanceof Error ? reason.message : t("security.error.save"),
+      );
     } finally {
       setSaving(undefined);
     }
@@ -42,10 +58,10 @@ export function SecurityTab({ config, onConfig, rpc }: SettingsTabProps) {
     <div className="grid gap-4">
       <section>
         <h3 className="m-0 mb-1 text-[13px] font-extrabold text-ink">
-          操作确认
+          {t("security.title")}
         </h3>
         <p className="mt-0 mb-3 text-[12px] leading-relaxed text-ink-muted">
-          Suna 在执行修改操作前如何征得你的同意。
+          {t("security.desc")}
         </p>
         <div className="grid gap-2">
           {GUARD_MODES.map((mode) => (
@@ -63,16 +79,16 @@ export function SecurityTab({ config, onConfig, rpc }: SettingsTabProps) {
             >
               <span className="flex items-center justify-between">
                 <strong className="text-[13px] font-extrabold text-ink">
-                  {mode.label}
+                  {t(mode.labelKey)}
                 </strong>
                 {current === mode.value && (
                   <span className="rounded-sm bg-blue-soft px-1.5 py-px text-[10px] font-bold text-blue-strong">
-                    当前
+                    {t("security.current")}
                   </span>
                 )}
               </span>
               <small className="mt-0.5 block text-[11.5px] text-ink-muted">
-                {mode.desc}
+                {t(mode.descKey)}
               </small>
             </button>
           ))}
@@ -85,12 +101,14 @@ export function SecurityTab({ config, onConfig, rpc }: SettingsTabProps) {
       </section>
 
       <section className="rounded-xl border border-line bg-surface-raised/50 p-3.5">
-        <h3 className="m-0 text-[13px] font-extrabold text-ink">工作目录</h3>
+        <h3 className="m-0 text-[13px] font-extrabold text-ink">
+          {t("security.workspace")}
+        </h3>
         <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
-          Suna 只能在此目录内执行操作，目录之外的操作会被拒绝。
+          {t("security.workspaceDesc")}
         </p>
         <code className="mt-2 block truncate rounded-lg bg-surface-raised px-2.5 py-2 font-mono text-[12px] text-ink">
-          {config.workspace || "（未设置）"}
+          {config.workspace || t("security.workspaceEmpty")}
         </code>
       </section>
     </div>

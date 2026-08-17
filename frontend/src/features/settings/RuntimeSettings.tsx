@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
 import type { Theme } from "../../lib/models";
 import type {
   MCPServerInfo,
@@ -32,10 +33,6 @@ type SettingsProps = {
   initialTab?: TabId;
   /** 关闭动画进行中：外层容器播放 panel-out 退出动画。 */
   closing?: boolean;
-  /** 当前界面语言。 */
-  locale: string;
-  /** 切换界面语言。 */
-  onChangeLocale: (locale: "zh" | "en") => void;
 };
 
 export type SettingsTabProps = {
@@ -50,20 +47,15 @@ export type SettingsTabProps = {
   onThemeChange: (theme: Theme) => void;
   connected: boolean;
   onReconnect: () => void;
-  /** 当前界面语言。 */
-  locale: string;
-  /** 切换界面语言。 */
-  onChangeLocale: (locale: "zh" | "en") => void;
 };
-
 /** 设置中心 Tab 定义：名称面向用户（设计 §10 去术语化），双语。 */
 const TABS = [
-  { id: "connection", labelZh: "连接", labelEn: "Connection", icon: "link" },
-  { id: "models", labelZh: "模型", labelEn: "Models", icon: "sparkle" },
-  { id: "security", labelZh: "安全", labelEn: "Security", icon: "shield" },
-  { id: "memory", labelZh: "记忆", labelEn: "Memory", icon: "database" },
-  { id: "skills", labelZh: "技能", labelEn: "Skills", icon: "book" },
-  { id: "mcp", labelZh: "外部工具", labelEn: "External tools", icon: "plug" },
+  { id: "connection", labelKey: "settings.tab.connection", icon: "link" },
+  { id: "models", labelKey: "settings.tab.models", icon: "sparkle" },
+  { id: "security", labelKey: "settings.tab.security", icon: "shield" },
+  { id: "memory", labelKey: "settings.tab.memory", icon: "database" },
+  { id: "skills", labelKey: "settings.tab.skills", icon: "book" },
+  { id: "mcp", labelKey: "settings.tab.mcp", icon: "plug" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -84,9 +76,8 @@ export function RuntimeSettings({
   onReconnect,
   initialTab = "connection",
   closing = false,
-  locale,
-  onChangeLocale,
 }: SettingsProps) {
+  const t = useT();
   const [tab, setTab] = useState<TabId>(initialTab);
   const [memory, setMemory] = useState<MemoryItem[]>([]);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
@@ -98,9 +89,9 @@ export function RuntimeSettings({
       if (cap("skill")) setSkills((await rpc("skill.list", {})).skills);
       setLoaded(true);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "无法加载设置。");
+      setError(reason instanceof Error ? reason.message : t("settings.error"));
     }
-  }, [cap, rpc]);
+  }, [cap, rpc, t]);
   useEffect(() => {
     void load();
     if (cap("mcp")) refreshMcp();
@@ -118,13 +109,11 @@ export function RuntimeSettings({
     onThemeChange,
     connected,
     onReconnect,
-    locale,
-    onChangeLocale,
   };
 
   return (
     <section
-      aria-label="Runtime 设置"
+      aria-label={t("settings.title")}
       className={`runtime-settings overflow-hidden rounded-2xl border border-line bg-surface-solid shadow-lg ${
         closing
           ? "pointer-events-none animate-[panel-out_180ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
@@ -134,24 +123,24 @@ export function RuntimeSettings({
       <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
         <div>
           <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-            {locale === "en" ? "Settings" : "设置中心"}
+            {t("settings.title")}
           </p>
           <h2 className="mt-0.5 text-[16px] font-extrabold text-ink">
-            {locale === "en" ? "Suna Settings" : "Suna 设置"}
+            {t("settings.title")}
           </h2>
         </div>
-        <IconButton label="关闭设置" onClick={onClose}>
+        <IconButton label={t("settings.close")} onClick={onClose}>
           <Icon name="close" />
         </IconButton>
       </div>
       {/* Tab 栏：横向滚动，移动端可滑 */}
       <div
-        aria-label="设置分类"
+        aria-label={t("settings.tabs")}
         className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2"
         role="tablist"
       >
         {TABS.map((item) => {
-          const label = locale === "en" ? item.labelEn : item.labelZh;
+          const label = t(item.labelKey);
           return (
             <button
               aria-selected={tab === item.id}
@@ -186,7 +175,7 @@ export function RuntimeSettings({
         )}
         {tab === "mcp" && <McpTab {...shared} />}
         {!loaded && (
-          <p className="text-[13px] text-ink-muted">正在加载可用设置…</p>
+          <p className="text-[13px] text-ink-muted">{t("settings.loading")}</p>
         )}
       </div>
     </section>

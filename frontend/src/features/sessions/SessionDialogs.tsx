@@ -1,4 +1,5 @@
 import { Dialog } from "../../components/ui/Dialog";
+import { useT } from "../../lib/i18n";
 import { CreateSessionForm } from "./CreateSessionForm";
 
 type SessionDialogsProps = {
@@ -26,13 +27,14 @@ export function SessionDialogs({
   onCreate,
   knownCwds = [],
 }: SessionDialogsProps) {
+  const t = useT();
   return (
     <>
       <Dialog
         open={editingTitle}
         onOpenChange={onEditingTitleChange}
-        title="重命名会话"
-        description="留空可恢复为未命名会话。"
+        title={t("create.renameTitle")}
+        description={t("create.renameDesc")}
       >
         <form
           className="grid gap-3"
@@ -42,7 +44,7 @@ export function SessionDialogs({
           }}
         >
           <label className="grid gap-1.5 text-[12px] font-bold text-ink-soft">
-            会话标题
+            {t("create.sessionTitle")}
             <input
               autoFocus
               className="rounded-lg border border-line bg-surface-raised px-2.5 py-2 text-ink focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
@@ -56,13 +58,13 @@ export function SessionDialogs({
               onClick={() => onEditingTitleChange(false)}
               type="button"
             >
-              取消
+              {t("create.cancel")}
             </button>
             <button
               className="cursor-pointer rounded-lg bg-blue px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong"
               type="submit"
             >
-              保存
+              {t("settings.save")}
             </button>
           </div>
         </form>
@@ -70,8 +72,8 @@ export function SessionDialogs({
       <Dialog
         open={createOpen}
         onOpenChange={onCreateOpenChange}
-        title="新建任务"
-        description="选择项目目录，Suna 将在此目录内执行任务。"
+        title={t("create.createTask")}
+        description={t("create.desc")}
       >
         <CreateSessionForm
           knownCwds={knownCwds}

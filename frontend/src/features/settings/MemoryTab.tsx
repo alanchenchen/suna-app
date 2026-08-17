@@ -1,3 +1,4 @@
+import { useT } from "../../lib/i18n";
 import type { MemoryItem } from "../../lib/runtimeBridge";
 import type { SettingsTabProps } from "./RuntimeSettings";
 
@@ -8,21 +9,24 @@ export function MemoryTab({
   onChanged,
   rpc,
 }: SettingsTabProps & { items: MemoryItem[]; onChanged: () => void }) {
+  const t = useT();
   if (!cap("memory")) return null;
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h3 className="m-0 text-[13px] font-extrabold text-ink">记忆</h3>
+        <h3 className="m-0 text-[13px] font-extrabold text-ink">
+          {t("memory.title")}
+        </h3>
         {items.length > 0 && (
           <button
             className="cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
             onClick={() => {
-              if (window.confirm("清除所有记忆？此操作无法撤销。"))
+              if (window.confirm(t("memory.clearConfirm")))
                 void rpc("memory.clear", {}).then(onChanged);
             }}
             type="button"
           >
-            清空全部
+            {t("memory.clearAll")}
           </button>
         )}
       </div>
@@ -37,23 +41,23 @@ export function MemoryTab({
                 {item.content}
               </strong>
               <small className="mt-0.5 block text-[11px] font-normal text-ink-muted">
-                {item.kind} · 优先级 {item.priority}
+                {t("memory.item", { kind: item.kind, priority: item.priority })}
               </small>
             </span>
             <button
               className="shrink-0 cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
               onClick={() => {
-                if (window.confirm("删除这条记忆？"))
+                if (window.confirm(t("memory.deleteConfirm")))
                   void rpc("memory.delete", { id: item.id }).then(onChanged);
               }}
               type="button"
             >
-              删除
+              {t("memory.delete")}
             </button>
           </div>
         ))
       ) : (
-        <p className="text-[13px] text-ink-muted">没有可用记忆。</p>
+        <p className="text-[13px] text-ink-muted">{t("memory.empty")}</p>
       )}
     </div>
   );

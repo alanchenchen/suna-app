@@ -6,6 +6,7 @@ import type {
   SessionInfo,
   ToolFlowItem,
 } from "../../lib/runtimeBridge";
+import { t } from "../../lib/i18n";
 import type { ActiveData, Scope } from "./sessionState";
 
 /** 单个 run 的时间线工具卡上限：超出丢弃最旧，避免超长 run 累积 DOM。 */
@@ -460,7 +461,7 @@ export function createNotificationHandler({
       const content =
         text ||
         (event.params.parts?.some((part) => part.type === "image")
-          ? "[图片]"
+          ? t("action.imagePlaceholder")
           : undefined);
       if (!content) return;
       setActive((value) => {

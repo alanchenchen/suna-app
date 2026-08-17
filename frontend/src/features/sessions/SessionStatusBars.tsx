@@ -1,4 +1,5 @@
 import { Icon } from "../../components/Icon";
+import { useT } from "../../lib/i18n";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
 type SessionStatusBarsProps = {
@@ -20,6 +21,7 @@ export function SessionStatusBars({
   error,
   onCloseError,
 }: SessionStatusBarsProps) {
+  const t = useT();
   // 无论是否有提示都渲染占位 div：workspace 是 4 行 grid
   // （header / 状态条 / 时间线 / 输入区），若状态条缺位，时间线会落到
   // auto 行、输入区落到 1fr 行被拉伸/压扁，长会话下输入框会消失。
@@ -41,19 +43,19 @@ export function SessionStatusBars({
             <span className="min-w-0">
               <strong className="block truncate text-[12.5px] font-extrabold text-ink">
                 {handoffRole === "guest"
-                  ? "正在观察运行中的会话"
-                  : "会话正在其他客户端运行"}
+                  ? t("statusbar.observing")
+                  : t("statusbar.otherClient")}
               </strong>
               <span className="block truncate text-[11px] text-ink-muted">
                 {handoffRole === "guest"
-                  ? "任务结束后可接管输入"
-                  : "当前窗口仅可查看，任务由另一个客户端控制"}
+                  ? t("statusbar.canTakeOver")
+                  : t("statusbar.viewOnly")}
               </span>
             </span>
           </span>
           {selected && selected.client_count > 1 && (
             <span className="shrink-0 rounded-full border border-line bg-surface-solid/80 px-2.5 py-1 text-[10.5px] font-extrabold text-ink-soft">
-              {selected.client_count} 个客户端
+              {t("statusbar.clients", { count: selected.client_count })}
             </span>
           )}
         </div>
@@ -74,7 +76,7 @@ export function SessionStatusBars({
             onClick={onCloseError}
             type="button"
           >
-            关闭
+            {t("statusbar.close")}
           </button>
         </div>
       )}

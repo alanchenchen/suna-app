@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useChangeLocale, useLocale, useT } from "../../lib/i18n";
 import type { Theme } from "../../lib/models";
 import type { SettingsTabProps } from "./RuntimeSettings";
 
@@ -20,10 +21,10 @@ type DaemonStatus = {
 };
 
 const stateLabels: Record<string, string> = {
-  ready: "已就绪",
-  starting: "启动中",
-  stopping: "停止中",
-  unavailable: "不可用",
+  ready: "conn.status.ready",
+  starting: "conn.status.starting",
+  stopping: "conn.status.stopping",
+  unavailable: "conn.status.unavailable",
 };
 
 /** 连接 Tab：Runtime 状态、版本、用量、主题（设计 §10.1）。 */
@@ -37,9 +38,10 @@ export function ConnectionTab({
   theme,
   connected,
   onReconnect,
-  locale,
-  onChangeLocale,
 }: SettingsTabProps) {
+  const t = useT();
+  const locale = useLocale();
+  const changeLocale = useChangeLocale();
   const [status, setStatus] = useState<DaemonStatus>();
   useEffect(() => {
     let alive = true;
@@ -69,7 +71,7 @@ export function ConnectionTab({
               aria-hidden="true"
               className={`h-[8px] w-[8px] rounded-full ${connected ? "bg-green" : "bg-[#8a8f9d]"}`}
             />
-            {connected ? "Runtime 已连接" : "Runtime 未连接"}
+            {connected ? t("sidebar.connected") : t("sidebar.disconnected")}
           </span>
           {!connected && (
             <button
@@ -77,43 +79,59 @@ export function ConnectionTab({
               onClick={onReconnect}
               type="button"
             >
-              重新连接
+              {t("conn.reconnect")}
             </button>
           )}
         </div>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
           <InfoRow
-            label="运行状态"
-            value={stateLabels[status?.state ?? ""] ?? status?.state ?? "—"}
+            label={t("conn.runtimeState")}
+            value={
+              t(stateLabels[status?.state ?? ""] ?? "") || status?.state || "—"
+            }
           />
           <InfoRow label="Agent" value={status?.agent_status ?? "—"} />
           <InfoRow
-            label="当前模型"
+            label={t("conn.currentModel")}
             value={status?.model ? `${status.provider}/${status.model}` : "—"}
           />
-          <InfoRow label="连接数" value={fmt(status?.connections)} />
-          <InfoRow label="运行时长" value={status?.uptime ?? "—"} />
+          <InfoRow
+            label={t("conn.connections")}
+            value={fmt(status?.connections)}
+          />
+          <InfoRow label={t("conn.uptime")} value={status?.uptime ?? "—"} />
           <InfoRow label="PID" value={status?.pid ? String(status.pid) : "—"} />
         </dl>
       </section>
 
       {/* 用量 + 版本 */}
       <section className="rounded-xl border border-line bg-surface-raised/60 p-3.5">
-        <h3 className="m-0 text-[13px] font-extrabold text-ink">今日用量</h3>
+        <h3 className="m-0 text-[13px] font-extrabold text-ink">
+          {t("conn.todayUsage")}
+        </h3>
         <dl className="mt-2.5 grid grid-cols-3 gap-2 text-[12px]">
-          <InfoRow label="请求" value={fmt(usage?.requests)} />
-          <InfoRow label="输入 tokens" value={fmt(usage?.input_tokens)} />
-          <InfoRow label="输出 tokens" value={fmt(usage?.output_tokens)} />
+          <InfoRow label={t("conn.requests")} value={fmt(usage?.requests)} />
+          <InfoRow
+            label={t("conn.inputTokens")}
+            value={fmt(usage?.input_tokens)}
+          />
+          <InfoRow
+            label={t("conn.outputTokens")}
+            value={fmt(usage?.output_tokens)}
+          />
         </dl>
         <details className="mt-3">
           <summary className="cursor-pointer text-[11px] font-bold text-ink-muted transition-colors duration-150 hover:text-ink">
-            版本信息（高级）
+            {t("conn.versionAdvanced")}
           </summary>
           <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
             <InfoRow label="Runtime" value={hello?.runtime_version ?? "—"} />
-            <InfoRow label="协议" value={hello?.protocol_version ?? "—"} />
             <InfoRow
-              label="上下文"
+              label={t("conn.protocol")}
+              value={hello?.protocol_version ?? "—"}
+            />
+            <InfoRow
+              label={t("conn.context")}
               value={
                 status?.context_tokens != null
                   ? `${fmt(status.context_tokens)} / ${fmt(status.context_window)}`
@@ -127,13 +145,15 @@ export function ConnectionTab({
       {/* 主题（原设置面板内容） */}
       {cap("config") && config && (
         <section className="rounded-xl border border-line bg-surface-raised/60 p-3.5">
-          <h3 className="m-0 mb-2 text-[13px] font-extrabold text-ink">主题</h3>
+          <h3 className="m-0 mb-2 text-[13px] font-extrabold text-ink">
+            {t("conn.theme")}
+          </h3>
           <div className="flex gap-1.5">
             {(
               [
-                ["system", "跟随系统"],
-                ["light", "浅色"],
-                ["dark", "深色"],
+                ["system", t("conn.theme.system")],
+                ["light", t("conn.theme.light")],
+                ["dark", t("conn.theme.dark")],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -145,14 +165,24 @@ export function ConnectionTab({
                 key={value}
                 onClick={() => {
                   const next = value as Theme;
-                  // 同步写入 DOM，避免 View Transition 或异步状态导致切换不生效。
-                  document.documentElement.dataset.theme =
-                    next === "system"
-                      ? window.matchMedia("(prefers-color-scheme: dark)")
-                          .matches
-                        ? "dark"
-                        : "light"
-                      : next;
+                  // 同步写入 DOM；支持 View Transition 的浏览器用过渡包裹。
+                  const apply = () => {
+                    document.documentElement.dataset.theme =
+                      next === "system"
+                        ? window.matchMedia("(prefers-color-scheme: dark)")
+                            .matches
+                          ? "dark"
+                          : "light"
+                        : next;
+                  };
+                  const doc = document as Document & {
+                    startViewTransition?: (cb: () => void) => void;
+                  };
+                  if (doc.startViewTransition) {
+                    doc.startViewTransition(apply);
+                  } else {
+                    apply();
+                  }
                   onThemeChange(next);
                 }}
                 type="button"
@@ -166,11 +196,13 @@ export function ConnectionTab({
 
       {/* 语言：机器检测（浏览器语言），可手动切换中英文（设计 §阶段 3）。 */}
       <section className="rounded-xl border border-line bg-surface-raised/60 p-3.5">
-        <h3 className="m-0 mb-2 text-[13px] font-extrabold text-ink">语言</h3>
+        <h3 className="m-0 mb-2 text-[13px] font-extrabold text-ink">
+          {t("conn.language")}
+        </h3>
         <div className="flex gap-1.5">
           {(
             [
-              ["zh", "中文"],
+              ["zh", t("conn.language.zh")],
               ["en", "English"],
             ] as const
           ).map(([value, label]) => (
@@ -181,7 +213,7 @@ export function ConnectionTab({
                   : "border-line bg-surface-raised text-ink-soft hover:bg-surface-subtle"
               }`}
               key={value}
-              onClick={() => onChangeLocale(value)}
+              onClick={() => changeLocale(value)}
               type="button"
             >
               {label}

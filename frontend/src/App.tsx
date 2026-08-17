@@ -12,16 +12,20 @@ import { SessionDialogs } from "./features/sessions/SessionDialogs";
 import { TaskOverview } from "./features/overview/TaskOverview";
 import { RuntimeSettings } from "./features/settings/RuntimeSettings";
 import type { Theme } from "./lib/models";
-import {
-  createTranslator,
-  detectLocale,
-  saveLocale,
-  type Locale,
-} from "./lib/i18n";
+import { LocaleProvider, useT } from "./lib/i18n";
 import "./styles/tailwind.css";
 
-/** 应用壳：主题与 UI 状态 + 会话工作区组合。 */
+/** 应用壳：语言由 LocaleProvider 提供，主题与 UI 状态留在 AppShell。 */
 export function App() {
+  return (
+    <LocaleProvider>
+      <AppShell />
+    </LocaleProvider>
+  );
+}
+
+function AppShell() {
+  const t = useT();
   // 主题：默认跟随系统（system），用户手动切换后记住偏好（light/dark）。
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = window.localStorage.getItem("suna-theme");
@@ -29,13 +33,6 @@ export function App() {
       ? saved
       : "system";
   });
-  // 语言：机器检测（浏览器语言）+ 手动切换持久化；t 随 locale 变化重建。
-  const [locale, setLocale] = useState<Locale>(detectLocale);
-  const t = createTranslator(locale);
-  const changeLocale = useCallback((next: Locale) => {
-    setLocale(next);
-    saveLocale(next);
-  }, []);
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
@@ -49,12 +46,22 @@ export function App() {
   }, []);
   const resolvedTheme =
     theme === "system" ? (systemDark ? "dark" : "light") : theme;
-  // 主题切换：同步写入 data-theme 并更新偏好，不依赖 View Transition 等
-  // 浏览器 API 的兼容性，保证在任何浏览器下都立即生效。
+  // 主题切换：同步写入 data-theme 并更新偏好。支持 View Transition 的
+  // 浏览器用过渡包裹（不支持的自动降级为直接切换）。
   const toggleTheme = useCallback(() => {
     const next = resolvedTheme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    setTheme(next);
+    const apply = () => {
+      document.documentElement.dataset.theme = next;
+      setTheme(next);
+    };
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => void;
+    };
+    if (doc.startViewTransition) {
+      doc.startViewTransition(apply);
+    } else {
+      apply();
+    }
   }, [resolvedTheme]);
   // 主题生效 + 浏览器 UI 色（地址栏/状态栏）跟随。
   useEffect(() => {
@@ -297,7 +304,7 @@ export function App() {
       />
       {/* 移动端抽屉遮罩：常驻 DOM，is-visible 控制淡入淡出（CSS 过渡）。 */}
       <button
-        aria-label="关闭会话列表"
+        aria-label={t("common.closeSidebar")}
         className={`mobile-scrim ${mobileMenuOpen ? "is-visible" : ""}`}
         onClick={() => setMobileMenuOpen(false)}
         tabIndex={mobileMenuOpen ? 0 : -1}
@@ -344,7 +351,7 @@ export function App() {
           <div className="relative z-30 flex items-center gap-2 border-b border-amber/25 bg-amber-soft/70 px-3 py-2">
             <Icon className="shrink-0 text-amber" name="warning" size={14} />
             <span className="min-w-0 flex-1 truncate text-[12px] font-bold text-ink">
-              {visibleWaiting.length} 个任务在等待你的回答
+              {t("waiting.notice", { count: visibleWaiting.length })}
             </span>
             <button
               className="shrink-0 cursor-pointer rounded-md bg-surface-solid px-2 py-1 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:text-ink disabled:opacity-45"
@@ -355,10 +362,10 @@ export function App() {
               }}
               type="button"
             >
-              去看看
+              {t("waiting.go")}
             </button>
             <button
-              aria-label="忽略等待通知"
+              aria-label={t("waiting.dismiss")}
               className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
               onClick={() =>
                 setDismissedWaiting((value) => {
@@ -376,7 +383,7 @@ export function App() {
         {settingsOpen && (
           <>
             <button
-              aria-label="关闭设置"
+              aria-label={t("common.closeSettings")}
               className="settings-scrim"
               onClick={closeSettings}
               type="button"
@@ -388,9 +395,7 @@ export function App() {
               connected={connected}
               hello={hello}
               initialTab={settingsInitialTab}
-              locale={locale}
               mcpServers={mcpServers}
-              onChangeLocale={changeLocale}
               onClose={closeSettings}
               onConfig={setConfig}
               onReconnect={() => void initialize()}
@@ -405,7 +410,6 @@ export function App() {
           <TaskOverview
             connected={connected}
             hasModels={Boolean(config && config.models.length > 0)}
-            locale={locale}
             onCreate={() => setCreateOpen(true)}
             onOpenSettings={() => {
               setSettingsInitialTab("models");
@@ -465,7 +469,7 @@ export function App() {
       </section>
       {/* 移动端底部导航：总览 / 任务 / 设置（设计 §12.2）。
           仅窄屏显示；桌面由侧栏 + Header 承担同等功能。 */}
-      <nav aria-label="主导航" className="mobile-tabbar">
+      <nav aria-label={t("common.mainNav")} className="mobile-tabbar">
         <button
           aria-current={mobileTab === "overview" ? "page" : undefined}
           className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
@@ -563,8 +567,6 @@ export function App() {
           !running &&
           selected?.status !== "compacting"
         }
-        locale={locale}
-        onChangeLocale={() => changeLocale(locale === "zh" ? "en" : "zh")}
         onClose={() => setCommandOpen(false)}
         onCompact={() =>
           queueSessionOperation(() => rpc("session.compact", {})).then(
