@@ -104,6 +104,9 @@ export function createSessionActions({
     setActive((value) => ({
       ...value,
       pendingUsers: [...value.pendingUsers, { id, content }],
+      // 进入“等待模型”窗口：pendingUsers 会被 user_message 确认清空，
+      // 而 running 要等 agent.run 才置位，用 awaitingRun 填补空档期。
+      awaitingRun: true,
     }));
     try {
       await queueSessionOperation(async () => {

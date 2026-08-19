@@ -449,7 +449,9 @@ function AppShell() {
                   ? undefined
                   : (text) => composerRef.current?.fillDraft(text)
               }
-              pending={active.pendingUsers.length > 0}
+              pending={
+                active.pendingUsers.length > 0 || Boolean(active.awaitingRun)
+              }
               phase={active.run?.phase ?? current?.phase}
               flow={active.flow}
               running={running}

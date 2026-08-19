@@ -19,8 +19,12 @@ export type UseRuntimeBridgeOptions = Pick<
   RuntimeBridgeClientOptions,
   "baseUrl" | "timeoutMs" | "fetch" | "eventSourceFactory"
 > & {
-  /** 通知按到达即投递，本 hook 不保留任何事件。 */
-  onNotification?: (notification: RuntimeNotification) => void;
+  /** 通知按到达即投递，本 hook 不保留任何事件。
+   * receivedAt 为解析层收到事件的时刻（工具计时用）。 */
+  onNotification?: (
+    notification: RuntimeNotification,
+    receivedAt: number,
+  ) => void;
   onEventError?: (error: RuntimeBridgeError) => void;
   onReconnected?: () => void | Promise<void>;
 };
@@ -104,7 +108,8 @@ export function useRuntimeBridge(
         );
       }
       unsubscribeRef.current = client.subscribe(
-        (notification) => notificationCallbackRef.current?.(notification),
+        (notification, receivedAt) =>
+          notificationCallbackRef.current?.(notification, receivedAt),
         (eventError) => {
           if (mountedRef.current && generation === generationRef.current) {
             setError(eventError);

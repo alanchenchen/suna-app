@@ -137,7 +137,10 @@ export class RuntimeBridgeClient {
     return body.result as RuntimeBridgeResult<M>;
   }
   subscribe(
-    onNotification: (notification: RuntimeNotification) => void,
+    onNotification: (
+      notification: RuntimeNotification,
+      receivedAt: number,
+    ) => void,
     onError?: (error: RuntimeBridgeError) => void,
     onReconnected?: () => void | Promise<void>,
   ): () => void {
@@ -192,7 +195,11 @@ export class RuntimeBridgeClient {
     source.addEventListener("notification", (event) => {
       try {
         const value: unknown = JSON.parse((event as MessageEvent<string>).data);
-        if (isNotification(value) && isCurrent()) onNotification(value);
+        if (isNotification(value) && isCurrent()) {
+          // 事件到达时刻：tool 计时用“解析层收到事件”的时刻，而不是
+          // React setState 回调里再取 Date.now()，消除事件循环排队延迟。
+          onNotification(value, Date.now());
+        }
       } catch {
         if (!isCurrent()) return;
         onError?.(
@@ -224,7 +231,10 @@ export class RuntimeBridgeClient {
     await this.deleteConnection(id);
   }
   private scheduleStreamReconnect(
-    onNotification: (notification: RuntimeNotification) => void,
+    onNotification: (
+      notification: RuntimeNotification,
+      receivedAt: number,
+    ) => void,
     onError?: (error: RuntimeBridgeError) => void,
     onReconnected?: () => void | Promise<void>,
     generation = this.lifecycleGeneration,
@@ -248,7 +258,10 @@ export class RuntimeBridgeClient {
     }, delay + jitter);
   }
   private async reopenEventStream(
-    onNotification: (notification: RuntimeNotification) => void,
+    onNotification: (
+      notification: RuntimeNotification,
+      receivedAt: number,
+    ) => void,
     onError?: (error: RuntimeBridgeError) => void,
     onReconnected?: () => void | Promise<void>,
     generation = this.lifecycleGeneration,

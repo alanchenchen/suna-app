@@ -36,6 +36,8 @@ export type NotificationDeps = {
  * 构造 Runtime 通知处理器。事件与当前 attach 作用域绑定：
  * 会话无关的全局通知（session.updated 目录增量、config.state）始终处理；
  * 会话相关通知（agent.*、session.user_message）必须匹配当前作用域。
+ * receivedAt 为解析层收到事件时刻（工具计时起点/终点），比在 React
+ * setState 回调里取 Date.now() 更接近真实执行窗口。
  */
 export function createNotificationHandler({
   setActive,
@@ -51,7 +53,7 @@ export function createNotificationHandler({
   isSyncing,
   getSelectedId,
 }: NotificationDeps) {
-  return (event: RuntimeNotification) => {
+  return (event: RuntimeNotification, receivedAt = Date.now()) => {
     if (event.method === "session.updated") {
       mergeSession(event.params.session);
       if (acceptsSession(event.params.session.id))
@@ -89,6 +91,8 @@ export function createNotificationHandler({
         const next: ActiveData = {
           ...value,
           run: event.params,
+          // 收到权威 run 事件（含终态）即结束“等待模型”窗口。
+          awaitingRun: false,
           snapshot: value.snapshot
             ? {
                 ...value.snapshot,
@@ -150,6 +154,8 @@ export function createNotificationHandler({
             ? { ...segment, done: true }
             : segment,
         );
+        // 工具已开始执行：明确结束“等待模型”窗口。
+        const base = { ...value, awaitingRun: false };
         // 子任务内部工具（id 前缀 spawn:<spawnID>:）：归入对应子任务组。
         if (subtaskMatch) {
           const spawnId = subtaskMatch[1];
@@ -157,16 +163,16 @@ export function createNotificationHandler({
             (segment) =>
               segment.kind === "subtask" && segment.item.id === spawnId,
           );
-          if (index < 0) return { ...value, flow };
+          if (index < 0) return { ...base, flow };
           const segment = flow[index];
-          if (segment.kind !== "subtask") return { ...value, flow };
+          if (segment.kind !== "subtask") return { ...base, flow };
           const item: ToolFlowItem = {
             id,
             tool: event.params.tool,
             intent: event.params.intent,
             params: event.params.params,
             status: "running",
-            startedAt: Date.now(),
+            startedAt: receivedAt,
           };
           const next = [...flow];
           next[index] = {
@@ -174,7 +180,7 @@ export function createNotificationHandler({
             item: { ...segment.item, tools: [...segment.item.tools, item] },
           };
           return {
-            ...value,
+            ...base,
             activeTool: { ...event.params, status: "running" },
             flow: next,
           };
@@ -186,7 +192,7 @@ export function createNotificationHandler({
               ? event.params.params.task
               : event.params.intent;
           return {
-            ...value,
+            ...base,
             activeTool: { ...event.params, status: "running" },
             flow: [
               ...flow,
@@ -208,8 +214,10 @@ export function createNotificationHandler({
           intent: event.params.intent,
           params: event.params.params,
           status: "running",
-          // 前端本地计时：tool_start 记录开始时间，tool_end 计算耗时。
-          startedAt: Date.now(),
+          // 前端本地计时：以解析层收到 tool_start 的时刻为起点（receivedAt），
+          // tool_end 结算耗时。相比在 setState 回调里取 Date.now()，能消除
+          // React 事件循环排队造成的计时起点偏晚。
+          startedAt: receivedAt,
         };
         // 单 run 工具卡硬上限：超长 run 会累积大量 DOM，丢弃最旧的
         // 工具段保持叙事顺序，历史细节由 toolSummary 统计兜底。
@@ -223,7 +231,7 @@ export function createNotificationHandler({
           if (firstToolIndex >= 0) flow.splice(firstToolIndex, 1);
         }
         return {
-          ...value,
+          ...base,
           activeTool: { ...event.params, status: "running" },
           flow: [...flow, { kind: "tool", item }],
         };
@@ -306,9 +314,10 @@ export function createNotificationHandler({
                               result: event.params.result,
                               resultTruncated: event.params.result_truncated,
                               error: event.params.error,
-                              durationMs: tool.startedAt
-                                ? Date.now() - tool.startedAt
-                                : undefined,
+                              durationMs:
+                                tool.startedAt != null
+                                  ? receivedAt - tool.startedAt
+                                  : undefined,
                             }
                           : tool,
                       ),
@@ -360,10 +369,12 @@ export function createNotificationHandler({
                     result: event.params.result,
                     resultTruncated: event.params.result_truncated,
                     error: event.params.error,
-                    // tool_end 时结算耗时；若缺失 startedAt（如快照恢复）则不计。
-                    durationMs: segment.item.startedAt
-                      ? Date.now() - segment.item.startedAt
-                      : undefined,
+                    // tool_end 时结算耗时（以解析层收到事件时刻为终点）；
+                    // 仅当 startedAt 缺失（如快照恢复）时不计。
+                    durationMs:
+                      segment.item.startedAt != null
+                        ? receivedAt - segment.item.startedAt
+                        : undefined,
                   },
                 }
               : segment,

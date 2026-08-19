@@ -46,7 +46,8 @@ function createHarness(
     getSelectedId: vi.fn(() => "s1"),
   };
   const handler = createNotificationHandler(deps);
-  const send = (event: RuntimeNotification) => handler(event);
+  const send = (event: RuntimeNotification, receivedAt?: number) =>
+    handler(event, receivedAt);
   return { deps, send, getActive: () => active, getConfig: () => config };
 }
 
@@ -584,5 +585,58 @@ describe("createNotificationHandler", () => {
     });
     expect(getActive().flow.some((s) => s.kind === "subtask")).toBe(false);
     expect(getActive().flow.some((s) => s.kind === "tool")).toBe(false);
+  });
+
+  it("clears awaitingRun when a run event arrives", () => {
+    const { send, getActive } = createHarness();
+    // 模拟 send() 乐观置 awaitingRun（sessionActions 侧行为）。
+    let active = getActive();
+    // 直接构造：awaitingRun 由 sessionActions.send 置位，这里验证 run 事件清空。
+    send({
+      method: "agent.run",
+      params: {
+        run_id: "run-1",
+        state: "running",
+        phase: "model",
+        can_control: true,
+      },
+    });
+    active = getActive();
+    expect(active.run?.state).toBe("running");
+    expect(active.awaitingRun).toBe(false);
+  });
+
+  it("uses receivedAt for tool duration instead of setState time", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-15T00:00:00Z"));
+    try {
+      const { send, getActive } = createHarness();
+      // tool_start 在 t=0 被解析层收到（receivedAt=0）。
+      send(
+        {
+          method: "agent.tool_start",
+          params: { id: "t9", tool: "exec", params: {}, intent: "构建" },
+        },
+        0,
+      );
+      // 模拟 setState 排队延迟：系统时间已到 t=5s，但解析层收到 tool_end 是 t=2s。
+      vi.setSystemTime(new Date("2026-08-15T00:00:05Z"));
+      send(
+        {
+          method: "agent.tool_end",
+          params: { id: "t9", tool: "exec", result: "ok" },
+        },
+        2000,
+      );
+      const segment = getActive().flow.find(
+        (s): s is Extract<FlowSegment, { kind: "tool" }> =>
+          s.kind === "tool" && s.item.id === "t9",
+      );
+      if (segment?.kind !== "tool") throw new Error("tool segment not found");
+      // 用 receivedAt 差（2000ms）而不是系统时间差（5000ms）。
+      expect(segment.item.durationMs).toBe(2000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

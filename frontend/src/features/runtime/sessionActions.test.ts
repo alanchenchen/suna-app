@@ -279,4 +279,26 @@ describe("createSessionActions", () => {
     await h.actions.remove("s1");
     expect(h.rpc).not.toHaveBeenCalled();
   });
+
+  it("sets awaitingRun optimistically when sending", async () => {
+    const h = createHarness();
+    h.select("s1");
+    h.scopeRef.current = { attach: 1, sessionId: "s1" };
+    // sendMessage 挂起：在 await 前验证乐观状态。
+    let resolveSend: (() => void) | undefined;
+    h.rpc.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSend = () => resolve({ ok: true });
+        }),
+    );
+    // sendMessage 成功后的 session.attach 也 mock。
+    h.rpc.mockResolvedValueOnce(snapshot({ id: "s1" }));
+    const pending = h.actions.send([{ type: "text", text: "你好" }]);
+    // 乐观更新已同步执行：awaitingRun=true、pendingUsers 含消息。
+    expect(h.getActive().awaitingRun).toBe(true);
+    expect(h.getActive().pendingUsers).toHaveLength(1);
+    resolveSend!();
+    await pending;
+  });
 });
