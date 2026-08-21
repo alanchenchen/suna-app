@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -29,10 +30,30 @@ type CommandLauncher struct {
 	Binary string
 }
 
+// runtimeBinaryPath 是 App 引导安装的 Runtime 二进制固定路径（约定，非配置文件）。
+// discovery 顺序：PATH 优先，其次该路径；都没有则返回 unavailable 触发引导安装。
+func runtimeBinaryPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".suna-app", "runtime", "suna")
+}
+
 func (l CommandLauncher) Launch(ctx context.Context) (ServeResult, error) {
 	binary := strings.TrimSpace(l.Binary)
 	if binary == "" {
-		binary = "suna"
+		// 两级发现：系统 PATH 优先（用户手动安装），其次 App 引导安装的固定目录。
+		if _, err := exec.LookPath("suna"); err == nil {
+			binary = "suna"
+		} else if installed := runtimeBinaryPath(); installed != "" {
+			if info, statErr := os.Stat(installed); statErr == nil && !info.IsDir() {
+				binary = installed
+			}
+		}
+	}
+	if strings.TrimSpace(binary) == "" {
+		return ServeResult{}, &Error{Kind: ErrorUnavailable, Err: fmt.Errorf("suna runtime is not installed")}
 	}
 	command := runCommand(ctx, binary, "serve", "--json")
 	command.Dir = runtimeCommandDirectory()
