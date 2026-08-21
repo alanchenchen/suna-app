@@ -9,7 +9,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	runtimelib "runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -70,7 +72,9 @@ func main() {
 	// 非 loopback 监听时启用远程模式：CSRF 校验从"仅 loopback 同源"放宽为"任意同源"。
 	// 默认 0.0.0.0 监听下总是远程模式；显式 --listen 127.0.0.1 则退回严格本机模式。
 	allowRemote := !isLoopbackAddress(cfg.ListenAddress)
-	handler := httpapi.NewServerWithBridge(connections, cfg.CommandTimeout+cfg.DialTimeout+cfg.HelloTimeout, browserBridge, allowRemote)
+	// Runtime 引导安装器：main 持有同一实例，供 httpapi 端点与空闲自退挂起判断共用。
+	runtimeInstaller := runtime.NewInstaller("latest")
+	handler := httpapi.NewServerWithInstaller(connections, cfg.CommandTimeout+cfg.DialTimeout+cfg.HelloTimeout, browserBridge, runtimeInstaller, allowRemote)
 	mux := http.NewServeMux()
 	mux.Handle("/api/", handler)
 	mux.Handle("/healthz", handler)
@@ -87,6 +91,29 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	logger.Info("suna-app gateway started", "version", buildVersion, "address", actualAddress)
 
+	// .app / .desktop 双击启动时自动打开浏览器（SUNA_APP_OPEN_BROWSER=1 由启动脚本设置）。
+	// 手动命令行启动不设置该变量，避免每次重启都弹浏览器。
+	if os.Getenv("SUNA_APP_OPEN_BROWSER") == "1" {
+		go openBrowser(actualAddress)
+	}
+
+	// 空闲自退：所有浏览器连接都关闭且无 run 后，gateway 优雅退出。
+	// 二次确认 ActiveClients()==0 防"计时到点瞬间用户重开浏览器"竞态；
+	// 安装进行中挂起（不中断下载/校验）。
+	idleExitCh := make(chan struct{}, 1)
+	maybeIdleExit := func() {
+		if browserBridge.ActiveClients() != 0 || runtimeInstaller.Active() {
+			return
+		}
+		select {
+		case idleExitCh <- struct{}{}:
+		default:
+		}
+	}
+	browserBridge.SetOnIdleExit(maybeIdleExit)
+	// 安装结束（done/error）后重新评估：安装期间挂起的自退此时应生效。
+	runtimeInstaller.OnDone = maybeIdleExit
+
 	errCh := make(chan error, 1)
 	go func() { errCh <- server.Serve(listener) }()
 
@@ -101,6 +128,16 @@ func main() {
 	case <-signals:
 		// 先撤销浏览器 bridge 并关闭其 Runtime socket，再停止 HTTP；避免进程退出时
 		// 仍遗留 attach 或通知泵影响本地 Runtime。
+		browserBridge.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			logger.Error("suna-app gateway shutdown failed", "error", err)
+			os.Exit(1)
+		}
+	case <-idleExitCh:
+		// 用户关闭浏览器后空闲自退：先关 bridge（断开 Runtime 连接，daemon 随后
+		// 2s 自动退出），再停 HTTP，进程干净退出。
 		browserBridge.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -169,4 +206,21 @@ func isSunaAppRunning(baseURL string) bool {
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
+}
+
+// openBrowser 在默认浏览器打开 Suna App 地址（平台分支）。
+// 仅 .app / .desktop 双击启动时调用；失败静默（无 GUI 环境时只打印地址）。
+func openBrowser(address string) {
+	var cmd *exec.Cmd
+	switch runtimelib.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "http://"+address)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", "http://"+address)
+	default:
+		cmd = exec.Command("xdg-open", "http://"+address)
+	}
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "suna-app: could not open browser automatically, visit http://%s\n", address)
+	}
 }

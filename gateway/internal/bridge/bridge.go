@@ -88,6 +88,9 @@ type Config struct {
 	// AllowedMethod returns true only for exact public Runtime methods exposed to browsers.
 	// Nil uses the v0.3 browser bridge method allowlist.
 	AllowedMethod func(string) bool
+	// OnIdleExit 在所有浏览器连接都因空闲超时断开、且无 run 在跑时调用。
+	// gateway 用它实现"用户关闭浏览器后自动退出"；主动 Close/Disconnect 不触发。
+	OnIdleExit func()
 }
 
 // Service tracks opaque, per-browser Runtime connections.
@@ -100,6 +103,7 @@ type Service struct {
 	allowed     func(string) bool
 	maxClients  int
 	idleTimeout time.Duration
+	onIdleExit  func()
 
 	mu      sync.RWMutex
 	clients map[string]*client
@@ -112,6 +116,9 @@ type client struct {
 	closed      bool
 	subscribers map[chan runtime.Notification]struct{}
 	idleTimer   *time.Timer
+	// running 是该连接上正在执行的 run 数（由 agent.run 通知驱动）。
+	// 空闲自退决策依赖它：有 run 时不能断开 Runtime 连接（否则 daemon 会取消 run）。
+	running int
 }
 
 // New creates a bridge service. A connector is required because a Bridge must
@@ -149,7 +156,8 @@ func New(connector Connector, config Config) (*Service, error) {
 		return nil, fmt.Errorf("bridge client idle timeout cannot be negative")
 	}
 	if config.ClientIdleTimeout == 0 {
-		config.ClientIdleTimeout = 45 * time.Second
+		// 空闲自退宽限：覆盖刷新最坏 5s + 移动端切网 10s；10s 内重连会取消计时。
+		config.ClientIdleTimeout = 10 * time.Second
 	}
 	refresher, _ := connector.(DiscoveryRefresher)
 	return &Service{
@@ -158,6 +166,7 @@ func New(connector Connector, config Config) (*Service, error) {
 		maxBody:     config.MaxRequestBody,
 		maxClients:  config.MaxClients,
 		idleTimeout: config.ClientIdleTimeout,
+		onIdleExit:  config.OnIdleExit,
 		random:      config.Random,
 		hello:       append(json.RawMessage(nil), config.Hello...),
 		allowed:     config.AllowedMethod,
@@ -216,6 +225,22 @@ func (s *Service) Close() {
 		c.closeSubscribers()
 		_ = c.connection.Close()
 	}
+}
+
+// ActiveClients 报告当前活跃的浏览器连接数。gateway 自退前的二次确认用它
+// 防止"计时到点瞬间用户重开浏览器"的竞态。
+func (s *Service) ActiveClients() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.clients)
+}
+
+// SetOnIdleExit 注册空闲自退回调。与 Config.OnIdleExit 等价，但允许在
+// New 之后设置（回调需要引用 Service 自身做二次确认时用）。
+func (s *Service) SetOnIdleExit(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onIdleExit = fn
 }
 
 func (s *Service) newID() (string, error) {
@@ -336,10 +361,25 @@ func (s *Service) disconnectIfCurrent(id string, expected *client) {
 		s.mu.Unlock()
 		return
 	}
+	c.mu.Lock()
+	running := c.hasRunning()
+	c.mu.Unlock()
+	if running {
+		// 有 run 在跑：不能断开（否则 daemon 会取消 run）。保持连接不动，
+		// 等 run 终态通知到达后由 trackRun 重新调度空闲断开。
+		s.mu.Unlock()
+		return
+	}
 	delete(s.clients, id)
+	noClients := len(s.clients) == 0
 	s.mu.Unlock()
 	c.closeSubscribers()
 	_ = c.connection.Close()
+	// 所有浏览器连接都已因空闲超时断开、且无任何 run 在跑时，通知 gateway 自退。
+	// 仅在空闲断开路径触发（显式 Disconnect/Close 不调用本函数）。
+	if noClients && s.onIdleExit != nil {
+		s.onIdleExit()
+	}
 }
 
 func (c *client) cancelIdleLocked() {
@@ -372,6 +412,8 @@ func (s *Service) pump(id string, c *client) {
 			}
 			c.mu.Lock()
 			if !c.closed {
+				// 跟踪 agent.run 生命周期：决定空闲自退时能否安全断开 Runtime 连接。
+				c.trackRun(notification)
 				for subscriber := range c.subscribers {
 					// SSE 客户端的积压意味着无法保证状态完整性。关闭此订阅，
 					// 让浏览器通过 reconnect + attach 获取 Runtime 权威快照。
@@ -386,6 +428,11 @@ func (s *Service) pump(id string, c *client) {
 			noSubscribers := !c.closed && len(c.subscribers) == 0
 			c.mu.Unlock()
 			if noSubscribers {
+				// 无订阅者时重新调度空闲断开：run 期间 timer 已触发过（非 nil），
+				// 必须先清掉再调度，否则 run 结束后不会再次进入空闲断开流程。
+				c.mu.Lock()
+				c.cancelIdleLocked()
+				c.mu.Unlock()
 				s.scheduleIdleDisconnect(id, c)
 			}
 		}
@@ -419,6 +466,34 @@ func (c *client) closeSubscribers() {
 		close(subscriber)
 		delete(c.subscribers, subscriber)
 	}
+}
+
+// trackRun 根据 agent.run 通知维护该连接上的 run 计数。
+// running/retrying 进入 +1；终态（done/failed/cancelled）或取消中 -1（下限 0）。
+// 调用方必须持有 c.mu。
+func (c *client) trackRun(n runtime.Notification) {
+	if n.Method != "agent.run" {
+		return
+	}
+	var params struct {
+		State string `json:"state"`
+	}
+	if err := json.Unmarshal(n.Params, &params); err != nil {
+		return
+	}
+	switch params.State {
+	case "running", "retrying":
+		c.running++
+	case "done", "failed", "cancelled", "cancelling":
+		if c.running > 0 {
+			c.running--
+		}
+	}
+}
+
+// hasRunning 报告该连接上是否有正在执行的 run。调用方必须持有 c.mu。
+func (c *client) hasRunning() bool {
+	return c.running > 0
 }
 
 func defaultAllowedMethod(method string) bool {

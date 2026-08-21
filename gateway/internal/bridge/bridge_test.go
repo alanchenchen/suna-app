@@ -253,3 +253,88 @@ func (zeroReader) Read(p []byte) (int, error) {
 	}
 	return len(p), nil
 }
+
+// TestOnIdleExitFiresAfterLastClientDisconnects 验证：无订阅者 + 空闲超时后
+// 断开最后一个连接时触发 OnIdleExit（且无 run 在跑）。
+func TestOnIdleExitFiresAfterLastClientDisconnects(t *testing.T) {
+	connection := newFakeConnection()
+	onIdleExit := make(chan struct{}, 1)
+	service, err := New(fakeConnector{connection}, Config{
+		Random:            zeroReader{},
+		ClientIdleTimeout: 20 * time.Millisecond,
+		OnIdleExit: func() {
+			select {
+			case onIdleExit <- struct{}{}:
+			default:
+			}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := service.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Request(context.Background(), id, "session.list", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-onIdleExit:
+	case <-time.After(time.Second):
+		t.Fatal("OnIdleExit was not fired after idle disconnect")
+	}
+}
+
+// TestOnIdleExitNotFiredWhileRunActive 验证：连接上有正在执行的 run 时，
+// 空闲断开不触发 OnIdleExit（防止 daemon 取消 run）。
+func TestOnIdleExitNotFiredWhileRunActive(t *testing.T) {
+	connection := newFakeConnection()
+	onIdleExit := make(chan struct{}, 1)
+	service, err := New(fakeConnector{connection}, Config{
+		Random:            zeroReader{},
+		ClientIdleTimeout: 200 * time.Millisecond,
+		OnIdleExit: func() {
+			select {
+			case onIdleExit <- struct{}{}:
+			default:
+			}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := service.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 先让 pump 消费 agent.run 通知：running 状态使连接保持活跃。
+	connection.notifications <- runtime.Notification{Method: "agent.run", Params: json.RawMessage(`{"state":"running"}`)}
+	// 等待 pump 消费通知并更新 running 计数，再触发空闲计时。
+	time.Sleep(50 * time.Millisecond)
+	if _, err := service.Request(context.Background(), id, "session.list", nil); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-onIdleExit:
+		t.Fatal("OnIdleExit fired while a run is active")
+	case <-time.After(300 * time.Millisecond):
+		// 预期：不触发（run 保护使 idle 断开不执行）
+	}
+	// run 保护生效后连接应仍然可用。
+	if _, err := service.Request(context.Background(), id, "session.list", nil); err != nil {
+		t.Fatalf("connection was disconnected despite active run: %v", err)
+	}
+}
+
+// TestDefaultClientIdleTimeoutIsTenSeconds 验证默认空闲宽限为 10s（覆盖刷新/切网）。
+func TestDefaultClientIdleTimeoutIsTenSeconds(t *testing.T) {
+	service, err := New(fakeConnector{newFakeConnection()}, Config{Random: zeroReader{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if service.idleTimeout != 10*time.Second {
+		t.Fatalf("idleTimeout = %v, want 10s", service.idleTimeout)
+	}
+}
