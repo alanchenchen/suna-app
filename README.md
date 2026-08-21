@@ -72,7 +72,7 @@ Suna Runtime: v0.x.y
 Suna App:     v0.x.y
 ```
 
-Compatibility is determined by the public Runtime protocol and advertised capabilities, not by matching application version numbers. Each Suna App release states its supported Runtime protocol versions.
+Compatibility is determined by the public Runtime protocol and advertised capabilities, not by matching application version numbers. Each Suna App release states its supported Runtime protocol versions and the required catalog methods (`session.list`, `session.attach`, `session.create`, `agent.sendMessage`).
 
 ## License
 

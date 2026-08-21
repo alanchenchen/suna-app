@@ -89,7 +89,7 @@ suna serve --json
 → tcp_endpoint
 → TCP NDJSON connection
 → runtime.hello
-→ protocol/capability check
+→ catalog capability check (required methods present)
 ```
 
 Do not hard-code a Runtime port. Do not parse stderr as a protocol. Do not connect browser code to Runtime TCP.

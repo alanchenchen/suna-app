@@ -124,11 +124,11 @@
 
 ### 1A.1 三种访问模式
 
-| 模式 | 监听地址 | 鉴权 | 适用 |
-|---|---|---|---|
-| **本机**（默认） | `127.0.0.1` | 无（同机可信） | 桌面日常 |
-| **局域网** | `0.0.0.0` 或指定网卡 | **Token 必须** | 手机同 WiFi 访问 |
-| **公网（打洞）** | `0.0.0.0` + 打洞软件（tailscale/frp/cloudflared 等） | **Token + 可选 TLS** | 手机远程访问 |
+| 模式 | 监听地址 | 鉴权 | 适用 | 实现状态 |
+|---|---|---|---|---|
+| **本机**（默认） | `127.0.0.1` | 无（同机可信） | 桌面日常 | ✅ 已实现（`--listen 127.0.0.1`） |
+| **局域网** | `0.0.0.0` 或指定网卡 | **Token 必须**（设计）/ ⚠️ 当前无 Token，同 WiFi 信任 | 手机同 WiFi 访问 | ⚠️ 监听已实现，Token 未做 |
+| **公网（打洞）** | `0.0.0.0` + 打洞软件（tailscale/frp/cloudflared 等） | **Token + 可选 TLS** | 手机远程访问 | ❌ 未实现 |
 
 ### 1A.2 鉴权设计
 
@@ -156,7 +156,7 @@
 6. **CORS/Origin**：仅允许配置的 origin 或同源访问；SSE 复用同源。
 7. **不在日志记录 Token**；`/healthz` 不需要鉴权（健康检查），`/api/*` 全部需要。
 
-### 1A.4 前端连接页（v2）
+### 1A.4 前端连接页（v2 · ❌ 未实现，当前 App 直连本地 gateway）
 
 ```
 ┌──────────────────────────────────────┐
@@ -265,17 +265,19 @@ Runtime daemon 不受影响：
 
 ### 1C.1 现状
 
-当前前端无 manifest / service worker / vite-plugin-pwa（public 为空，package.json 无依赖）。
+当前前端已具备：`public/manifest.webmanifest`（名称/图标/主题色/`display: standalone`）+ 应用图标（icon-192/512/apple-touch-icon）。
+
+尚未实现：service worker（离线壳）、系统通知（Notification API）、安装引导。
 
 ### 1C.2 设计
 
-| 项 | 说明 |
-|---|---|
-| **manifest** | 名称/图标/主题色/`display: standalone`（添加到主屏后全屏、无浏览器地址栏） |
-| **Service Worker** | 离线壳（缓存 UI 静态资源，打开时秒开）；API 不缓存（SSE 实时） |
-| **系统通知** | `Notification API`：收到 waiting 通知且页面不可见时发系统通知（"任务「修复登录页」等待你处理"）；点击通知 → 打开对应会话 |
-| **权限时机** | 首次出现 waiting 且页面隐藏时请求通知权限（不提前打扰） |
-| **安装引导** | 首次使用时提示"添加到主屏"（iOS Safari 需手动，Android Chrome 可自动提示） |
+| 项 | 说明 | 状态 |
+|---|---|---|
+| **manifest** | 名称/图标/主题色/`display: standalone`（添加到主屏后全屏、无浏览器地址栏） | ✅ 已实现（`public/manifest.webmanifest`） |
+| **Service Worker** | 离线壳（缓存 UI 静态资源，打开时秒开）；API 不缓存（SSE 实时） | ❌ 未实现 |
+| **系统通知** | `Notification API`：收到 waiting 通知且页面不可见时发系统通知（"任务「修复登录页」等待你处理"）；点击通知 → 打开对应会话 | ❌ 未实现 |
+| **权限时机** | 首次出现 waiting 且页面隐藏时请求通知权限（不提前打扰） | ❌ 未实现 |
+| **安装引导** | 首次使用时提示"添加到主屏"（iOS Safari 需手动，Android Chrome 可自动提示） | ❌ 未实现 |
 
 ### 1C.3 与 §12.3 的关系
 
@@ -963,11 +965,24 @@ disconnected ──initialize──▶ connecting ──成功──▶ connecte
 17. 路由（#/session/:id）
 18. Locale 切换（zh/en，机器检测 + 手动切换）
 
-### 阶段 4（产品化收尾 · 未实施）
+### 阶段 3（P2 · 增强）✅ 已完成
+13. Subtask 内嵌组（spawn 命名空间精确分组）
+14. Cmd+K 全局命令面板
+15. 移动端底部 tab（总览/任务/设置）+ 安全区 + 省电优化（省电小项待补）
+16. 多图附件 + 粘贴提示
+17. 路由（#/session/:id）
+18. Locale 切换（zh/en，机器检测 + 手动切换）
 19. 局域网访问（`--listen 0.0.0.0`，不做 Token，同 WiFi 信任）
+22. PWA manifest（添加到主屏，不做系统通知/离线壳）
+
+### 阶段 4（产品化收尾 · 未实施）
 20. 连接记忆（记住上次地址，localStorage 单键）
 21. 分发形态（§1B）：macOS .app 打包 + 自动开浏览器 + 菜单栏退出 + 设置页退出（shutdown 端点 loopback-only）；Windows GUI subsystem + **托盘图标（systray，与 macOS 菜单栏同级必做）**
-22. PWA manifest（添加到主屏，不做系统通知/离线壳）
+
+### 阶段 0 补充（安全前置 · 未实施）
+- Token 鉴权（生成/校验/防暴力/二维码输出）
+- 前端连接页（服务器地址 + 令牌输入 + 扫码 + 记住连接）
+- 远程连接横幅（非 loopback 时顶部提示）
 
 ### 协议增强（需 suna 侧，待议）
 - `guard.audit` method（审计记录）
