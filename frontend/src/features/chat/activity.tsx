@@ -56,18 +56,18 @@ function activityCopy(
       tone: "tool",
     };
   }
-  if (phase === "model") {
-    return {
-      label: t("activity.model"),
-      detail: t("activity.modelDetail"),
-      tone: "model",
-    };
-  }
   if (pending) {
     return {
       label: t("activity.pending"),
       detail: t("activity.pendingDetail"),
       tone: "pending",
+    };
+  }
+  if (phase === "model") {
+    return {
+      label: t("activity.model"),
+      detail: t("activity.modelDetail"),
+      tone: "model",
     };
   }
   return {

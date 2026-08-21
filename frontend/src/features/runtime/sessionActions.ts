@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { MessagePart, SessionInfo } from "../../lib/runtimeBridge";
+import type { SteeringMessage } from "../../lib/runtimeBridge";
 import { t } from "../../lib/i18n";
 import type { useRuntimeBridge } from "./useRuntimeBridge";
 import { flowFromSnapshot, messageId } from "./sessionState";
@@ -148,6 +149,72 @@ export function createSessionActions({
     }
   }
 
+  async function steer(text: string) {
+    const scope = scopeRef.current;
+    if (!scope || isSessionActionsFrozen()) return;
+    const runId = scope.runId;
+    if (!runId) return;
+    const clientMsgId = messageId();
+    const parts: MessagePart[] = [{ type: "text", text }];
+    try {
+      const { message } = await queueSessionOperation(async () => {
+        if (!activeScopeMatches(scope))
+          throw new Error(t("action.sessionSwitched"));
+        return rpc("agent.steer", {
+          run_id: runId,
+          client_msg_id: clientMsgId,
+          parts,
+        });
+      });
+      if (!activeScopeMatches(scope)) return;
+      upsertSteering(message);
+    } catch {
+      // steer 失败（如 run 已结束）：回退为普通发送，确保用户消息不丢。
+      await send(parts);
+    }
+  }
+
+  async function removeSteering(id: string) {
+    const scope = scopeRef.current;
+    if (!scope || isSessionActionsFrozen()) return;
+    const runId = scope.runId;
+    if (!runId) return;
+    try {
+      const { message } = await queueSessionOperation(async () => {
+        if (!activeScopeMatches(scope))
+          throw new Error(t("action.sessionSwitched"));
+        return rpc("agent.steerRemove", { run_id: runId, id });
+      });
+      if (!activeScopeMatches(scope)) return;
+      upsertSteering(message);
+    } catch {
+      // 撤回失败（run 已结束等）：本地移除，避免残留不可撤回的条目。
+      setActive((value) => ({
+        ...value,
+        steering: (value.steering ?? []).filter((item) => item.id !== id),
+      }));
+    }
+  }
+
+  function upsertSteering(message: SteeringMessage) {
+    setActive((value) => {
+      const current = value.steering ?? [];
+      const exists = current.some((item) => item.id === message.id);
+      const steering = exists
+        ? current.map((item) => (item.id === message.id ? message : item))
+        : [...current, message];
+      // 按 sequence 升序；removed/rejected 条目不保留。
+      return {
+        ...value,
+        steering: steering
+          .filter(
+            (item) => item.state !== "removed" && item.state !== "rejected",
+          )
+          .sort((a, b) => a.sequence - b.sequence),
+      };
+    });
+  }
+
   async function updateModel(model_ref: string) {
     const scope = scopeRef.current;
     if (!scope || isSessionActionsFrozen()) return;
@@ -271,5 +338,14 @@ export function createSessionActions({
     }
   }
 
-  return { create, send, updateModel, rename, detach, remove };
+  return {
+    create,
+    send,
+    steer,
+    removeSteering,
+    updateModel,
+    rename,
+    detach,
+    remove,
+  };
 }

@@ -301,4 +301,64 @@ describe("createSessionActions", () => {
     resolveSend!();
     await pending;
   });
+
+  it("steers the running run and upserts the steering message", async () => {
+    const h = createHarness();
+    h.select("s1");
+    h.scopeRef.current = { attach: 1, sessionId: "s1", runId: "run-1" };
+    const message = {
+      id: "steer-1",
+      run_id: "run-1",
+      client_msg_id: "client-1",
+      state: "queued" as const,
+      sequence: 1,
+      can_control: true,
+      parts: [{ type: "text" as const, text: "继续" }],
+    };
+    h.rpc.mockResolvedValueOnce({ message });
+    await h.actions.steer("继续");
+    const steerCall = h.rpc.mock.calls.find(
+      ([method]) => method === "agent.steer",
+    );
+    expect(steerCall).toBeDefined();
+    expect((steerCall![1] as { run_id: string }).run_id).toBe("run-1");
+    expect(h.getActive().steering).toEqual([message]);
+  });
+
+  it("falls back to send when steer fails", async () => {
+    const h = createHarness();
+    h.select("s1");
+    h.scopeRef.current = { attach: 1, sessionId: "s1", runId: "run-1" };
+    h.rpc.mockRejectedValueOnce(new Error("run ended"));
+    // send 的 sendMessage + attach 两个 rpc。
+    h.rpc.mockResolvedValueOnce({ status: "processing" });
+    h.rpc.mockResolvedValueOnce(snapshot({ id: "s1" }));
+    await h.actions.steer("继续");
+    // steer 失败后回退普通发送。
+    expect(
+      h.rpc.mock.calls.some(([method]) => method === "agent.sendMessage"),
+    ).toBe(true);
+  });
+
+  it("removes steering and drops the message locally on failure", async () => {
+    const h = createHarness();
+    h.select("s1");
+    h.scopeRef.current = { attach: 1, sessionId: "s1", runId: "run-1" };
+    h.setActive((value) => ({
+      ...value,
+      steering: [
+        {
+          id: "steer-1",
+          run_id: "run-1",
+          state: "applied" as const,
+          sequence: 1,
+          can_control: true,
+          parts: [{ type: "text" as const, text: "继续" }],
+        },
+      ],
+    }));
+    h.rpc.mockRejectedValueOnce(new Error("run ended"));
+    await h.actions.removeSteering("steer-1");
+    expect(h.getActive().steering).toEqual([]);
+  });
 });

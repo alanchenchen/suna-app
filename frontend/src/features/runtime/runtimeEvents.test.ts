@@ -6,7 +6,7 @@ import type {
   RuntimeNotification,
   SessionInfo,
 } from "../../lib/runtimeBridge";
-import type { ActiveData } from "./sessionState";
+import type { ActiveData, Scope } from "./sessionState";
 import { blankActive } from "./sessionState";
 import {
   createNotificationHandler,
@@ -41,7 +41,7 @@ function createHarness(
     mergeSession: vi.fn(),
     markSessionIdle: vi.fn(),
     mergeMcp: vi.fn(),
-    getScope: vi.fn(() => ({ attach: 1, sessionId: "s1" })),
+    getScope: vi.fn(() => ({ attach: 1, sessionId: "s1" }) as Scope),
     isSyncing: vi.fn(() => false),
     getSelectedId: vi.fn(() => "s1"),
   };
@@ -638,5 +638,101 @@ describe("createNotificationHandler", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("upserts steering messages in sequence order", () => {
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-1",
+    });
+    h.send({
+      method: "agent.steering",
+      params: {
+        message: {
+          id: "s2",
+          run_id: "run-1",
+          state: "queued",
+          sequence: 2,
+          can_control: true,
+          parts: [{ type: "text", text: "second" }],
+        },
+      },
+    });
+    h.send({
+      method: "agent.steering",
+      params: {
+        message: {
+          id: "s1",
+          run_id: "run-1",
+          state: "queued",
+          sequence: 1,
+          can_control: true,
+          parts: [{ type: "text", text: "first" }],
+        },
+      },
+    });
+    const steering = h.getActive().steering ?? [];
+    expect(steering.map((item) => item.sequence)).toEqual([1, 2]);
+  });
+
+  it("drops removed steering messages", () => {
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-1",
+    });
+    h.send({
+      method: "agent.steering",
+      params: {
+        message: {
+          id: "s1",
+          run_id: "run-1",
+          state: "applied",
+          sequence: 1,
+          can_control: true,
+          parts: [{ type: "text", text: "first" }],
+        },
+      },
+    });
+    h.send({
+      method: "agent.steering",
+      params: {
+        message: {
+          id: "s1",
+          run_id: "run-1",
+          state: "removed",
+          sequence: 1,
+          can_control: true,
+          parts: [{ type: "text", text: "first" }],
+        },
+      },
+    });
+    expect(h.getActive().steering ?? []).toEqual([]);
+  });
+
+  it("ignores steering for other runs", () => {
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-1",
+    });
+    h.send({
+      method: "agent.steering",
+      params: {
+        message: {
+          id: "s1",
+          run_id: "run-other",
+          state: "queued",
+          sequence: 1,
+          can_control: true,
+          parts: [{ type: "text", text: "first" }],
+        },
+      },
+    });
+    expect(h.getActive().steering ?? []).toEqual([]);
   });
 });

@@ -6,6 +6,7 @@ import type {
   FlowSegment,
   GuardConfirmEvent,
   SessionSnapshot,
+  SteeringMessage,
   ToolStartEvent,
   ToolSummary,
 } from "../../lib/runtimeBridge";
@@ -34,6 +35,11 @@ export type ActiveData = {
   compact?: CompactResultEvent;
   pendingUsers: PendingUserMessage[];
   /**
+   * 运行中注入的引导消息（agent.steer），按 sequence 升序；
+   * state=removed 的条目由通知驱动移除。
+   */
+  steering?: SteeringMessage[];
+  /**
    * 已发送但尚未收到权威 agent.run（非终态）的等待窗口。
    * 用于在 pendingUsers 被 user_message 确认清空、而 running 尚未由
    * run_start 置位的空档期，驱动活动卡显示“等待模型”。
@@ -44,6 +50,7 @@ export type ActiveData = {
 export const blankActive = (): ActiveData => ({
   flow: [],
   pendingUsers: [],
+  steering: [],
 });
 
 /**

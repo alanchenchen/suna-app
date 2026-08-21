@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Icon } from "../../components/Icon";
 import { useT } from "../../lib/i18n";
-import type { MessagePart } from "../../lib/runtimeBridge";
+import type { MessagePart, SteeringMessage } from "../../lib/runtimeBridge";
 
 type ComposerProps = {
   onSubmit: (parts: MessagePart[]) => Promise<void>;
@@ -17,6 +17,12 @@ type ComposerProps = {
   canAttachImageUrl?: boolean;
   /** Increment to request focus on the composer textarea. */
   focusTrigger?: number;
+  /** 运行中可注入引导消息（agent.steer）。 */
+  canSteer?: boolean;
+  /** 当前 run 已注入的引导消息（按 sequence 升序）。 */
+  steering?: SteeringMessage[];
+  onSteer?: (text: string) => Promise<void>;
+  onRemoveSteering?: (id: string) => Promise<void>;
 };
 
 export type ComposerHandle = {
@@ -33,6 +39,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       observer = false,
       canAttachImageUrl,
       focusTrigger = 0,
+      canSteer = false,
+      steering = [],
+      onSteer,
+      onRemoveSteering,
     },
     ref,
   ) {
@@ -93,6 +103,25 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
     async function submit() {
       const message = draft.trim();
       if ((!message && imageUrls.length === 0) || sending || disabled) return;
+      // 运行中（canSteer）：发送即引导（agent.steer），注入给正在跑的 run。
+      // 不走乐观清空/awaitingRun——steer 结果由 agent.steering 通知驱动显示。
+      if (canSteer && message && onSteer) {
+        setSending(true);
+        setError(undefined);
+        const text = message;
+        setDraft("");
+        try {
+          await onSteer(text);
+        } catch (reason) {
+          setDraft(text);
+          setError(
+            reason instanceof Error ? reason.message : t("chat.sendError"),
+          );
+        } finally {
+          setSending(false);
+        }
+        return;
+      }
       if (imageUrl.trim()) {
         // 输入框有未添加的 URL：先校验再视为待提交附件。
         if (!validateUrl(imageUrl.trim())) {
@@ -223,6 +252,37 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
               )}
             </div>
           )}
+          {/* 运行中引导消息列表：已注入的 steer 消息，可逐条撤回。 */}
+          {canSteer && steering.length > 0 && (
+            <div className="mb-2 flex flex-col gap-1">
+              {steering.map((item) => (
+                <div
+                  className="flex items-center gap-2 rounded-lg border border-dashed border-ink-muted/30 bg-surface-raised/60 px-2.5 py-1.5"
+                  key={item.id}
+                >
+                  <Icon
+                    className="shrink-0 text-ink-muted"
+                    name="chevron-right"
+                    size={12}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[11px] leading-[1.4] text-ink-soft">
+                    {item.parts
+                      .filter((part) => part.type === "text")
+                      .map((part) => part.text)
+                      .join(" ")}
+                  </span>
+                  <button
+                    aria-label={t("chat.removeSteering")}
+                    className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
+                    onClick={() => void onRemoveSteering?.(item.id)}
+                    type="button"
+                  >
+                    <Icon name="close" size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex items-end gap-1.5">
             <textarea
               aria-label={t("chat.inputLabel")}
@@ -250,11 +310,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 }
               }}
               placeholder={
-                disabled
-                  ? observer
-                    ? t("chat.observerPlaceholder")
-                    : t("chat.selectSessionFirst")
-                  : t("chat.sendPlaceholder")
+                canSteer
+                  ? t("chat.steerPlaceholder")
+                  : disabled
+                    ? observer
+                      ? t("chat.observerPlaceholder")
+                      : t("chat.selectSessionFirst")
+                    : t("chat.sendPlaceholder")
               }
               ref={textareaRef}
               rows={1}
@@ -277,20 +339,31 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 aria-label={t("chat.send")}
                 className="group/send grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,background,box-shadow] duration-160 hover:shadow-[0_7px_18px_var(--color-blue-glow)] hover:-translate-y-px active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:shadow-none max-[720px]:h-[42px] max-[720px]:w-[42px]"
                 disabled={
-                  (!draft.trim() &&
-                    !imageUrl.trim() &&
-                    imageUrls.length === 0) ||
+                  (canSteer
+                    ? !draft.trim()
+                    : !draft.trim() &&
+                      !imageUrl.trim() &&
+                      imageUrls.length === 0) ||
                   disabled ||
                   sending
                 }
                 onClick={() => void submit()}
                 type="button"
               >
-                <Icon
-                  className="transition-transform duration-160 group-hover/send:animate-[icon-lift_240ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
-                  name="arrow-up"
-                  size={17}
-                />
+                {sending ? (
+                  <Icon
+                    aria-hidden="true"
+                    className="animate-spin"
+                    name="loader"
+                    size={16}
+                  />
+                ) : (
+                  <Icon
+                    className="transition-transform duration-160 group-hover/send:animate-[icon-lift_240ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+                    name="arrow-up"
+                    size={17}
+                  />
+                )}
               </button>
             </div>
           </div>

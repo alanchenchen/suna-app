@@ -181,6 +181,10 @@ function AppShell() {
     rename,
     detach,
     remove,
+    steer,
+    removeSteering,
+    steering,
+    canSteer,
     mcpServers,
     refreshMcp,
   } = session;
@@ -481,10 +485,14 @@ function AppShell() {
             />
             <Composer
               canAttachImageUrl={Boolean(hello?.content_sources.image_url)}
+              canSteer={canSteer}
               disabled={sessionActionsFrozen || observer}
+              onRemoveSteering={removeSteering}
               onSubmit={send}
+              onSteer={steer}
               observer={observer}
               ref={composerRef}
+              steering={steering}
               waiting={selected?.status === "waiting"}
             />
           </>

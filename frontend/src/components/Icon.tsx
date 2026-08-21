@@ -14,6 +14,7 @@ import {
   Folder,
   Image,
   Link,
+  Loader2,
   MessageSquare,
   Moon,
   PanelRight,
@@ -50,6 +51,7 @@ export type IconName =
   | "folder"
   | "image"
   | "link"
+  | "loader"
   | "message"
   | "moon"
   | "panel"
@@ -83,6 +85,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   folder: Folder,
   image: Image,
   link: Link,
+  loader: Loader2,
   message: MessageSquare,
   moon: Moon,
   panel: PanelRight,

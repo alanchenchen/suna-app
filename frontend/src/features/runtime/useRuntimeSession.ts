@@ -414,6 +414,9 @@ export function useRuntimeSession() {
     observer,
     running,
     canControl,
+    steering: active.steering,
+    // 运行中 + 有控制权才能注入引导（Runtime 对 observer/等待交互会拒绝）。
+    canSteer: Boolean(running && canControl && scopeRef.current?.runId),
     canDelete,
     canConfig,
     handoffRole,

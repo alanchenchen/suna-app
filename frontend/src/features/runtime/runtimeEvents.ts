@@ -463,6 +463,28 @@ export function createNotificationHandler({
       setActive((value) => ({ ...value, compact: event.params }));
       return;
     }
+    if (event.method === "agent.steering") {
+      const scope = getScope();
+      if (isSyncing() || !scope || scope.sessionId !== getSelectedId()) return;
+      const message = event.params.message;
+      if (message.run_id !== scope.runId) return;
+      setActive((value) => {
+        const current = value.steering ?? [];
+        const exists = current.some((item) => item.id === message.id);
+        const steering = exists
+          ? current.map((item) => (item.id === message.id ? message : item))
+          : [...current, message];
+        return {
+          ...value,
+          steering: steering
+            .filter(
+              (item) => item.state !== "removed" && item.state !== "rejected",
+            )
+            .sort((a, b) => a.sequence - b.sequence),
+        };
+      });
+      return;
+    }
     if (event.method === "session.user_message") {
       if (!acceptsSession(event.params.session_id)) return;
       const text = event.params.parts

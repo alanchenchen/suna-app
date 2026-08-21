@@ -243,6 +243,14 @@ const DICT: Dict = {
     en: "Select a session first…",
   },
   "chat.inputLabel": { zh: "给 Suna 发送消息", en: "Message Suna" },
+  "chat.steerPlaceholder": {
+    zh: "引导运行中的任务…",
+    en: "Steer the running task…",
+  },
+  "chat.removeSteering": {
+    zh: "撤回此引导消息",
+    en: "Remove steering message",
+  },
   // 决策卡
   "guard.approve": { zh: "批准", en: "Approve" },
   "guard.reject": { zh: "拒绝", en: "Reject" },
@@ -295,10 +303,10 @@ const DICT: Dict = {
     zh: "Suna 正在组织下一步操作",
     en: "Suna is planning the next step",
   },
-  "activity.pending": { zh: "已收到你的消息", en: "Message received" },
+  "activity.pending": { zh: "等待模型响应", en: "Waiting for model" },
   "activity.pendingDetail": {
-    zh: "Suna 正在开始处理这个任务",
-    en: "Suna is starting on this task",
+    zh: "Suna 正在等待模型返回结果",
+    en: "Suna is waiting for the model to respond",
   },
   "activity.processing": { zh: "正在处理任务", en: "Processing task" },
   "activity.nextStep": {
