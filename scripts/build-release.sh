@@ -21,6 +21,13 @@ build_one() {
     archive="${VERSION}-suna-app-${goos}-${goarch}.zip"
     # GUI subsystem：双击无黑框（无控制台窗口）。
     gui_ldflags=" -H=windowsgui"
+    # Windows launcher：设置自动开浏览器标记后启动 exe（双击入口）。
+    # 用 start 启动避免 cmd 窗口残留；exe 是 GUI subsystem，本身无黑框。
+    cat > "$DIST_DIR/启动 Suna App.cmd" <<'CMD'
+@echo off
+set SUNA_APP_OPEN_BROWSER=1
+start "" "%~dp0suna-app.exe"
+CMD
   fi
 
   CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build \
@@ -36,13 +43,14 @@ build_one() {
       # GitHub Actions 的 ubuntu runner 没有 zip 命令（macOS 本地有）：
       # 缺失时用 python3 的 zipfile 模块打包，保证 CI/本地都可用。
       if command -v zip >/dev/null 2>&1; then
-        zip -9 "$archive" "$binary"
+        zip -9 "$archive" "$binary" "启动 Suna App.cmd"
       else
         python3 - "$archive" "$binary" <<'PY'
 import sys, zipfile
 archive, binary = sys.argv[1], sys.argv[2]
 with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
     zf.write(binary, binary)
+    zf.write("启动 Suna App.cmd", "启动 Suna App.cmd")
 PY
       fi
     else
@@ -87,7 +95,7 @@ build_macos_app() {
 	<key>CFBundleShortVersionString</key>
 	<string>${VERSION}</string>
 	<key>CFBundleExecutable</key>
-	<string>suna-app</string>
+	<string>suna-app-launcher</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>LSMinimumSystemVersion</key>
@@ -140,12 +148,18 @@ build_linux_desktop() {
     -ldflags "-s -w -X main.buildVersion=${VERSION}" \
     -o "$stage/suna-app" \
     "$PACKAGE"
+  cat > "$stage/suna-app-launcher" <<'LAUNCH'
+#!/bin/sh
+DIR="$(cd "$(dirname "$0")" && pwd)"
+SUNA_APP_OPEN_BROWSER=1 "$DIR/suna-app" "$@"
+LAUNCH
+  chmod +x "$stage/suna-app-launcher"
   cat > "$stage/Suna App.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
 Name=Suna App
 Comment=Suna Runtime cross-device session console
-Exec=suna-app
+Exec=suna-app-launcher
 Terminal=false
 Categories=Development;Utility;
 DESKTOP

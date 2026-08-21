@@ -210,17 +210,27 @@ func isSunaAppRunning(baseURL string) bool {
 
 // openBrowser 在默认浏览器打开 Suna App 地址（平台分支）。
 // 仅 .app / .desktop 双击启动时调用；失败静默（无 GUI 环境时只打印地址）。
+// 注意：监听地址可能是 0.0.0.0 / [::]（通配地址），浏览器访问通配地址会失败，
+// 因此必须解析出端口后用 localhost 打开。
 func openBrowser(address string) {
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "suna-app: could not parse listen address %q: %v\n", address, err)
+		return
+	}
+	url := "http://localhost:" + port
 	var cmd *exec.Cmd
 	switch runtimelib.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", "http://"+address)
+		cmd = exec.Command("open", url)
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", "http://"+address)
+		// rundll32 url.dll,FileProtocolHandler 在新版 Windows 上不可靠，
+		// 用 cmd /c start 打开默认浏览器（start 接受 URL 作为参数）。
+		cmd = exec.Command("cmd", "/c", "start", "", url)
 	default:
-		cmd = exec.Command("xdg-open", "http://"+address)
+		cmd = exec.Command("xdg-open", url)
 	}
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "suna-app: could not open browser automatically, visit http://%s\n", address)
+		fmt.Fprintf(os.Stderr, "suna-app: could not open browser automatically, visit %s\n", url)
 	}
 }
