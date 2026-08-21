@@ -124,6 +124,26 @@ const DICT: Dict = {
   },
   "connect.button": { zh: "连接 Runtime", en: "Connect" },
   "connect.connectingBtn": { zh: "正在连接…", en: "Connecting…" },
+  // Runtime 引导安装
+  "install.title": { zh: "安装 Suna Runtime", en: "Install Suna Runtime" },
+  "install.start": { zh: "开始安装", en: "Install" },
+  "install.retry": { zh: "重试安装", en: "Retry" },
+  "install.cancel": { zh: "取消", en: "Cancel" },
+  "install.downloading": { zh: "正在下载", en: "Downloading" },
+  "install.downloadingUnknown": { zh: "正在下载…", en: "Downloading…" },
+  "install.errorUnknown": {
+    zh: "安装失败，未知错误。",
+    en: "Installation failed with an unknown error.",
+  },
+  "install.errorHint": {
+    zh: "可前往 GitHub Releases 手动下载，或检查网络后重试。",
+    en: "You can download manually from GitHub Releases, or check your network and retry.",
+  },
+  "install.step.detect": { zh: "检测 Runtime", en: "Detecting runtime" },
+  "install.step.download": { zh: "下载中", en: "Downloading" },
+  "install.step.verify": { zh: "校验中", en: "Verifying" },
+  "install.step.install": { zh: "安装中", en: "Installing" },
+  "install.step.start": { zh: "启动中", en: "Starting" },
   // 设置中心
   "settings.title": { zh: "Suna 设置", en: "Suna Settings" },
   "settings.tab.connection": { zh: "连接", en: "Connection" },

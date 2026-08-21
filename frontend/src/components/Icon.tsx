@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Copy,
   Database,
+  Download,
   Ellipsis,
   Eye,
   Folder,
@@ -20,6 +21,7 @@ import {
   Pin,
   Plug,
   Plus,
+  RefreshCw,
   Search,
   Settings,
   Shield,
@@ -42,6 +44,7 @@ export type IconName =
   | "close"
   | "copy"
   | "database"
+  | "download"
   | "ellipsis"
   | "eye"
   | "folder"
@@ -61,7 +64,8 @@ export type IconName =
   | "tool"
   | "users"
   | "warning"
-  | "plug";
+  | "plug"
+  | "refresh";
 
 const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "arrow-up": ArrowUp,
@@ -73,6 +77,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   close: X,
   copy: Copy,
   database: Database,
+  download: Download,
   ellipsis: Ellipsis,
   eye: Eye,
   folder: Folder,
@@ -93,6 +98,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   users: Users,
   warning: TriangleAlert,
   plug: Plug,
+  refresh: RefreshCw,
 };
 
 export function Icon({

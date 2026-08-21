@@ -24,6 +24,7 @@ type Server struct {
 	prober       RuntimeProber
 	probeTimeout time.Duration
 	bridge       *bridge.Service
+	installer    *runtime.Installer
 
 	// allowRemote 为真时监听非 loopback 地址（远程模式），CSRF 校验从"仅 loopback
 	// 同源"放宽为"任意同源"——浏览器仍无法跨站调用，但可信边界从本机扩展到
@@ -66,12 +67,38 @@ func NewServerWithBridge(prober RuntimeProber, probeTimeout time.Duration, servi
 	return newServer(prober, probeTimeout, service, remote)
 }
 
+// NewServerWithInstaller 与 NewServerWithBridge 等价，额外注入 Runtime 安装器。
+func NewServerWithInstaller(prober RuntimeProber, probeTimeout time.Duration, service *bridge.Service, installer *runtime.Installer, allowRemote ...bool) http.Handler {
+	remote := len(allowRemote) > 0 && allowRemote[0]
+	s := &Server{
+		prober:       prober,
+		probeTimeout: probeTimeout,
+		bridge:       service,
+		installer:    installer,
+		allowRemote:  remote,
+	}
+	return s.mux()
+}
+
 func newServer(prober RuntimeProber, probeTimeout time.Duration, service *bridge.Service, allowRemote bool) http.Handler {
-	s := &Server{prober: prober, probeTimeout: probeTimeout, bridge: service, allowRemote: allowRemote}
+	s := &Server{
+		prober:       prober,
+		probeTimeout: probeTimeout,
+		bridge:       service,
+		installer:    runtime.NewInstaller("latest"),
+		allowRemote:  allowRemote,
+	}
+	return s.mux()
+}
+
+// mux 注册全部 HTTP 路由并返回安全头包装的 handler。
+func (s *Server) mux() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/runtime/status", s.runtimeStatus)
-	if service != nil {
+	mux.HandleFunc("POST /api/v1/runtime/install", s.runtimeInstall)
+	mux.HandleFunc("GET /api/v1/runtime/install/status", s.runtimeInstallStatus)
+	if s.bridge != nil {
 		mux.HandleFunc("POST /api/v1/bridge/connect", s.bridgeConnect)
 		mux.HandleFunc("POST /api/v1/bridge/{id}/rpc", s.bridgeRPC)
 		mux.HandleFunc("GET /api/v1/bridge/{id}/events", s.bridgeEvents)
@@ -119,6 +146,30 @@ func (s *Server) runtimeStatus(w http.ResponseWriter, r *http.Request) {
 			"message": safeMessage(kind),
 		},
 	})
+}
+
+// runtimeInstall 触发 Runtime 引导安装（幂等：已在跑时返回当前状态）。
+// 仅本机模式允许：远程（局域网/公网）连接不应触发本机安装。
+func (s *Server) runtimeInstall(w http.ResponseWriter, r *http.Request) {
+	if s.allowRemote {
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": "runtime install is only allowed on loopback"})
+		return
+	}
+	if s.installer == nil {
+		writeJSON(w, http.StatusNotImplemented, map[string]any{"error": "installer is not available"})
+		return
+	}
+	s.installer.Start()
+	writeJSON(w, http.StatusAccepted, s.installer.Status())
+}
+
+// runtimeInstallStatus 轮询安装进度（1s 间隔由前端控制）。
+func (s *Server) runtimeInstallStatus(w http.ResponseWriter, _ *http.Request) {
+	if s.installer == nil {
+		writeJSON(w, http.StatusNotImplemented, map[string]any{"error": "installer is not available"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.installer.Status())
 }
 
 func (s *Server) probe(ctx context.Context) (runtime.HelloResult, error) {

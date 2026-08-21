@@ -11,6 +11,7 @@ import { SessionStatusBars } from "./features/sessions/SessionStatusBars";
 import { SessionDialogs } from "./features/sessions/SessionDialogs";
 import { TaskOverview } from "./features/overview/TaskOverview";
 import { RuntimeSettings } from "./features/settings/RuntimeSettings";
+import { RuntimeInstallPanel } from "./features/settings/RuntimeInstallPanel";
 import type { Theme } from "./lib/models";
 import { LocaleProvider, useT } from "./lib/i18n";
 import "./styles/tailwind.css";
@@ -26,6 +27,8 @@ export function App() {
 
 function AppShell() {
   const t = useT();
+  // Runtime 引导安装面板：连接失败（Runtime 未安装）时用户主动触发。
+  const [showInstall, setShowInstall] = useState(false);
   // 主题：默认跟随系统（system），用户手动切换后记住偏好（light/dark）。
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = window.localStorage.getItem("suna-theme");
@@ -239,35 +242,53 @@ function AppShell() {
   if (!connected)
     return (
       <main className="grid min-h-dvh place-items-center p-6">
-        <section
-          aria-live="polite"
-          className="animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] w-[min(100%,456px)] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
-        >
-          <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-amber-soft text-amber">
-            <Icon name="warning" size={22} />
-          </span>
-          <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-            Suna App
-          </p>
-          <h1 className="mt-2.5 mb-2.5 text-[23px] font-extrabold tracking-tight text-ink">
-            {status === "connecting"
-              ? t("connect.connecting")
-              : t("connect.title")}
-          </h1>
-          <p className="text-[13px] leading-relaxed text-ink-soft">
-            {error || bridgeError?.message || t("connect.desc")}
-          </p>
-          <button
-            className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={status === "connecting" || status === "disconnecting"}
-            onClick={() => void initialize()}
-            type="button"
+        {showInstall ? (
+          <RuntimeInstallPanel
+            onDone={() => {
+              setShowInstall(false);
+              void initialize();
+            }}
+            onCancel={() => setShowInstall(false)}
+          />
+        ) : (
+          <section
+            aria-live="polite"
+            className="animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] w-[min(100%,456px)] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
           >
-            {status === "connecting"
-              ? t("connect.connectingBtn")
-              : t("connect.button")}
-          </button>
-        </section>
+            <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-amber-soft text-amber">
+              <Icon name="warning" size={22} />
+            </span>
+            <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
+              Suna App
+            </p>
+            <h1 className="mt-2.5 mb-2.5 text-[23px] font-extrabold tracking-tight text-ink">
+              {status === "connecting"
+                ? t("connect.connecting")
+                : t("connect.title")}
+            </h1>
+            <p className="text-[13px] leading-relaxed text-ink-soft">
+              {error || bridgeError?.message || t("connect.desc")}
+            </p>
+            <button
+              className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={status === "connecting" || status === "disconnecting"}
+              onClick={() => void initialize()}
+              type="button"
+            >
+              {status === "connecting"
+                ? t("connect.connectingBtn")
+                : t("connect.button")}
+            </button>
+            <button
+              className="mt-2.5 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-line text-[12px] font-extrabold text-ink transition-colors duration-150 hover:bg-surface-raised"
+              onClick={() => setShowInstall(true)}
+              type="button"
+            >
+              <Icon name="download" size={14} />
+              {t("install.title")}
+            </button>
+          </section>
+        )}
       </main>
     );
 
