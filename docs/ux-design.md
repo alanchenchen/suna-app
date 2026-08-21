@@ -8,14 +8,15 @@
 > - 核心 Web UI：工具行紧凑化、项目选择器（cwd）、侧栏项目分组+搜索、设置中心（模型/安全/记忆/技能/外部工具）、决策卡 modify 三按钮、多任务通知、compact 过程、Onboarding 引导
 > - 本机 + 局域网访问（`--listen 0.0.0.0`，不做 Token 鉴权，同 WiFi 信任；公网打洞时再定口令）
 > - 连接记忆（记住上次地址，localStorage 单键）
-> - 分发：macOS .app 打包 + 自动开浏览器 + 菜单栏退出 + 设置页退出按钮（shutdown 端点 loopback-only）
+> - 分发：多平台原生壳（macOS .app / Windows GUI / Linux .desktop）+ 自动开浏览器 + **空闲自退**（关浏览器 10s 后 gateway 与 Runtime 都退干净，无退出按钮）
+> - Runtime 分发：引导安装到固定目录（多镜像 + SHA256 校验），不嵌入二进制
 > - PWA manifest（添加到主屏），不做系统通知/离线壳
 > - 去术语化（任务/项目/安全确认/外部工具）
 > - 移动端：底部 tab（总览/任务/设置）、决策卡全宽、safe-area、页面隐藏省电
 >
-> **暂缓不做**：Token 二维码/防暴力、多连接管理、系统通知、离线壳、独立帮助页、虚拟列表、多标签页专项、localStorage 版本化（仅加前缀）、开机自启
+> **暂缓不做**：Token 二维码/防暴力、多连接管理、系统通知、离线壳、独立帮助页、虚拟列表、多标签页专项、localStorage 版本化（仅加前缀）、开机自启、托盘/systray
 >
-> **修订（2026-08）**：Windows 托盘已从暂缓移入阶段 4 必做（§1B 菜单栏/托盘是唯一符合 GUI 体验的退出入口，也是"进程仍在运行"的可见指示）。
+> **修订（2026-08）**：分发退出机制改为**空闲自退**（浏览器活跃度驱动，无按钮/无托盘/无 shutdown 端点）；Windows 托盘移回暂缓。
 >
 > **待实测验证**（实施后按真实使用反馈调整）：工具行扫读效率、移动端布局细节。
 
@@ -196,68 +197,124 @@
 
 ---
 
-## 1B. 分发与启动形态（v2 新增）
+## 1B. 分发与启动形态（v2 新增 · 2026-08 定稿）
 
 ### 1B.1 核心结论
 
-**用户双击即用，无 Terminal 窗口；gateway 为无窗口后台常驻进程，菜单栏/设置页可退出。**
+**用户双击即用，无 Terminal 窗口；关闭浏览器后自动退出（gateway + Runtime daemon 都退干净），无需任何退出按钮。**
 
 ### 1B.2 三平台分发形态
 
-| 平台 | 形态 | 双击效果 | 无终端实现 |
-|---|---|---|---|
-| macOS | `Suna App.app`（zip 分发，拖入 Applications） | 双击图标即开 | 二进制入 `Contents/MacOS/` + Info.plist（`LSUIElement=true` 纯菜单栏 app，无 Dock 图标） |
-| Windows | `.exe`（GUI subsystem） | 双击即开无黑框 | `-ldflags "-H=windowsgui"` + 托盘图标（systray，阶段 4 必做） |
-| Linux | `.desktop` + 二进制 | 双击图标即开 | `.desktop` 的 `Exec` 不包终端；`xdg-open` 开浏览器 |
+| 平台 | 形态 | 双击效果 | 无终端实现 | 退出方式 |
+|---|---|---|---|---|
+| macOS | `Suna App.app`（zip 分发，拖入 Applications） | 双击图标即开 + 自动开浏览器 | 二进制入 `Contents/MacOS/` + Info.plist（保留 Dock 图标，非 LSUIElement） | 空闲自退 / Dock 右键退出 / Cmd+Q |
+| Windows | `.exe`（GUI subsystem） | 双击即开无黑框 + 自动开浏览器 | `-ldflags "-H=windowsgui"` | 空闲自退 / 任务管理器兜底 |
+| Linux | `.desktop` + 二进制 | 双击图标即开 + 自动开浏览器 | `.desktop` 的 `Exec` 不包终端；`xdg-open` 开浏览器 | 空闲自退 |
+
+**关键决策**：
+- **不引入 systray / 托盘**——保持 `CGO_ENABLED=0` 交叉编译（6 平台一条脚本）；托盘作为未来可选增强
+- **无开机自启**（明确不做，以后也不需要）
+- **无 shutdown 端点 / 设置页退出按钮**——退出完全由"空闲自退"承担
 
 ### 1B.3 启动流程
 
 ```
-双击 App（或开机自启）
+双击 App
   → 单实例检查：已有实例？→ 复用（打开浏览器跳过去），不重复启动
-  → 生成/读取 Token（首次生成，控制台打印地址+二维码）
   → 启动 HTTP server（本机或 0.0.0.0，依配置）
   → 拉起 Runtime daemon（懒启动，`suna serve --json`）
-  → 打开浏览器 localhost（手动启动才弹；开机自启不弹）
-  → 菜单栏图标常驻
+  → 打开浏览器 localhost（open / xdg-open）
+  → 用户开始使用
 ```
 
-### 1B.4 关闭机制（三层）
+### 1B.4 关闭机制（空闲自退，无按钮）
 
-| 入口 | 说明 |
+**唯一退出机制：浏览器活跃度驱动的空闲自退。** 用户"关掉浏览器 = 发起离开"，无需任何显式操作：
+
+```
+用户关 tab / 关浏览器 / 导航到别处 → SSE 断开 → 10s 宽限计时
+  → 计时到 → 检查 running 计数：
+     → 有 run → 挂起退出（run 继续跑，gateway 保持连接 → daemon 保持运行）
+     → run 完成（收到终态通知）→ 重新 10s 计时 → 到点退出
+     → 无 run → 断开 Runtime 连接 → daemon 2s 后自动退出 → gateway 优雅退出
+```
+
+**参数**：
+- **空闲超时 10s**：覆盖刷新最坏 5s + 移动端切网 10s；刷新/切网抖动在 10s 内重连会取消计时
+- **running 计数**：bridge 从已有的 `agent.run` 通知流维护（running +1 / 终态 -1），无需额外 RPC
+- **OnIdleExit 回调**：`disconnectIfCurrent`（空闲断开路径）里，`len(clients)==0` 且 `running==0` 才触发
+- **二次确认**：main 回调里再查 `ActiveClients()==0`，防"计时到点瞬间用户重开"竞态
+- **安装挂起**：Runtime 安装进行中不触发自退（装完再走空闲逻辑）
+
+**防误伤矩阵**：
+
+| 场景 | 行为 |
 |---|---|
-| **菜单栏/托盘图标**（主力） | 右键/点击 → 打开 / 开机自启开关 / 退出 |
-| **设置页"退出"按钮** | `POST /api/v1/shutdown`（本机专属）→ 确认弹窗 → 优雅关闭 |
-| **命令行** `suna-app stop` | 读 PID 文件发 SIGTERM（高级用户） |
+| 页面开着（发呆/浏览/无对话） | 不退出（有 SSE 连接） |
+| 刷新 / 切网抖动 | 不退出（10s 内重连取消计时） |
+| 关浏览器 + 无 run | 10s 后两进程都退干净 |
+| 关浏览器 + run 在跑 | run 跑完 → 再 10s → 退出（run 不丢） |
+| 多 tab 关一部分 | 不退出（还有 client） |
+| daemon 意外退出 | 不触发 gateway 退出（浏览器还开着） |
 
-**安全规则**：`/api/v1/shutdown` 仅允许 loopback 调用；手机远程访问时该端点返回 403（关闭必须由坐在电脑前的人操作）。
+**不触发路径**：`retire`（daemon 意外退出）、显式 `Disconnect` / `Close`（避免递归）。
 
 ### 1B.5 优雅关闭流程
 
 ```
-收到 SIGTERM / shutdown 请求
-  → 有 run 在跑？→ 弹确认："任务仍在运行，退出后手机将无法查看，确定退出？"
+触发（空闲自退 / SIGTERM / Dock 退出）
   → HTTP server Shutdown（等存量请求完成）
   → 断开与 Runtime daemon 的 TCP 连接
   → 清理 PID 文件
   → 退出（无残留）
 
-Runtime daemon 不受影响：
-  gateway 退出 → daemon 继续跑完当前 run → 空闲 2s 自动退出（detached，已验证）
+Runtime daemon 独立退出：
+  gateway 断开 TCP → daemon 空闲 2s 自动退出（idle_exit）→ 退出时 cancelAllRuns
+  （run 在跑时 gateway 不会断开，见 1B.4）
 ```
 
-### 1B.6 边界处理（7 项）
+### 1B.6 边界处理
 
 | # | 边界 | 处理 |
 |---|---|---|
-| 1 | **日志与排障**（无终端后最重要） | 日志落盘 `~/.suna-app/logs/`；设置·连接"查看日志"入口；崩溃时显示可读错误（不是闪退无反应） |
+| 1 | **日志与排障**（无终端后最重要） | 日志落盘 `~/.suna-app/logs/`；崩溃时显示可读错误（不是闪退无反应） |
 | 2 | **二次启动** | 单实例锁（PID 文件 + 端口检测）；已有实例 → 打开浏览器复用，不报错 |
-| 3 | **开机自启** | launchd（macOS）/ 启动项（Windows）；自启**不弹浏览器**，仅菜单栏图标；手动双击才弹 |
-| 4 | **关闭时有 run 在跑** | 确认弹窗提示（见 1B.5），不无提示杀 |
-| 5 | **运行中升级** | 新版 App 启动时检测旧实例 → 提示"已有旧版运行，请先退出"或自动接管（macOS 覆盖安装常见坑） |
-| 6 | **无 GUI 环境**（SSH/headless） | 检测不到浏览器 → 只打印地址不弹；仍可正常服务（远程访问场景） |
-| 7 | **强制关闭残留**（kill -9） | 下次启动清理残留 PID 文件；端口占用走现有回退逻辑 |
-| 8 | **同机多账户** | 各自用户目录独立配置/Token；端口冲突走回退（7633→7634…） |
+| 3 | **关闭时有 run 在跑** | 不退出（挂起等待 run 完成，见 1B.4）——无确认弹窗，run 不丢 |
+| 4 | **运行中升级** | 新版 App 启动时检测旧实例 → 提示"已有旧版运行，请先退出"或自动接管（macOS 覆盖安装常见坑） |
+| 5 | **无 GUI 环境**（SSH/headless） | 检测不到浏览器 → 只打印地址不弹；仍可正常服务（远程访问场景） |
+| 6 | **强制关闭残留**（kill -9） | 下次启动清理残留 PID 文件；端口占用走现有回退逻辑 |
+| 7 | **同机多账户** | 各自用户目录独立配置；端口冲突走回退（7633→7634…） |
+
+### 1B.7 Runtime 分发与安装（2026-08 定稿）
+
+**原则**：不嵌入 Runtime binary（遵循 AGENTS.md），保持独立发版线；App 引导安装到固定目录。
+
+**发现顺序**（gateway 侧扩展）：
+```
+1. 系统 PATH 里的 suna（用户手动装的，优先）
+2. 固定目录 ~/.suna-app/runtime/suna（App 安装的）
+3. 都没有 → 引导安装页
+```
+
+**引导安装流程**（全屏引导页，首次无 Runtime 时进入）：
+```
+检测中… → 下载中…（真实进度条）→ 校验中…（SHA256）→ 安装中… → 启动中… → 进入主界面
+```
+
+**下载与校验**：
+- 多镜像源按序尝试（官方 GitHub release → 2-3 个国内镜像前缀），每源 10s 超时；失败自动切换"正在尝试备用镜像…"
+- **SHA256 校验硬性**（对照 checksums.txt，镜像不可信，失败拒绝并提示"文件可能被篡改"）
+- 全部失败 → 手动下载页（官方 + 镜像地址 + 安装指引）
+- 安装到 `~/.suna-app/runtime/`，绝对路径调用，不碰 PATH / 不碰 shell rc
+
+**进度呈现**（自然、不假装精确）：
+- 下载阶段用真实进度条（Content-Length 已知按字节算百分比；未知用不确定脉冲条）
+- 其他阶段用步骤指示器 + 状态文字（spinner），不硬造百分比
+- 安装完成自动进入主界面（重新 discovery → 成功 → 无缝过渡）
+
+**无配置文件**：安装路径是约定（硬编码）；镜像源硬编码默认列表 + 设置页 UI 可选覆盖（存 localStorage，不进文件）。
+
+**升级场景**：已有旧版 Runtime（版本不兼容）→ 引导页文案变"需要升级 Runtime"，走同一套下载/校验/替换流程。
 
 ---
 
@@ -348,8 +405,8 @@ Runtime daemon 不受影响：
 
 ### 1E.2 版本与更新
 
-- 设置·连接显示：App 版本 + Runtime 版本 + 协议版本（高级区）。
-- **更新提示**：gateway 启动时对比远端最新版本（GitHub Releases），有新版本时菜单栏/设置页提示（不自动更新）。
+- 设置·连接显示：App 版本 + Runtime 版本 + 能力目录（高级区）。
+- **更新提示**：gateway 启动时对比远端最新版本（GitHub Releases），有新版本时 Web UI 提示（不自动更新）。
 
 ---
 
@@ -937,7 +994,7 @@ disconnected ──initialize──▶ connecting ──成功──▶ connecte
 1. Gateway 支持非 loopback 监听（`--listen 0.0.0.0`）+ Token 鉴权（生成/校验/防暴力/二维码输出）
 2. 前端连接页：服务器地址 + 令牌输入 + 扫码 + 记住连接
 3. 远程连接横幅（非 loopback 时顶部提示）
-4. **分发形态（§1B）**：macOS .app bundle + Windows GUI subsystem + Linux .desktop；单实例锁；菜单栏退出；日志落盘；shutdown 端点（loopback-only）
+4. **分发形态（§1B）**：macOS .app bundle + Windows GUI subsystem + Linux .desktop；单实例锁；**空闲自退**（关浏览器 10s 后 gateway + Runtime 都退干净）；日志落盘
 
 ### 阶段 0.5（P0.5 · 产品基座 · v2 新增）
 5. **PWA（§1C）**：manifest + service worker 离线壳 + 系统通知（waiting 时）
@@ -977,7 +1034,8 @@ disconnected ──initialize──▶ connecting ──成功──▶ connecte
 
 ### 阶段 4（产品化收尾 · 未实施）
 20. 连接记忆（记住上次地址，localStorage 单键）
-21. 分发形态（§1B）：macOS .app 打包 + 自动开浏览器 + 菜单栏退出 + 设置页退出（shutdown 端点 loopback-only）；Windows GUI subsystem + **托盘图标（systray，与 macOS 菜单栏同级必做）**
+21. 分发形态（§1B）：macOS .app 打包 + 自动开浏览器 + **空闲自退**（无退出按钮/无托盘）；Windows GUI subsystem；Linux .desktop
+23. **Runtime 引导安装（§1B.7）**：多镜像下载 + SHA256 校验 + 安装到 `~/.suna-app/runtime/`；PATH 优先、固定目录兜底
 
 ### 阶段 0 补充（安全前置 · 未实施）
 - Token 鉴权（生成/校验/防暴力/二维码输出）
@@ -1010,8 +1068,8 @@ disconnected ──initialize──▶ connecting ──成功──▶ connecte
 | **远程访问必须鉴权（v2）** | 公网/局域网暴露控制台 = 暴露本机文件操作能力；无鉴权即高危，Token 强制 |
 | **默认仅本机（v2）** | 非 loopback 需显式开启（flag+配置双确认），防误暴露 |
 | **移动端长时间使用（v2）** | 省电（无轮询/隐藏暂停）、弱网重连、锁屏恢复、单手操作；手机是核心客户端 |
-| **无窗口后台常驻（v2）** | 双击即用无 Terminal；菜单栏退出 + 设置页退出 + 命令行 stop 三层入口；daemon 解耦不受影响 |
-| **远程不能关（v2）** | shutdown 端点 loopback-only，避免手机误触断掉远程入口 |
+| **无窗口后台常驻（v2）** | 双击即用无 Terminal；**空闲自退**（关浏览器 10s 后 gateway + Runtime 都退干净，无按钮/无托盘）；daemon 解耦不受影响 |
+| **关浏览器 = 离开（v2 修订）** | 用户关 tab/浏览器/导航走 → SSE 断开 → 10s 宽限 → 自退；run 在跑则等 run 完再退（不丢任务） |
 | **日志落盘（v2）** | 无终端后日志必须可查（~/.suna-app/logs/ + 设置页入口），崩溃可读 |
 | **PWA 是移动端根基（v2）** | 无 manifest/SW 则手机无法"添加到主屏"、无法系统通知；阶段 0.5 必做 |
 | **多连接支持（v2）** | 用户可能连多台机器（家/公司/云）；连接配置列表化 |

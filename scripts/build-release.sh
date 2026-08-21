@@ -14,15 +14,18 @@ build_one() {
   local binary="suna-app${suffix}"
   # 产物名以版本号开头（v 前缀），与 Git tag 一致：v0.1.0-suna-app-darwin-arm64.tar.gz
   local archive="${VERSION}-suna-app-${goos}-${goarch}.tar.gz"
+  local gui_ldflags=""
 
   if [ "$goos" = "windows" ]; then
     binary="suna-app.exe"
     archive="${VERSION}-suna-app-${goos}-${goarch}.zip"
+    # GUI subsystem：双击无黑框（无控制台窗口）。
+    gui_ldflags=" -H=windowsgui"
   fi
 
   CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build \
     -trimpath \
-    -ldflags "-s -w -X main.buildVersion=${VERSION}" \
+    -ldflags "-s -w -X main.buildVersion=${VERSION}${gui_ldflags}" \
     -o "$DIST_DIR/$binary" \
     "$PACKAGE"
 
@@ -50,6 +53,93 @@ PY
   )
 }
 
+# build_macos_app 生成 macOS .app bundle（保留 Dock 图标，非 LSUIElement）：
+# 双击即开 + 自动开浏览器（二进制启动时检测 SUNA_APP_OPEN_BROWSER=1）。
+build_macos_app() {
+  local goarch="$1"
+  local app_dir="$DIST_DIR/Suna App.app"
+  local contents="$app_dir/Contents"
+  local archive="${VERSION}-suna-app-darwin-${goarch}.app.zip"
+
+  rm -rf "$app_dir"
+  mkdir -p "$contents/MacOS"
+  # 重新编译二进制（-H=windowsgui 不影响 darwin；.app 内嵌二进制）。
+  CGO_ENABLED=0 GOOS=darwin GOARCH="$goarch" go build \
+    -trimpath \
+    -ldflags "-s -w -X main.buildVersion=${VERSION}" \
+    -o "$contents/MacOS/suna-app" \
+    "$PACKAGE"
+
+  # 注意：heredoc 不带引号以展开 ${VERSION}；plist 内容无 $ 字符，安全。
+  cat > "$contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Suna App</string>
+	<key>CFBundleDisplayName</key>
+	<string>Suna App</string>
+	<key>CFBundleIdentifier</key>
+	<string>ai.suna.app</string>
+	<key>CFBundleVersion</key>
+	<string>${VERSION}</string>
+	<key>CFBundleShortVersionString</key>
+	<string>${VERSION}</string>
+	<key>CFBundleExecutable</key>
+	<string>suna-app</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>
+PLIST
+
+  # 启动脚本：设置自动开浏览器标记后启动 gateway（双击入口）。
+  cat > "$contents/MacOS/suna-app-launcher" <<'LAUNCH'
+#!/bin/sh
+DIR="$(cd "$(dirname "$0")" && pwd)"
+SUNA_APP_OPEN_BROWSER=1 "$DIR/suna-app" "$@"
+LAUNCH
+  chmod +x "$contents/MacOS/suna-app-launcher"
+
+  (cd "$DIST_DIR" && rm -f "$archive" && zip -qry "$archive" "Suna App.app")
+  rm -rf "$app_dir"
+  printf '%s\n' "$archive"
+}
+
+# build_linux_desktop 生成 .desktop 入口并打包（与二进制同归档）。
+# 归档内包含 suna-app 二进制 + Suna App.desktop。
+build_linux_desktop() {
+  local goarch="$1"
+  local archive="${VERSION}-suna-app-linux-${goarch}.tar.gz"
+  local stage="$DIST_DIR/linux-${goarch}"
+
+  rm -rf "$stage"
+  mkdir -p "$stage"
+  # 独立编译（build_one 产物已清理），保证归档内二进制与 .desktop 一致。
+  CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go build \
+    -trimpath \
+    -ldflags "-s -w -X main.buildVersion=${VERSION}" \
+    -o "$stage/suna-app" \
+    "$PACKAGE"
+  cat > "$stage/Suna App.desktop" <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Suna App
+Comment=Suna Runtime cross-device session console
+Exec=suna-app
+Terminal=false
+Categories=Development;Utility;
+DESKTOP
+  (cd "$DIST_DIR" && rm -f "$archive" && tar -czf "$archive" -C "linux-${goarch}" .)
+  rm -rf "$stage"
+  printf '%s\n' "$archive"
+}
+
 # 发版前必须用最新源码构建前端：stage-frontend.sh 只做嵌入，不校验
 # 产物新旧；直接 build 保证嵌入的 UI 与当前源码一致（幂等）。
 if [ ! -d "$ROOT_DIR/frontend/node_modules" ]; then
@@ -74,9 +164,13 @@ mkdir -p "$DIST_DIR"
 (
   cd "$GATEWAY_DIR"
   build_one darwin arm64 ""
+  build_macos_app arm64
   build_one darwin amd64 ""
+  build_macos_app amd64
   build_one linux arm64 ""
+  build_linux_desktop arm64
   build_one linux amd64 ""
+  build_linux_desktop amd64
   build_one windows arm64 ".exe"
   build_one windows amd64 ".exe"
 )
