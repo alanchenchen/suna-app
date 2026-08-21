@@ -346,9 +346,9 @@ func (in *Installer) fail(message string) {
 
 // progressReader 包装响应体，流式上报下载进度。
 type progressReader struct {
-	src       io.ReadCloser
-	total     int64
-	read      int64
+	src        io.ReadCloser
+	total      int64
+	read       int64
 	onProgress func(int64)
 }
 
