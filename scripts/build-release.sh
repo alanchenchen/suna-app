@@ -106,7 +106,21 @@ SUNA_APP_OPEN_BROWSER=1 "$DIR/suna-app" "$@"
 LAUNCH
   chmod +x "$contents/MacOS/suna-app-launcher"
 
-  (cd "$DIST_DIR" && rm -f "$archive" && zip -qry "$archive" "Suna App.app")
+  # 打包 .app（递归 zip）。GitHub Actions 的 ubuntu runner 没有 zip 命令，
+  # 缺失时用 python3 的 zipfile 模块递归打包，保证 CI/本地都可用。
+  (cd "$DIST_DIR" && rm -f "$archive" && if command -v zip >/dev/null 2>&1; then
+    zip -qry "$archive" "Suna App.app"
+  else
+    python3 - "$archive" <<'PY'
+import sys, zipfile, os
+archive = sys.argv[1]
+with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk("Suna App.app"):
+        for name in files:
+            path = os.path.join(root, name)
+            zf.write(path, path)
+PY
+  fi)
   rm -rf "$app_dir"
   printf '%s\n' "$archive"
 }
