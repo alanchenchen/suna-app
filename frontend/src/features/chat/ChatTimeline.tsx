@@ -99,13 +99,52 @@ export function ChatTimeline({
     nearBottomRef.current = nearBottom;
     setShowJumpToLatest(!nearBottom);
   };
+  // 会话切换时保存/恢复滚动位置：localStorage 按 sessionId 记忆，
+  // 切回来时回到上次阅读位置（新会话/无记忆时仍滚动到底部）。
+  const prevSessionIdRef = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
+    const element = scrollRef.current;
+    const prev = prevSessionIdRef.current;
+    if (prev && prev !== sessionId && element) {
+      try {
+        localStorage.setItem(
+          `suna-app:scroll:${prev}`,
+          String(element.scrollTop),
+        );
+      } catch {
+        // 存储失败静默忽略（隐私模式等）。
+      }
+    }
+    prevSessionIdRef.current = sessionId;
     // 不同的会话可能恰好包含相同数量的消息：重置时间线而不是继承
     // 上一个会话的滚动位置。
     nearBottomRef.current = true;
     setShowJumpToLatest(false);
     setHistoryWindow(80);
-    requestAnimationFrame(() => scrollToLatest("auto"));
+    requestAnimationFrame(() => {
+      if (!sessionId) {
+        scrollToLatest("auto");
+        return;
+      }
+      let saved = 0;
+      try {
+        saved = Number(
+          localStorage.getItem(`suna-app:scroll:${sessionId}`) ?? 0,
+        );
+      } catch {
+        saved = 0;
+      }
+      if (saved > 0 && element) {
+        element.scrollTop = saved;
+        // 恢复位置后仍要等内容渲染完成：下一帧校正一次（localStorage 的
+        // 位置可能因消息数变化而偏移，但大体回到阅读处）。
+        requestAnimationFrame(() => {
+          if (element) element.scrollTop = saved;
+        });
+      } else {
+        scrollToLatest("auto");
+      }
+    });
   }, [sessionId]);
   useLayoutEffect(() => {
     const anchor = historyAnchorRef.current;
@@ -181,6 +220,7 @@ export function ChatTimeline({
               </p>
               {onSuggestion && (
                 <div className="mt-6 grid gap-2 text-left">
+                  {" "}
                   <button
                     className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-solid px-3.5 py-2.5 text-left shadow-sm transition-[transform,border-color,box-shadow] duration-180 hover:-translate-y-px hover:border-blue/25 hover:shadow-md active:scale-[0.985]"
                     onClick={() => onSuggestion?.(t("chat.suggestion.analyze"))}
@@ -207,6 +247,12 @@ export function ChatTimeline({
                   </button>
                 </div>
               )}
+              <p className="mt-7 flex items-center gap-1.5 text-[11px] text-ink-muted">
+                <kbd className="rounded-md border border-line bg-surface-raised px-1.5 py-0.5 font-mono text-[10px] text-ink-soft">
+                  ⌘K
+                </kbd>
+                {t("chat.empty.hint")}
+              </p>
             </div>
           )}
         {!loading && messages.length > historyWindow && (

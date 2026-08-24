@@ -42,6 +42,18 @@ function tokenCount(value?: number) {
     ? Intl.NumberFormat("en", { notation: "compact" }).format(value)
     : "—";
 }
+
+/** 数字变化时的轻微过渡：key 变化触发 slide-up + fade，避免闪跳。 */
+function AnimatedNumber({ value }: { value: string }) {
+  return (
+    <span
+      className="inline-block animate-[slide-up_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+      key={value}
+    >
+      {value}
+    </span>
+  );
+}
 export function RunDetails(props: RunDetailsProps) {
   const t = useT();
   const {
@@ -330,8 +342,8 @@ export function RunDetails(props: RunDetailsProps) {
             <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
               <span className="text-ink-muted">{t("run.inputOutput")}</span>
               <b className="text-ink">
-                {tokenCount(usage?.input_tokens)} /{" "}
-                {tokenCount(usage?.output_tokens)}
+                <AnimatedNumber value={tokenCount(usage?.input_tokens)} /> /{" "}
+                <AnimatedNumber value={tokenCount(usage?.output_tokens)} />
               </b>
             </div>
             {usage?.cache_read_tokens !== undefined &&
@@ -351,7 +363,9 @@ export function RunDetails(props: RunDetailsProps) {
               )}
             <div className="flex items-center justify-between border-b border-line py-2 text-[13px]">
               <span className="text-ink-muted">{t("run.todayRequests")}</span>
-              <b className="text-ink">{totals?.requests ?? "—"}</b>
+              <b className="text-ink">
+                <AnimatedNumber value={String(totals?.requests ?? "—")} />
+              </b>
             </div>
             <div className="mt-2.5 h-[5px] overflow-hidden rounded-full bg-surface-subtle">
               <span

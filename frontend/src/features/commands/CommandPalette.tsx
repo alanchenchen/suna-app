@@ -73,24 +73,31 @@ export function CommandPalette({
   }, [open, onClose]);
 
   const commands = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const sessionCommands: Command[] = sessions
-      .filter((session) => {
-        if (!q) return true;
-        return (
-          (session.title ?? "").toLowerCase().includes(q) ||
-          session.cwd.toLowerCase().includes(q)
-        );
-      })
-      .slice(0, 8)
-      .map((session) => ({
-        id: `session-${session.id}`,
-        label: session.title || t("cmd.untitled"),
-        detail: session.cwd,
-        icon: "message" as const,
-        kind: "session" as const,
-        run: () => onSelectSession(session.id),
-      }));
+    const raw = query.trim();
+    // `/` 前缀直达动作：只显示动作列表，不匹配会话（设计 §3.14）。
+    const actionOnly = raw.startsWith("/");
+    const q = actionOnly
+      ? raw.slice(1).trim().toLowerCase()
+      : raw.toLowerCase();
+    const sessionCommands: Command[] = actionOnly
+      ? []
+      : sessions
+          .filter((session) => {
+            if (!q) return true;
+            return (
+              (session.title ?? "").toLowerCase().includes(q) ||
+              session.cwd.toLowerCase().includes(q)
+            );
+          })
+          .slice(0, 8)
+          .map((session) => ({
+            id: `session-${session.id}`,
+            label: session.title || t("cmd.untitled"),
+            detail: session.cwd,
+            icon: "message" as const,
+            kind: "session" as const,
+            run: () => onSelectSession(session.id),
+          }));
     const actions: Command[] = [
       {
         id: "create",

@@ -163,6 +163,10 @@ const DICT: Dict = {
     zh: "告诉 Suna 你想在这个工作目录中完成什么，它会负责执行与推进。",
     en: "Tell Suna what to do in this workspace — it will execute and drive it forward.",
   },
+  "chat.empty.hint": {
+    zh: "打开命令面板，快速切换任务或执行操作",
+    en: "Open the command palette to switch tasks or run actions",
+  },
   "chat.user": { zh: "你", en: "You" },
   "chat.composerHint": {
     zh: "Enter 发送 · Shift+Enter 换行",
