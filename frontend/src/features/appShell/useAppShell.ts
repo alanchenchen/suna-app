@@ -6,7 +6,7 @@ import type { Theme } from "../../lib/models";
  * 与 Runtime 会话状态（useRuntimeSession）解耦，AppShell 只做组合。
  */
 
-export type MobileTab = "overview" | "session" | "settings";
+export type MobileTab = "overview" | "session";
 
 export function useAppShell() {
   // Runtime 引导安装面板：连接失败（Runtime 未安装）时自动/手动进入。
