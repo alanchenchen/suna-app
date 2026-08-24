@@ -73,6 +73,8 @@ export type CurrentRun = {
   reasoning_buffer?: string;
   waiting_type?: "ask" | "guard";
   can_control: boolean;
+  /** 已接受但尚未应用的运行中引导消息（attach 恢复用，按 sequence 显示）。 */
+  pending_steering?: SteeringMessage[];
 };
 export type SessionSnapshot = {
   session: SessionInfo;
