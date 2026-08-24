@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Icon } from "./components/Icon";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer, type ComposerHandle } from "./features/chat/Composer";
@@ -12,11 +12,11 @@ import { SessionDialogs } from "./features/sessions/SessionDialogs";
 import { TaskOverview } from "./features/overview/TaskOverview";
 import { RuntimeSettings } from "./features/settings/RuntimeSettings";
 import { RuntimeInstallPanel } from "./features/settings/RuntimeInstallPanel";
-import type { Theme } from "./lib/models";
+import { useAppShell } from "./features/appShell/useAppShell";
 import { LocaleProvider, useT } from "./lib/i18n";
 import "./styles/tailwind.css";
 
-/** 应用壳：语言由 LocaleProvider 提供，主题与 UI 状态留在 AppShell。 */
+/** 应用壳：语言由 LocaleProvider 提供，UI 状态在 useAppShell，会话状态在 useRuntimeSession。 */
 export function App() {
   return (
     <LocaleProvider>
@@ -27,124 +27,37 @@ export function App() {
 
 function AppShell() {
   const t = useT();
-  // Runtime 引导安装面板：连接失败（Runtime 未安装）时用户主动触发。
-  const [showInstall, setShowInstall] = useState(false);
-  // 主题：默认跟随系统（system），用户手动切换后记住偏好（light/dark）。
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = window.localStorage.getItem("suna-theme");
-    return saved === "light" || saved === "dark" || saved === "system"
-      ? saved
-      : "system";
-  });
-  const [systemDark, setSystemDark] = useState(
-    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
-  );
-  // 系统主题变化时，若用户处于 system 模式则实时跟随。
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (event: MediaQueryListEvent) =>
-      setSystemDark(event.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
-  const resolvedTheme =
-    theme === "system" ? (systemDark ? "dark" : "light") : theme;
-  // 主题切换：同步写入 data-theme 并更新偏好。支持 View Transition 的
-  // 浏览器用过渡包裹（不支持的自动降级为直接切换）。
-  const toggleTheme = useCallback(() => {
-    const next = resolvedTheme === "dark" ? "light" : "dark";
-    const apply = () => {
-      document.documentElement.dataset.theme = next;
-      setTheme(next);
-    };
-    const doc = document as Document & {
-      startViewTransition?: (cb: () => void) => void;
-    };
-    if (doc.startViewTransition) {
-      doc.startViewTransition(apply);
-    } else {
-      apply();
-    }
-  }, [resolvedTheme]);
-  // 主题生效 + 浏览器 UI 色（地址栏/状态栏）跟随。
-  useEffect(() => {
-    document.documentElement.dataset.theme = resolvedTheme;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) {
-      meta.setAttribute(
-        "content",
-        resolvedTheme === "dark" ? "#10141e" : "#f5f7fb",
-      );
-    }
-    window.localStorage.setItem("suna-theme", theme);
-  }, [resolvedTheme, theme]);
-
-  // 纯 UI 状态：面板开关与表单草稿。
-  // 桌面默认打开右栏；移动端详情是底部 Sheet，默认关闭避免打开即弹层，
-  // 缩小到移动端时也自动关闭（避免残留弹出）。
-  const [detailsOpen, setDetailsOpen] = useState(
-    () => !window.matchMedia("(max-width: 720px)").matches,
-  );
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 720px)");
-    const onChange = () => {
-      if (media.matches) setDetailsOpen(false);
-    };
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  /** 移动端底部导航：总览 / 任务（工作台）/ 设置。 */
-  const [mobileTab, setMobileTab] = useState<
-    "overview" | "session" | "settings"
-  >(() =>
-    window.matchMedia("(max-width: 720px)").matches
-      ? window.location.hash.includes("/session/")
-        ? "session"
-        : "overview"
-      : "session",
-  );
-  const [createOpen, setCreateOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  /** 设置关闭动画进行中：先播退出动画再卸载，避免瞬消。 */
-  const [settingsClosing, setSettingsClosing] = useState(false);
-  const closeSettings = () => {
-    if (!settingsOpen) return;
-    setSettingsClosing(true);
-    window.setTimeout(() => {
-      setSettingsOpen(false);
-      setSettingsClosing(false);
-    }, 190);
-  };
-  /** 设置打开来源："models"（Onboarding 引导）时默认进模型 Tab。 */
-  const [settingsInitialTab, setSettingsInitialTab] = useState<
-    "connection" | "models"
-  >("connection");
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState("");
-  const [commandOpen, setCommandOpen] = useState(false);
-  // 全局快捷键：Cmd/Ctrl+K 命令面板、Cmd/Ctrl+N 新建任务、Cmd/Ctrl+, 设置。
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const mod = event.metaKey || event.ctrlKey;
-      if (mod && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandOpen((value) => !value);
-        return;
-      }
-      if (mod && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        setCreateOpen(true);
-        return;
-      }
-      if (mod && event.key === ",") {
-        event.preventDefault();
-        setSettingsOpen(true);
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const shell = useAppShell();
+  const {
+    showInstall,
+    setShowInstall,
+    theme,
+    setTheme,
+    resolvedTheme,
+    toggleTheme,
+    detailsOpen,
+    setDetailsOpen,
+    mobileMenuOpen,
+    setMobileMenuOpen,
+    mobileTab,
+    setMobileTab,
+    createOpen,
+    setCreateOpen,
+    settingsOpen,
+    setSettingsOpen,
+    settingsClosing,
+    closeSettings,
+    settingsInitialTab,
+    setSettingsInitialTab,
+    editingTitle,
+    setEditingTitle,
+    titleDraft,
+    setTitleDraft,
+    commandOpen,
+    setCommandOpen,
+    dismissedWaiting,
+    setDismissedWaiting,
+  } = shell;
 
   // 空状态建议卡 → 输入框填充草稿的桥。
   const composerRef = useRef<ComposerHandle>(null);
@@ -220,7 +133,7 @@ function AppShell() {
     if (bridgeError?.code === "runtime_not_installed") {
       setShowInstall(true);
     }
-  }, [bridgeError]);
+  }, [bridgeError, setShowInstall]);
   // 选中会话变化 → 同步 hash；无选中 → 回到根 hash。
   useEffect(() => {
     const target = selectedId
@@ -235,9 +148,6 @@ function AppShell() {
   // 工作台顶部显示通知条（设计 §5.2/§7.1）。侧栏已有 waiting 置顶 + 琥珀点。
   const otherWaiting = sessions.filter(
     (session) => session.status === "waiting" && session.id !== selectedId,
-  );
-  const [dismissedWaiting, setDismissedWaiting] = useState<Set<string>>(
-    () => new Set(),
   );
   const visibleWaiting = otherWaiting.filter(
     (session) => !dismissedWaiting.has(session.id),
@@ -526,32 +436,24 @@ function AppShell() {
           {t("nav.overview")}
         </button>
         <button
-          aria-current={
-            mobileTab === "session" && selected ? "page" : undefined
-          }
+          aria-current={mobileTab === "session" ? "page" : undefined}
           className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
-          disabled={!selected}
           onClick={() => setMobileTab("session")}
           type="button"
         >
           <Icon
             className={
-              mobileTab === "session" && selected
-                ? "text-blue-strong"
-                : "text-ink-muted"
+              mobileTab === "session" ? "text-blue-strong" : "text-ink-muted"
             }
-            name="sparkle"
+            name="message"
             size={17}
           />
           {t("nav.task")}
         </button>
         <button
           aria-current={mobileTab === "settings" ? "page" : undefined}
-          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150"
-          onClick={() => {
-            setMobileTab("settings");
-            setSettingsOpen(true);
-          }}
+          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
+          onClick={() => setMobileTab("settings")}
           type="button"
         >
           <Icon
@@ -566,23 +468,17 @@ function AppShell() {
       </nav>
       <RunDetails
         ask={active.ask}
-        canConfigure={canConfig && !sessionActionsFrozen}
+        canConfigure={canConfig}
         compact={active.compact}
-        controlsDisabled={syncing || (running && !canControl)}
         config={config}
+        controlsDisabled={syncing || (running && !canControl)}
         guard={active.guard}
-        modelRef={
-          selected?.model_ref ??
-          active.snapshot?.session.model_ref ??
-          config?.active_model
-        }
+        modelRef={selected?.model_ref}
         onClose={() => setDetailsOpen(false)}
         onCompact={() =>
-          sessionActionsFrozen
-            ? Promise.resolve()
-            : queueSessionOperation(() => rpc("session.compact", {})).then(
-                () => undefined,
-              )
+          queueSessionOperation(() => rpc("session.compact", {})).then(
+            () => undefined,
+          )
         }
         onResume={
           active.run?.resume_available && canControl && !sessionActionsFrozen
@@ -592,42 +488,45 @@ function AppShell() {
                 )
             : undefined
         }
-        onUpdateModel={updateModel}
+        onUpdateModel={(model) => updateModel(model)}
         open={detailsOpen}
         phase={active.run?.phase ?? current?.phase}
         run={active.run}
-        status={current?.status ?? selected?.status}
+        status={selected?.status}
+        toolSummary={active.toolSummary}
         totals={usage}
         usage={active.usage}
       />
       <CommandPalette
-        canCompact={
-          Boolean(selected) &&
-          !sessionActionsFrozen &&
-          !running &&
-          selected?.status !== "compacting"
-        }
+        canCompact={Boolean(selected && !syncing)}
         onClose={() => setCommandOpen(false)}
         onCompact={() =>
-          queueSessionOperation(() => rpc("session.compact", {})).then(
-            () => undefined,
-          )
+          void queueSessionOperation(() => rpc("session.compact", {}))
         }
         onCreateTask={() => {
+          setCommandOpen(false);
           setCreateOpen(true);
         }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setCommandOpen(false);
+          setSettingsOpen(true);
+        }}
         onSelectSession={(id) => {
-          setMobileTab("session");
+          setCommandOpen(false);
           void attach(id);
         }}
-        onStopTask={() =>
-          queueSessionOperation(() => rpc("agent.cancel", {})).then(
-            () => undefined,
-          )
-        }
-        onToggleDetails={() => setDetailsOpen((value) => !value)}
-        onToggleTheme={toggleTheme}
+        onStopTask={() => {
+          setCommandOpen(false);
+          void queueSessionOperation(() => rpc("agent.cancel", {}));
+        }}
+        onToggleDetails={() => {
+          setCommandOpen(false);
+          setDetailsOpen((value) => !value);
+        }}
+        onToggleTheme={() => {
+          setCommandOpen(false);
+          toggleTheme();
+        }}
         open={commandOpen}
         running={running}
         selectedId={selectedId}
