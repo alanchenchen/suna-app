@@ -19,6 +19,8 @@ type ComposerProps = {
   focusTrigger?: number;
   /** 运行中可注入引导消息（agent.steer）。 */
   canSteer?: boolean;
+  /** 引导消息上限（hello.limits.max_steering_messages）。 */
+  maxSteering?: number;
   /** 当前 run 已注入的引导消息（按 sequence 升序）。 */
   steering?: SteeringMessage[];
   onSteer?: (text: string) => Promise<void>;
@@ -40,6 +42,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       canAttachImageUrl,
       focusTrigger = 0,
       canSteer = false,
+      maxSteering = 32,
       steering = [],
       onSteer,
       onRemoveSteering,
@@ -281,6 +284,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+          {/* 引导消息已达上限提示（hello.limits.max_steering_messages）。 */}
+          {canSteer && steering.length >= maxSteering && (
+            <div className="mb-2 rounded-lg border border-ink-muted/20 bg-surface-raised/50 px-2.5 py-1.5 text-[11px] text-ink-muted">
+              {t("chat.steeringLimit", { count: String(maxSteering) })}
             </div>
           )}
           <div className="flex items-end gap-1.5">

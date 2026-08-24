@@ -185,6 +185,7 @@ function AppShell() {
     removeSteering,
     steering,
     canSteer,
+    maxSteering,
     mcpServers,
     refreshMcp,
   } = session;
@@ -487,6 +488,7 @@ function AppShell() {
               canAttachImageUrl={Boolean(hello?.content_sources.image_url)}
               canSteer={canSteer}
               disabled={sessionActionsFrozen || observer}
+              maxSteering={maxSteering}
               onRemoveSteering={removeSteering}
               onSubmit={send}
               onSteer={steer}

@@ -251,6 +251,10 @@ const DICT: Dict = {
     zh: "撤回此引导消息",
     en: "Remove steering message",
   },
+  "chat.steeringLimit": {
+    zh: "引导消息已达上限（{count} 条），可撤回后再发送。",
+    en: "Steering limit reached ({count}). Remove one to send more.",
+  },
   // 决策卡
   "guard.approve": { zh: "批准", en: "Approve" },
   "guard.reject": { zh: "拒绝", en: "Reject" },

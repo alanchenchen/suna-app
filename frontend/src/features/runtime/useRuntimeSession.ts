@@ -252,6 +252,11 @@ export function useRuntimeSession() {
           flow: flowFromSnapshot(snapshot),
           toolSummary: snapshot.tool_summary,
           pendingUsers: [],
+          // attach 恢复 daemon 已接受但未应用的引导消息（重连/刷新后
+          // 保持 steer 列表可见且可撤回，与文档 §5.4 pending_steering 一致）。
+          steering: (snapshot.current_run?.pending_steering ?? []).filter(
+            (item) => item.state !== "removed" && item.state !== "rejected",
+          ),
         });
         mergeSession(snapshot.session);
       });
@@ -416,7 +421,16 @@ export function useRuntimeSession() {
     canControl,
     steering: active.steering,
     // 运行中 + 有控制权才能注入引导（Runtime 对 observer/等待交互会拒绝）。
-    canSteer: Boolean(running && canControl && scopeRef.current?.runId),
+    // maxSteering 来自 hello.limits.max_steering_messages（文档默认 32），
+    // 达到上限时不再允许新增引导消息。
+    maxSteering: hello?.limits?.max_steering_messages ?? 32,
+    canSteer: Boolean(
+      running &&
+      canControl &&
+      scopeRef.current?.runId &&
+      (active.steering?.length ?? 0) <
+        (hello?.limits?.max_steering_messages ?? 32),
+    ),
     canDelete,
     canConfig,
     handoffRole,
