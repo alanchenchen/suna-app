@@ -83,7 +83,7 @@ func TestDefaultAllowedMethodIsExactV03ProtocolAllowlist(t *testing.T) {
 	allowed := []string{
 		"session.list", "session.create", "session.attach", "session.detach",
 		"session.update", "session.delete", "session.compact", "session.usage",
-		"agent.sendMessage", "agent.resumeRun", "agent.cancel", "agent.askReply", "agent.guardReply",
+		"agent.sendMessage", "agent.steer", "agent.steerRemove", "agent.resumeRun", "agent.cancel", "agent.askReply", "agent.guardReply",
 		"config.get", "config.set",
 		"memory.list", "memory.delete", "memory.clear",
 		"skill.list", "skill.set",

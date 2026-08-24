@@ -208,8 +208,9 @@ func isSunaAppRunning(baseURL string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// openBrowser 在默认浏览器打开 Suna App 地址（平台分支）。
-// 仅 .app / .desktop 双击启动时调用；失败静默（无 GUI 环境时只打印地址）。
+// openBrowser 在默认浏览器打开 Suna App 地址（平台分支 + 回退链）。
+// 仅 .app / .desktop 双击启动时调用；失败时依次尝试备用命令，
+// 全部失败则静默打印地址（无 GUI 环境时用户可手动访问）。
 // 注意：监听地址可能是 0.0.0.0 / [::]（通配地址），浏览器访问通配地址会失败，
 // 因此必须解析出端口后用 localhost 打开。
 func openBrowser(address string) {
@@ -219,18 +220,33 @@ func openBrowser(address string) {
 		return
 	}
 	url := "http://localhost:" + port
-	var cmd *exec.Cmd
+	// 每个平台按可靠性排序的候选命令；前一个失败（如无 GUI、命令缺失）时尝试下一个。
+	var candidates [][]string
 	switch runtimelib.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		candidates = [][]string{
+			{"open", url},
+		}
 	case "windows":
-		// rundll32 url.dll,FileProtocolHandler 在新版 Windows 上不可靠，
-		// 用 cmd /c start 打开默认浏览器（start 接受 URL 作为参数）。
-		cmd = exec.Command("cmd", "/c", "start", "", url)
+		candidates = [][]string{
+			// cmd /c start 打开默认浏览器（start 接受 URL 作为参数）。
+			{"cmd", "/c", "start", "", url},
+			// rundll32 是旧版 Windows 的备用方式。
+			{"rundll32", "url.dll,FileProtocolHandler", url},
+		}
 	default:
-		cmd = exec.Command("xdg-open", url)
+		// xdg-open 是 Linux 桌面标准；无桌面环境时尝试 x-www-browser 直开。
+		candidates = [][]string{
+			{"xdg-open", url},
+			{"x-www-browser", url},
+		}
 	}
-	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "suna-app: could not open browser automatically, visit %s\n", url)
+	for _, argv := range candidates {
+		cmd := exec.Command(argv[0], argv[1:]...)
+		if err := cmd.Start(); err == nil {
+			// 启动成功即返回；浏览器进程独立于 gateway 生命周期。
+			return
+		}
 	}
+	fmt.Fprintf(os.Stderr, "suna-app: could not open browser automatically, visit %s\n", url)
 }

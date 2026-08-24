@@ -48,6 +48,28 @@ type HelloResult struct {
 	RuntimeVersion string
 	// Catalog 是 Runtime 声明的公开能力目录（methods/notifications/features）。
 	Catalog protocolCatalog
+	// Limits 是 Runtime 声明的资源上限（如 max_steering_messages）。
+	Limits protocolLimits
+}
+
+// protocolLimits 镜像 Runtime 公开协议的 limits 结构，仅取 Gateway 关心的字段。
+type protocolLimits struct {
+	MaxToolResultBytes  *int `json:"max_tool_result_bytes,omitempty"`
+	MaxSteeringMessages *int `json:"max_steering_messages,omitempty"`
+	MaxSteeringBytes    *int `json:"max_steering_bytes,omitempty"`
+}
+
+// HasLimit 报告指定 limits 键是否存在（避免零值歧义）。
+func (l protocolLimits) HasLimit(name string) bool {
+	switch name {
+	case "max_tool_result_bytes":
+		return l.MaxToolResultBytes != nil
+	case "max_steering_messages":
+		return l.MaxSteeringMessages != nil
+	case "max_steering_bytes":
+		return l.MaxSteeringBytes != nil
+	}
+	return false
 }
 
 // protocolCatalog 镜像 Runtime 公开协议的 catalog 结构，仅取 Gateway 关心的字段。
@@ -206,6 +228,7 @@ func performHello(ctx context.Context, conn net.Conn) (HelloResult, error) {
 	var hello struct {
 		RuntimeVersion string          `json:"runtime_version"`
 		Catalog        protocolCatalog `json:"catalog"`
+		Limits         protocolLimits  `json:"limits"`
 	}
 	if err := json.Unmarshal(response.Result, &hello); err != nil {
 		return HelloResult{}, &Error{Kind: ErrorProtocol, Err: fmt.Errorf("runtime returned an invalid handshake response")}
@@ -216,7 +239,7 @@ func performHello(ctx context.Context, conn net.Conn) (HelloResult, error) {
 			return HelloResult{}, &Error{Kind: ErrorCapability, Err: fmt.Errorf("runtime does not support required method %q", m)}
 		}
 	}
-	return HelloResult{RuntimeVersion: hello.RuntimeVersion, Catalog: hello.Catalog}, nil
+	return HelloResult{RuntimeVersion: hello.RuntimeVersion, Catalog: hello.Catalog, Limits: hello.Limits}, nil
 }
 
 // maxRuntimeFrameBytes 是 TCP JSON-RPC 单帧上限。Runtime 的公开 TCP transport
