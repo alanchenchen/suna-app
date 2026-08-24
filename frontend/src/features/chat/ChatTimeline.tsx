@@ -258,7 +258,7 @@ export function ChatTimeline({
                   }
                 >
                   {message.role === "user" ? (
-                    t("chat.user")
+                    <Icon name="user" size={12} />
                   ) : (
                     <Icon name="sparkle" size={14} />
                   )}

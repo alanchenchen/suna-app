@@ -185,7 +185,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           </div>
         )}
         <div
-          className={`mx-auto w-[min(720px,100%)] rounded-[20px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow,transform,opacity] duration-180 max-[720px]:rounded-2xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-dashed border-rose/30 bg-surface-subtle/70 opacity-75" : "border-line shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] focus-within:border-blue/45 focus-within:shadow-[0_0_0_3px_var(--color-blue-soft),0_10px_30px_rgba(91,103,241,0.14),var(--shadow-md)] focus-within:-translate-y-px"}`}
+          className={`mx-auto w-[min(720px,100%)] rounded-[20px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow,transform,opacity] duration-180 max-[720px]:rounded-2xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-dashed border-rose/30 bg-surface-subtle/70 opacity-75" : "border-line shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)] focus-within:border-blue/35 focus-within:shadow-[0_8px_24px_rgba(28,42,72,0.08),var(--shadow-sm)]"}`}
         >
           {observer && (
             <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10.5px] font-semibold text-rose/80">
@@ -200,7 +200,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 <span className="flex gap-1.5">
                   <input
                     autoFocus
-                    className="min-w-0 flex-1 rounded-lg bg-surface-raised px-3 py-2 text-ink outline-none transition-[background-color] duration-150"
+                    className="min-w-0 flex-1 rounded-lg bg-surface-raised px-3 py-2 text-ink outline-none focus-visible:shadow-none transition-[background-color] duration-150"
                     disabled={disabled || sending}
                     onChange={(event) => setImageUrl(event.target.value)}
                     onKeyDown={(event) => {
@@ -295,7 +295,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           <div className="flex items-end gap-1.5">
             <textarea
               aria-label={t("chat.inputLabel")}
-              className="min-h-[38px] max-h-[132px] flex-1 resize-none bg-transparent px-1 py-[9px] text-[13px] leading-[20px] text-ink outline-none placeholder:text-ink-muted max-[720px]:min-h-[44px] max-[720px]:py-[11px]"
+              className="min-h-[38px] max-h-[132px] flex-1 resize-none bg-transparent px-1 py-[9px] text-[13px] leading-[20px] text-ink outline-none focus-visible:shadow-none placeholder:text-ink-muted max-[720px]:min-h-[44px] max-[720px]:py-[11px]"
               disabled={disabled || sending}
               onChange={(event) => setDraft(event.target.value)}
               onInput={(event) => {
