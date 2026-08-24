@@ -9,8 +9,8 @@ import {
   loadPinned,
   PINNED_KEY,
   projectName,
+  sortSessions,
   type SessionSidebarProps,
-  waitingRank,
 } from "./sidebarUtils";
 
 /** 侧栏：搜索 + 按项目分组 + waiting 置顶。
@@ -103,17 +103,7 @@ export function SessionSidebar({
 
   // 排序：手动置顶 > waiting 置顶（设计 §6.2）> 其余按更新时间倒序。
   const sorted = useMemo(
-    () =>
-      [...sessions].sort((a, b) => {
-        const pa = pinned.has(a.id) ? 0 : 1;
-        const pb = pinned.has(b.id) ? 0 : 1;
-        if (pa !== pb) return pa - pb;
-        const rank = waitingRank[a.status] - waitingRank[b.status];
-        if (rank !== 0) return rank;
-        return (
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-        );
-      }),
+    () => sortSessions(sessions, pinned),
     [pinned, sessions],
   );
 

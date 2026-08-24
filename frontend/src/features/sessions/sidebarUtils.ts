@@ -48,6 +48,21 @@ export const waitingRank: Record<SessionInfo["status"], number> = {
   idle: 3,
 };
 
+/** 会话排序：手动置顶 > waiting 置顶 > 其余按更新时间倒序。 */
+export function sortSessions(
+  sessions: SessionInfo[],
+  pinned: ReadonlySet<string>,
+): SessionInfo[] {
+  return [...sessions].sort((a, b) => {
+    const pa = pinned.has(a.id) ? 0 : 1;
+    const pb = pinned.has(b.id) ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    const rank = waitingRank[a.status] - waitingRank[b.status];
+    if (rank !== 0) return rank;
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
+}
+
 export function relativeTime(value: string) {
   const seconds = Math.max(0, (Date.now() - new Date(value).getTime()) / 1000);
   if (seconds < 60) return "time.justNow";
