@@ -167,6 +167,22 @@ const DICT: Dict = {
     zh: "打开命令面板，快速切换任务或执行操作",
     en: "Open the command palette to switch tasks or run actions",
   },
+  "chat.empty.noModelTitle": {
+    zh: "先配置模型，再开始任务",
+    en: "Configure a model to get started",
+  },
+  "chat.empty.noModelDesc": {
+    zh: "Suna 需要一个模型才能执行任务。配置 provider 和模型后即可开始。",
+    en: "Suna needs a model to run tasks. Add a provider and model to begin.",
+  },
+  "chat.empty.noModelCta": {
+    zh: "去配置模型",
+    en: "Configure model",
+  },
+  "chat.noModelPlaceholder": {
+    zh: "先配置模型后才能发送消息",
+    en: "Configure a model before sending messages",
+  },
   "chat.user": { zh: "你", en: "You" },
   "chat.composerHint": {
     zh: "Enter 发送 · Shift+Enter 换行",

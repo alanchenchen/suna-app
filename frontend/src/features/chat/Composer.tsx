@@ -25,6 +25,8 @@ type ComposerProps = {
   steering?: SteeringMessage[];
   onSteer?: (text: string) => Promise<void>;
   onRemoveSteering?: (id: string) => Promise<void>;
+  /** 是否已配置模型：false 时输入框禁用并提示先配置。 */
+  hasModels?: boolean;
 };
 
 export type ComposerHandle = {
@@ -46,6 +48,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       steering = [],
       onSteer,
       onRemoveSteering,
+      hasModels = true,
     },
     ref,
   ) {
@@ -296,7 +299,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
             <textarea
               aria-label={t("chat.inputLabel")}
               className="min-h-[38px] max-h-[132px] flex-1 resize-none bg-transparent px-1 py-[9px] text-[13px] leading-[20px] text-ink outline-none focus-visible:shadow-none placeholder:text-ink-muted max-[720px]:min-h-[44px] max-[720px]:py-[11px]"
-              disabled={disabled || sending}
+              disabled={disabled || sending || !hasModels}
               onChange={(event) => setDraft(event.target.value)}
               onInput={(event) => {
                 // 随内容自动增高，最多 132px（与 CSS max-height 一致）；超出后内部滚动。
@@ -319,13 +322,15 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 }
               }}
               placeholder={
-                canSteer
-                  ? t("chat.steerPlaceholder")
-                  : disabled
-                    ? observer
-                      ? t("chat.observerPlaceholder")
-                      : t("chat.selectSessionFirst")
-                    : t("chat.sendPlaceholder")
+                !hasModels
+                  ? t("chat.noModelPlaceholder")
+                  : canSteer
+                    ? t("chat.steerPlaceholder")
+                    : disabled
+                      ? observer
+                        ? t("chat.observerPlaceholder")
+                        : t("chat.selectSessionFirst")
+                      : t("chat.sendPlaceholder")
               }
               ref={textareaRef}
               rows={1}

@@ -56,6 +56,10 @@ type ChatTimelineProps = {
   loading?: boolean;
   /** 空状态建议卡点击：把示例 prompt 交给外层（填入输入框）。 */
   onSuggestion?: (text: string) => void;
+  /** 是否已配置模型：false 时空状态显示“去配置模型”引导。 */
+  hasModels?: boolean;
+  /** 打开设置（无模型引导按钮用，直达模型 tab）。 */
+  onOpenSettings?: () => void;
 };
 
 export function ChatTimeline({
@@ -74,6 +78,8 @@ export function ChatTimeline({
   sessionId,
   loading = false,
   onSuggestion,
+  hasModels = true,
+  onOpenSettings,
 }: ChatTimelineProps) {
   const t = useT();
   const [historyWindow, setHistoryWindow] = useState(80);
@@ -213,12 +219,24 @@ export function ChatTimeline({
                 <Icon name="sparkle" size={22} />
               </span>
               <h2 className="mt-4 mb-1.5 text-[17px] font-extrabold tracking-tight text-ink">
-                {t("chat.empty.title")}
+                {hasModels
+                  ? t("chat.empty.title")
+                  : t("chat.empty.noModelTitle")}
               </h2>
               <p className="m-0 max-w-[300px] text-[12.5px] leading-relaxed text-ink-muted">
-                {t("chat.empty.desc")}
+                {hasModels ? t("chat.empty.desc") : t("chat.empty.noModelDesc")}
               </p>
-              {onSuggestion && (
+              {!hasModels && onOpenSettings && (
+                <button
+                  className="mt-6 inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-5 text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97]"
+                  onClick={onOpenSettings}
+                  type="button"
+                >
+                  <Icon name="settings" size={14} />
+                  {t("chat.empty.noModelCta")}
+                </button>
+              )}
+              {onSuggestion && hasModels && (
                 <div className="mt-6 grid gap-2 text-left">
                   {" "}
                   <button

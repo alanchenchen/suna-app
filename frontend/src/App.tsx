@@ -400,11 +400,17 @@ function AppShell() {
               running={running}
               sessionId={active.snapshot?.session.id}
               toolSummary={active.toolSummary}
+              hasModels={Boolean(config && config.models.length > 0)}
+              onOpenSettings={() => {
+                setSettingsInitialTab("models");
+                setSettingsOpen(true);
+              }}
             />
             <Composer
               canAttachImageUrl={Boolean(hello?.content_sources.image_url)}
               canSteer={canSteer}
               disabled={sessionActionsFrozen || observer}
+              hasModels={Boolean(config && config.models.length > 0)}
               maxSteering={maxSteering}
               onRemoveSteering={removeSteering}
               onSubmit={send}
