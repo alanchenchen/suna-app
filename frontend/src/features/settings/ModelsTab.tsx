@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Select } from "../../components/ui/Select";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useT } from "../../lib/i18n";
 import type { ConfigModel } from "../../lib/runtimeBridge";
 import type { SettingsTabProps } from "./RuntimeSettings";
@@ -62,6 +63,8 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
   const [editing, setEditing] = useState<ConfigModel | "new" | undefined>();
   const [draft, setDraft] = useState<ModelDraft>(EMPTY_DRAFT);
   const [error, setError] = useState<string>();
+  // 删除确认：先弹 ConfirmDialog，确认后才执行删除。
+  const [pendingDelete, setPendingDelete] = useState<ConfigModel>();
 
   function startEdit(model: ConfigModel | "new") {
     setEditing(model);
@@ -118,11 +121,8 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
   }
 
   async function remove(model: ConfigModel) {
+    // 确认已上移到 ConfirmDialog：这里只执行删除。
     const hasKey = model.has_api_key;
-    const message = hasKey
-      ? t("models.deleteConfirm", { name: modelRef(model) })
-      : t("models.deleteConfirmSimple", { name: modelRef(model) });
-    if (!window.confirm(message)) return;
     try {
       const next = await rpc("config.set", {
         action: "delete_model",
@@ -314,7 +314,7 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
                 </button>
                 <button
                   className="cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
-                  onClick={() => void remove(model)}
+                  onClick={() => setPendingDelete(model)}
                   type="button"
                 >
                   {t("models.delete")}
@@ -327,6 +327,29 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
       {!editing && config.models.length === 0 && (
         <p className="text-[13px] text-ink-muted">{t("models.empty")}</p>
       )}
+      <ConfirmDialog
+        busy={false}
+        confirmLabel={t("models.delete")}
+        danger
+        description={
+          pendingDelete?.has_api_key
+            ? t("models.deleteConfirm", {
+                name: pendingDelete ? modelRef(pendingDelete) : "",
+              })
+            : t("models.deleteConfirmSimple", {
+                name: pendingDelete ? modelRef(pendingDelete) : "",
+              })
+        }
+        onConfirm={() => {
+          if (pendingDelete) void remove(pendingDelete);
+          setPendingDelete(undefined);
+        }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(undefined);
+        }}
+        open={Boolean(pendingDelete)}
+        title={t("models.deleteTitle")}
+      />
     </div>
   );
 }

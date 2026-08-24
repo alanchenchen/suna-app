@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "./components/Icon";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer, type ComposerHandle } from "./features/chat/Composer";
@@ -12,6 +12,7 @@ import { SessionDialogs } from "./features/sessions/SessionDialogs";
 import { TaskOverview } from "./features/overview/TaskOverview";
 import { RuntimeSettings } from "./features/settings/RuntimeSettings";
 import { RuntimeInstallPanel } from "./features/settings/RuntimeInstallPanel";
+import { ConfirmDialog } from "./components/ui/ConfirmDialog";
 import { useAppShell } from "./features/appShell/useAppShell";
 import { LocaleProvider, useT } from "./lib/i18n";
 import "./styles/tailwind.css";
@@ -61,6 +62,8 @@ function AppShell() {
 
   // 空状态建议卡 → 输入框填充草稿的桥。
   const composerRef = useRef<ComposerHandle>(null);
+  // 会话删除确认：侧栏删除先弹 ConfirmDialog，确认后才调 remove。
+  const [pendingDeleteId, setPendingDeleteId] = useState<string>();
   const session = useRuntimeSession();
   const {
     sessions,
@@ -152,6 +155,12 @@ function AppShell() {
   const visibleWaiting = otherWaiting.filter(
     (session) => !dismissedWaiting.has(session.id),
   );
+  // 操作类错误自动消失：8 秒后清除（连接错误走 bridgeError，不在此列）。
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => setError(undefined), 8000);
+    return () => window.clearTimeout(timer);
+  }, [error, setError]);
   useEffect(() => {
     document.title = visibleWaiting.length
       ? `(${visibleWaiting.length}) Suna App`
@@ -234,7 +243,7 @@ function AppShell() {
         selectedId={selectedId}
         sessions={sessions}
         onDetach={selectedId ? () => void detach() : undefined}
-        onDelete={cap("session") ? (id) => void remove(id) : undefined}
+        onDelete={cap("session") ? (id) => setPendingDeleteId(id) : undefined}
         onRename={
           selected && cap("session") && !sessionActionsFrozen && !observer
             ? () => {
@@ -457,18 +466,14 @@ function AppShell() {
           {t("nav.task")}
         </button>
         <button
-          aria-current={mobileTab === "settings" ? "page" : undefined}
           className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
-          onClick={() => setMobileTab("settings")}
+          onClick={() => {
+            // 设置是 Dialog 而非 tab 内容：点击直接打开面板（移动端入口）。
+            setSettingsOpen(true);
+          }}
           type="button"
         >
-          <Icon
-            className={
-              mobileTab === "settings" ? "text-blue-strong" : "text-ink-muted"
-            }
-            name="settings"
-            size={17}
-          />
+          <Icon className="text-ink-muted" name="settings" size={17} />
           {t("nav.settings")}
         </button>
       </nav>
@@ -537,6 +542,21 @@ function AppShell() {
         running={running}
         selectedId={selectedId}
         sessions={sessions}
+      />
+      <ConfirmDialog
+        busy={syncing}
+        confirmLabel={t("action.deleteConfirmButton")}
+        danger
+        description={t("action.deleteDescription")}
+        onConfirm={() => {
+          if (pendingDeleteId) void remove(pendingDeleteId);
+          setPendingDeleteId(undefined);
+        }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(undefined);
+        }}
+        open={Boolean(pendingDeleteId)}
+        title={t("action.deleteConfirm")}
       />
     </main>
   );

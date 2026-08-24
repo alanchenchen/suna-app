@@ -251,8 +251,7 @@ describe("createSessionActions", () => {
     expect(h.toast).toHaveBeenCalledWith("info", "已离开当前会话");
   });
 
-  it("removes a session after confirm and attaches to the next one", async () => {
-    vi.stubGlobal("window", { confirm: vi.fn(() => true) });
+  it("removes a session and attaches to the next one (confirm handled by UI)", async () => {
     const h = createHarness();
     h.rpc.mockResolvedValueOnce({ status: "detached" });
     h.rpc.mockResolvedValueOnce({ deleted: true });
@@ -271,13 +270,6 @@ describe("createSessionActions", () => {
       "next-1",
     );
     expect(h.toast).toHaveBeenCalledWith("success", "会话已删除");
-  });
-
-  it("skips removal when confirm is cancelled", async () => {
-    vi.stubGlobal("window", { confirm: vi.fn(() => false) });
-    const h = createHarness();
-    await h.actions.remove("s1");
-    expect(h.rpc).not.toHaveBeenCalled();
   });
 
   it("sets awaitingRun optimistically when sending", async () => {

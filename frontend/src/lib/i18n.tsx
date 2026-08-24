@@ -602,6 +602,7 @@ const DICT: Dict = {
     zh: "删除模型 {name}？",
     en: "Delete model {name}?",
   },
+  "models.deleteTitle": { zh: "删除模型", en: "Delete model" },
   // 安全 Tab
   "security.title": { zh: "操作确认", en: "Approval mode" },
   "security.desc": {
@@ -753,6 +754,7 @@ const DICT: Dict = {
   "common.close": { zh: "关闭", en: "Close" },
   "common.closeNotice": { zh: "关闭通知", en: "Dismiss notification" },
   "common.closeSidebar": { zh: "关闭会话列表", en: "Close session list" },
+  "common.cancel": { zh: "取消", en: "Cancel" },
   "common.closeSettings": { zh: "关闭设置", en: "Close settings" },
   "common.mainNav": { zh: "主导航", en: "Main navigation" },
   // 操作反馈（sessionActions / runtimeEvents）
@@ -778,8 +780,13 @@ const DICT: Dict = {
     en: "Failed to detach session.",
   },
   "action.deleteConfirm": {
-    zh: "删除此会话？此操作无法撤销。",
-    en: "Delete this session? This cannot be undone.",
+    zh: "删除此会话？",
+    en: "Delete this session?",
+  },
+  "action.deleteConfirmButton": { zh: "删除", en: "Delete" },
+  "action.deleteDescription": {
+    zh: "此操作无法撤销，会话的历史记录将被永久删除。",
+    en: "This cannot be undone. The session history will be permanently deleted.",
   },
   "action.deleted": { zh: "会话已删除", en: "Session deleted" },
   "action.deleteFailed": {

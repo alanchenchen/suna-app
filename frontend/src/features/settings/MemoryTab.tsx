@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useT } from "../../lib/i18n";
 import type { MemoryItem } from "../../lib/runtimeBridge";
 import type { SettingsTabProps } from "./RuntimeSettings";
@@ -10,6 +12,9 @@ export function MemoryTab({
   rpc,
 }: SettingsTabProps & { items: MemoryItem[]; onChanged: () => void }) {
   const t = useT();
+  // 清空/删除确认：先弹 ConfirmDialog，确认后才执行。
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string>();
   if (!cap("memory")) return null;
   return (
     <div>
@@ -20,10 +25,7 @@ export function MemoryTab({
         {items.length > 0 && (
           <button
             className="cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
-            onClick={() => {
-              if (window.confirm(t("memory.clearConfirm")))
-                void rpc("memory.clear", {}).then(onChanged);
-            }}
+            onClick={() => setConfirmClear(true)}
             type="button"
           >
             {t("memory.clearAll")}
@@ -46,10 +48,7 @@ export function MemoryTab({
             </span>
             <button
               className="shrink-0 cursor-pointer text-[11px] font-bold text-rose transition-opacity duration-150 hover:opacity-75"
-              onClick={() => {
-                if (window.confirm(t("memory.deleteConfirm")))
-                  void rpc("memory.delete", { id: item.id }).then(onChanged);
-              }}
+              onClick={() => setPendingDeleteId(item.id)}
               type="button"
             >
               {t("memory.delete")}
@@ -59,6 +58,32 @@ export function MemoryTab({
       ) : (
         <p className="text-[13px] text-ink-muted">{t("memory.empty")}</p>
       )}
+      <ConfirmDialog
+        confirmLabel={t("memory.clearAll")}
+        danger
+        onConfirm={() => {
+          setConfirmClear(false);
+          void rpc("memory.clear", {}).then(onChanged);
+        }}
+        onOpenChange={setConfirmClear}
+        open={confirmClear}
+        title={t("memory.clearConfirm")}
+      />
+      <ConfirmDialog
+        confirmLabel={t("memory.delete")}
+        danger
+        onConfirm={() => {
+          if (pendingDeleteId) {
+            void rpc("memory.delete", { id: pendingDeleteId }).then(onChanged);
+          }
+          setPendingDeleteId(undefined);
+        }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(undefined);
+        }}
+        open={Boolean(pendingDeleteId)}
+        title={t("memory.deleteConfirm")}
+      />
     </div>
   );
 }

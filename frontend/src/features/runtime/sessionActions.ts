@@ -291,7 +291,7 @@ export function createSessionActions({
 
   async function remove(id: string) {
     if (isSyncing() || !canDelete()) return;
-    if (!window.confirm(t("action.deleteConfirm"))) return;
+    // 删除确认已上移到 UI 层（ConfirmDialog）：这里只执行删除。
     const intent = ++attachIntentRef.current;
     resetQueuedDeltas();
     scopeRef.current = undefined;
