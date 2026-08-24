@@ -129,8 +129,10 @@ func (s *Server) runtimeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	kind := runtime.ErrorUnavailable
+	reason := ""
 	if typed, ok := err.(*runtime.Error); ok {
 		kind = typed.Kind
+		reason = typed.Reason
 	}
 	status := http.StatusServiceUnavailable
 	if kind == runtime.ErrorProtocol {
@@ -139,13 +141,17 @@ func (s *Server) runtimeStatus(w http.ResponseWriter, r *http.Request) {
 	if kind == runtime.ErrorCapability {
 		status = http.StatusNotImplemented
 	}
-	writeJSON(w, status, map[string]any{
+	response := map[string]any{
 		"status": string(kind),
 		"error": map[string]string{
 			"code":    string(kind),
 			"message": safeMessage(kind),
 		},
-	})
+	}
+	if reason != "" {
+		response["reason"] = reason
+	}
+	writeJSON(w, status, response)
 }
 
 // runtimeInstall 触发 Runtime 引导安装（幂等：已在跑时返回当前状态）。
@@ -414,13 +420,21 @@ func bridgeRuntimeError(w http.ResponseWriter, err error) {
 		}
 	}
 	kind := runtime.ErrorUnavailable
+	reason := ""
 	var runtimeError *runtime.Error
 	if errors.As(err, &runtimeError) {
 		kind = runtimeError.Kind
+		reason = runtimeError.Reason
 	}
 	status := http.StatusBadGateway
 	if kind == runtime.ErrorCapability {
 		status = http.StatusNotImplemented
+	}
+	// 未安装 Runtime 是前端可恢复的明确状态：用独立 code 让浏览器自动
+	// 进入引导安装，而不是笼统的 unavailable（可能是 daemon 启动失败）。
+	if reason == "not_installed" {
+		bridgeError(w, http.StatusServiceUnavailable, "runtime_not_installed", "Suna Runtime is not installed.")
+		return
 	}
 	bridgeError(w, status, string(kind), safeMessage(kind))
 }

@@ -67,7 +67,7 @@ func TestBridgeRPCErrorMapsStableKind(t *testing.T) {
 		Message: "interaction reply is owned by another client",
 		Data:    json.RawMessage(`{"kind":"session_busy"}`),
 	}
-	service, err := bridge.New(httpFakeConnector{connection}, bridge.Config{})
+	service, err := bridge.New(httpFakeConnector{connection: connection}, bridge.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,6 +114,42 @@ func TestBridgeRPCErrorMapsStableKind(t *testing.T) {
 	}
 	if body.Error.Message == "" {
 		t.Fatal("error message must be readable")
+	}
+}
+
+// TestBridgeConnectMapsNotInstalled 验证 Runtime 未安装（discovery 返回
+// not_installed）时，connect 返回独立的 runtime_not_installed 错误码，
+// 供前端自动进入引导安装（而不是笼统的 unavailable）。
+func TestBridgeConnectMapsNotInstalled(t *testing.T) {
+	t.Parallel()
+
+	service, err := bridge.New(httpFakeConnector{
+		connectErr: &runtime.Error{Kind: runtime.ErrorUnavailable, Reason: "not_installed", Err: errors.New("suna runtime is not installed")},
+	}, bridge.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := NewServerWithBridge(fakeProber{}, time.Second, service)
+
+	connect := httptest.NewRequest(http.MethodPost, "/api/v1/bridge/connect", nil)
+	connect.Host = "127.0.0.1:8080"
+	connect.Header.Set("Origin", "http://127.0.0.1:8080")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, connect)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("connect = %d, want 503; body %s", response.Code, response.Body.String())
+	}
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Code != "runtime_not_installed" {
+		t.Fatalf("error code = %q, want runtime_not_installed", body.Error.Code)
 	}
 }
 

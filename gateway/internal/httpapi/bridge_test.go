@@ -17,9 +17,15 @@ import (
 	"github.com/alanchenchen/suna-app/gateway/internal/runtime"
 )
 
-type httpFakeConnector struct{ connection *httpFakeConnection }
+type httpFakeConnector struct {
+	connection *httpFakeConnection
+	connectErr error
+}
 
 func (c httpFakeConnector) Connect(context.Context) (bridge.Connection, error) {
+	if c.connectErr != nil {
+		return nil, c.connectErr
+	}
 	return c.connection, nil
 }
 
@@ -59,7 +65,7 @@ func (c *httpFakeConnection) Close() error {
 
 func TestBridgeSSEOriginAndRuntimeLifecycle(t *testing.T) {
 	connection := newHTTPFakeConnection()
-	service, err := bridge.New(httpFakeConnector{connection}, bridge.Config{})
+	service, err := bridge.New(httpFakeConnector{connection: connection}, bridge.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +166,7 @@ func TestBridgeSSEOriginAndRuntimeLifecycle(t *testing.T) {
 }
 func TestBridgeHTTPRPCOriginAndDisconnect(t *testing.T) {
 	connection := newHTTPFakeConnection()
-	service, err := bridge.New(httpFakeConnector{connection}, bridge.Config{})
+	service, err := bridge.New(httpFakeConnector{connection: connection}, bridge.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

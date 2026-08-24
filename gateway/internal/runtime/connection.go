@@ -53,7 +53,7 @@ func (l CommandLauncher) Launch(ctx context.Context) (ServeResult, error) {
 		}
 	}
 	if strings.TrimSpace(binary) == "" {
-		return ServeResult{}, &Error{Kind: ErrorUnavailable, Err: fmt.Errorf("suna runtime is not installed")}
+		return ServeResult{}, &Error{Kind: ErrorUnavailable, Reason: "not_installed", Err: fmt.Errorf("suna runtime is not installed")}
 	}
 	command := runCommand(ctx, binary, "serve", "--json")
 	command.Dir = runtimeCommandDirectory()

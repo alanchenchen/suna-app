@@ -31,7 +31,9 @@ var requiredCatalogMethods = []string{
 
 type Error struct {
 	Kind ErrorKind
-	Err  error
+	// Reason 是可选的细分原因（如 not_installed），供上层/前端区分恢复动作。
+	Reason string
+	Err    error
 }
 
 func (e *Error) Error() string { return e.Err.Error() }

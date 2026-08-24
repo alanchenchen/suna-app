@@ -214,6 +214,13 @@ function AppShell() {
     if (target && target !== selectedId) void attach(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected]);
+  // 明确“未安装 Runtime”时自动进入引导安装（错误码来自 gateway 的
+  // runtime_not_installed；其他 unavailable（如 daemon 启动失败）保持手动入口）。
+  useEffect(() => {
+    if (bridgeError?.code === "runtime_not_installed") {
+      setShowInstall(true);
+    }
+  }, [bridgeError]);
   // 选中会话变化 → 同步 hash；无选中 → 回到根 hash。
   useEffect(() => {
     const target = selectedId
