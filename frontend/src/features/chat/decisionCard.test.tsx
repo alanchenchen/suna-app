@@ -76,7 +76,7 @@ describe("DecisionCard 交互状态机", () => {
         id: "guard-1",
         tool: "edit_file",
         params: { path: "a.txt" },
-        risk: "medium",
+        readonly: false,
         reason: "Modify file",
         suggestion: "safe/path",
         can_reply: true,

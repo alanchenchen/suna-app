@@ -143,11 +143,11 @@ export type ToolStartEvent = {
 export type ToolGuardEvent = {
   tool_call_id: string;
   tool: string;
-  risk: string;
+  /** Guard 重构后：readonly 二元判定替代旧 risk 等级（Runtime 0.5+）。 */
+  readonly: boolean;
   decision: string;
   source: string;
   reason?: string;
-  suggestion?: string;
   review_code?: string;
   review_message?: string;
 };
@@ -229,7 +229,8 @@ export type GuardConfirmEvent = {
   tool_call_id?: string;
   tool: string;
   params: JSONRecord;
-  risk: string;
+  /** Guard 重构后：readonly 二元判定替代旧 risk 等级（Runtime 0.5+）。 */
+  readonly: boolean;
   reason: string;
   suggestion?: string;
   review_code?: string;
@@ -286,6 +287,12 @@ export type ConfigSetParams = {
   theme?: string;
   guard_mode?: string;
   workspace?: string | null;
+};
+/** config.discoverModels 异步结果：models_result 通知（模型 ID 列表，不含凭据）。 */
+export type ModelsDiscoveryResult = {
+  provider: string;
+  models?: string[];
+  error_message?: string;
 };
 export type MemoryItem = {
   id: string;
@@ -388,6 +395,10 @@ export type RuntimeBridgeMethods = {
   };
   "config.get": { params: Record<string, never>; result: RuntimeConfig };
   "config.set": { params: ConfigSetParams; result: RuntimeConfig };
+  "config.discoverModels": {
+    params: { provider: string };
+    result: { status: "processing" };
+  };
   "memory.list": {
     params: Record<string, never>;
     result: { memories: MemoryItem[] };
@@ -455,6 +466,7 @@ export type RuntimeNotifications = {
   "session.updated": { session: SessionInfo };
   "session.compact_result": CompactResultEvent;
   "config.state": RuntimeConfig;
+  "config.models_result": ModelsDiscoveryResult;
   "memory.state": { memories: MemoryItem[] };
   "mcp.updated": { server: MCPServerInfo };
   "skill.load": { name: string; status?: string };

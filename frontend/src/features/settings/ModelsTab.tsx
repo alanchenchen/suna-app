@@ -58,18 +58,46 @@ function fromModel(model: ConfigModel): ModelDraft {
 }
 
 /** 模型 Tab：列表 + 新增/编辑（对齐 TUI 表单）+ 删除 + 激活（设计 §10.2）。 */
-export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
+export function ModelsTab({
+  config,
+  onConfig,
+  rpc,
+  modelDiscovery,
+  discoverModels,
+}: SettingsTabProps) {
   const t = useT();
   const [editing, setEditing] = useState<ConfigModel | "new" | undefined>();
   const [draft, setDraft] = useState<ModelDraft>(EMPTY_DRAFT);
   const [error, setError] = useState<string>();
   // 删除确认：先弹 ConfirmDialog，确认后才执行删除。
   const [pendingDelete, setPendingDelete] = useState<ConfigModel>();
+  // 模型发现：正在拉取 / 拉取结果（按 provider 缓存）。
+  const [discovering, setDiscovering] = useState(false);
 
   function startEdit(model: ConfigModel | "new") {
     setEditing(model);
     setDraft(model === "new" ? EMPTY_DRAFT : fromModel(model));
     setError(undefined);
+  }
+
+  async function discover() {
+    if (!draft.provider.trim() || discovering || !discoverModels) return;
+    setDiscovering(true);
+    setError(undefined);
+    try {
+      await discoverModels(draft.provider.trim());
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : t("models.error.discover"),
+      );
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  /** 把发现的候选模型填入表单（只填模型名，其余字段保留）。 */
+  function pickDiscovered(modelName: string) {
+    setDraft((value) => ({ ...value, model: modelName }));
   }
 
   async function save() {
@@ -202,6 +230,44 @@ export function ModelsTab({ config, onConfig, rpc }: SettingsTabProps) {
             required
             value={draft.model}
           />
+          {draft.provider.trim() && (
+            <div className="flex items-center gap-2">
+              <button
+                className="cursor-pointer rounded-lg border border-blue/30 bg-blue-soft/30 px-2.5 py-1.5 text-[11px] font-bold text-blue-strong transition-colors duration-150 hover:bg-blue-soft/50 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={discovering}
+                onClick={() => void discover()}
+                type="button"
+              >
+                {discovering ? t("models.discovering") : t("models.discover")}
+              </button>
+              {discovering && (
+                <small className="text-[11px] text-ink-muted">
+                  {t("models.discoverHint")}
+                </small>
+              )}
+            </div>
+          )}
+          {!discovering &&
+          modelDiscovery?.[draft.provider.trim()]?.models?.length ? (
+            <div className="flex flex-wrap gap-1.5 rounded-lg border border-line bg-surface-raised p-2">
+              {modelDiscovery[draft.provider.trim()].models!.map((name) => (
+                <button
+                  className="cursor-pointer rounded-[6px] border border-line bg-surface-solid px-2 py-1 text-[11px] font-semibold text-ink transition-colors duration-150 hover:border-blue/40 hover:text-blue-strong"
+                  key={name}
+                  onClick={() => pickDiscovered(name)}
+                  type="button"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {!discovering &&
+            modelDiscovery?.[draft.provider.trim()]?.error_message && (
+              <small className="text-[11px] font-semibold text-rose">
+                {modelDiscovery[draft.provider.trim()].error_message}
+              </small>
+            )}
           <Field
             label="Endpoint"
             onChange={(value) => setDraft({ ...draft, base_url: value })}

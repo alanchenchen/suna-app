@@ -503,7 +503,7 @@ func defaultAllowedMethod(method string) bool {
 		"session.update", "session.delete", "session.compact", "session.usage",
 		"agent.sendMessage", "agent.steer", "agent.steerRemove",
 		"agent.resumeRun", "agent.cancel", "agent.askReply", "agent.guardReply",
-		"config.get", "config.set",
+		"config.get", "config.set", "config.discoverModels",
 		"memory.list", "memory.delete", "memory.clear",
 		"skill.list", "skill.set",
 		"mcp.list", "mcp.toggle", "mcp.reload",

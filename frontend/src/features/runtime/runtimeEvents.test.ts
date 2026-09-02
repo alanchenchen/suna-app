@@ -41,6 +41,7 @@ function createHarness(
     mergeSession: vi.fn(),
     markSessionIdle: vi.fn(),
     mergeMcp: vi.fn(),
+    onModelsDiscovered: vi.fn(),
     getScope: vi.fn(() => ({ attach: 1, sessionId: "s1" }) as Scope),
     isSyncing: vi.fn(() => false),
     getSelectedId: vi.fn(() => "s1"),
@@ -72,6 +73,18 @@ describe("createNotificationHandler", () => {
       params: { kind: "assistant", content: "你好", run_id: "run-1" },
     });
     expect(deps.queueDelta).toHaveBeenCalledWith("assistant", "你好", "run-1");
+  });
+
+  it("forwards config.models_result to the discovery cache", () => {
+    const { deps, send } = createHarness();
+    send({
+      method: "config.models_result",
+      params: { provider: "example-provider", models: ["m1", "m2"] },
+    });
+    expect(deps.onModelsDiscovered).toHaveBeenCalledWith({
+      provider: "example-provider",
+      models: ["m1", "m2"],
+    });
   });
 
   it("rejects agent.run from a stale run id", () => {
@@ -195,7 +208,7 @@ describe("createNotificationHandler", () => {
       params: {
         tool_call_id: "t1",
         tool: "readfile",
-        risk: "medium",
+        readonly: true,
         decision: "ask",
         source: "guard",
       },
@@ -294,7 +307,7 @@ describe("createNotificationHandler", () => {
         session_id: "s1",
         tool: "rm",
         params: { path: "/tmp/x" },
-        risk: "high",
+        readonly: false,
         reason: "删除文件",
         can_reply: false,
       },

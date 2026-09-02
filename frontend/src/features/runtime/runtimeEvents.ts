@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type {
   MCPServerInfo,
+  ModelsDiscoveryResult,
   RuntimeConfig,
   RuntimeNotification,
   SessionInfo,
@@ -15,6 +16,8 @@ const MAX_TOOL_CARDS = 24;
 export type NotificationDeps = {
   setActive: Dispatch<SetStateAction<ActiveData>>;
   setConfig: Dispatch<SetStateAction<RuntimeConfig | undefined>>;
+  /** config.discoverModels 异步结果：按 provider 合并到本地模型发现缓存。 */
+  onModelsDiscovered: (result: ModelsDiscoveryResult) => void;
   queueDelta: (
     kind: "assistant" | "reasoning",
     content: string,
@@ -42,6 +45,7 @@ export type NotificationDeps = {
 export function createNotificationHandler({
   setActive,
   setConfig,
+  onModelsDiscovered,
   queueDelta,
   flushDeltas,
   acceptsRun,
@@ -72,6 +76,10 @@ export function createNotificationHandler({
     }
     if (event.method === "config.state") {
       setConfig(event.params);
+      return;
+    }
+    if (event.method === "config.models_result") {
+      onModelsDiscovered(event.params);
       return;
     }
     // 0.4 MCP 状态增量：按 server 名覆盖本地快照，驱动设置面板状态徽章。
@@ -385,12 +393,22 @@ export function createNotificationHandler({
     }
     if (event.method === "agent.ask_user") {
       if (!acceptsSession(event.params.session_id)) return;
-      setActive((value) => ({ ...value, ask: event.params }));
+      // 真实交互到达：替换 attach 恢复的占位（waitingForInteraction 清除）。
+      setActive((value) => ({
+        ...value,
+        ask: event.params,
+        waitingForInteraction: false,
+      }));
       return;
     }
     if (event.method === "agent.guard_confirm") {
       if (!acceptsSession(event.params.session_id)) return;
-      setActive((value) => ({ ...value, guard: event.params }));
+      // 真实交互到达：替换 attach 恢复的占位（waitingForInteraction 清除）。
+      setActive((value) => ({
+        ...value,
+        guard: event.params,
+        waitingForInteraction: false,
+      }));
       return;
     }
     if (event.method === "agent.interaction_resolved") {
@@ -399,6 +417,11 @@ export function createNotificationHandler({
         ...value,
         ask: value.ask?.id === event.params.id ? undefined : value.ask,
         guard: value.guard?.id === event.params.id ? undefined : value.guard,
+        waitingForInteraction:
+          value.ask?.id === event.params.id ||
+          value.guard?.id === event.params.id
+            ? false
+            : value.waitingForInteraction,
         activeTool:
           value.activeTool?.id === event.params.id
             ? { ...value.activeTool, status: undefined }

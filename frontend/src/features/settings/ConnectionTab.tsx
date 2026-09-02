@@ -20,6 +20,18 @@ type DaemonStatus = {
   };
 };
 
+/** session.usage 三周期返回结构（today/week/month 同构）。 */
+type UsagePeriod = {
+  input_tokens: number;
+  output_tokens: number;
+  requests: number;
+};
+type UsageSummary = {
+  today?: UsagePeriod;
+  week?: UsagePeriod;
+  month?: UsagePeriod;
+};
+
 const stateLabels: Record<string, string> = {
   ready: "conn.status.ready",
   starting: "conn.status.starting",
@@ -43,6 +55,8 @@ export function ConnectionTab({
   const locale = useLocale();
   const changeLocale = useChangeLocale();
   const [status, setStatus] = useState<DaemonStatus>();
+  // 三周期用量：优先 session.usage（today/week/month），兜底 daemon.status.usage_today。
+  const [usage, setUsage] = useState<UsageSummary>();
   useEffect(() => {
     let alive = true;
     rpc("daemon.status", {})
@@ -52,12 +66,21 @@ export function ConnectionTab({
       .catch(() => {
         // 状态获取失败不阻塞设置面板；连接页已有错误提示。
       });
+    // session.usage 返回三周期；daemon.status.usage_today 只作兜底。
+    rpc("session.usage", {})
+      .then((value) => {
+        if (alive) setUsage(value);
+      })
+      .catch(() => {
+        // 老 Runtime 可能没有 session.usage；保持只显示 today 的兜底。
+        setUsage(undefined);
+      });
     return () => {
       alive = false;
     };
   }, [rpc, connected]);
 
-  const usage = status?.usage_today;
+  const today = usage?.today ?? status?.usage_today;
   const fmt = (value?: number) =>
     value == null ? "—" : value.toLocaleString();
 
@@ -107,19 +130,39 @@ export function ConnectionTab({
       {/* 用量 + 版本 */}
       <section className="rounded-xl border border-line bg-surface-raised/60 p-3.5">
         <h3 className="m-0 text-[13px] font-extrabold text-ink">
-          {t("conn.todayUsage")}
+          {t("conn.usage")}
         </h3>
         <dl className="mt-2.5 grid grid-cols-3 gap-2 text-[12px]">
-          <InfoRow label={t("conn.requests")} value={fmt(usage?.requests)} />
+          <InfoRow label={t("conn.requests")} value={fmt(today?.requests)} />
           <InfoRow
             label={t("conn.inputTokens")}
-            value={fmt(usage?.input_tokens)}
+            value={fmt(today?.input_tokens)}
           />
           <InfoRow
             label={t("conn.outputTokens")}
-            value={fmt(usage?.output_tokens)}
+            value={fmt(today?.output_tokens)}
           />
         </dl>
+        {(usage?.week || usage?.month) && (
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-line pt-2 text-[12px]">
+            <InfoRow
+              label={t("conn.weekTokens")}
+              value={`${fmt(usage?.week?.input_tokens ?? 0)} / ${fmt(usage?.week?.output_tokens ?? 0)}`}
+            />
+            <InfoRow
+              label={t("conn.weekRequests")}
+              value={fmt(usage?.week?.requests)}
+            />
+            <InfoRow
+              label={t("conn.monthTokens")}
+              value={`${fmt(usage?.month?.input_tokens ?? 0)} / ${fmt(usage?.month?.output_tokens ?? 0)}`}
+            />
+            <InfoRow
+              label={t("conn.monthRequests")}
+              value={fmt(usage?.month?.requests)}
+            />
+          </dl>
+        )}
         <details className="mt-3">
           <summary className="cursor-pointer text-[11px] font-bold text-ink-muted transition-colors duration-150 hover:text-ink">
             {t("conn.versionAdvanced")}

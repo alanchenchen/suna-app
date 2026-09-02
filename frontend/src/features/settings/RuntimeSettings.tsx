@@ -5,6 +5,7 @@ import type { Theme } from "../../lib/models";
 import type {
   MCPServerInfo,
   MemoryItem,
+  ModelsDiscoveryResult,
   RuntimeCatalog,
   RuntimeConfig,
   SkillInfo,
@@ -34,6 +35,10 @@ type SettingsProps = {
   initialTab?: TabId;
   /** 关闭动画进行中：外层容器播放 panel-out 退出动画。 */
   closing?: boolean;
+  /** 模型发现缓存（ModelsTab 用）。 */
+  modelDiscovery?: Record<string, ModelsDiscoveryResult>;
+  /** 触发 config.discoverModels（ModelsTab 用）。 */
+  discoverModels?: (provider: string) => Promise<void>;
 };
 
 export type SettingsTabProps = {
@@ -48,6 +53,10 @@ export type SettingsTabProps = {
   onThemeChange: (theme: Theme) => void;
   connected: boolean;
   onReconnect: () => void;
+  /** 模型发现缓存（ModelsTab 用）。 */
+  modelDiscovery?: Record<string, ModelsDiscoveryResult>;
+  /** 触发 config.discoverModels（ModelsTab 用）。 */
+  discoverModels?: (provider: string) => Promise<void>;
 };
 /** 设置中心 Tab 定义：名称面向用户（设计 §10 去术语化），双语。 */
 const TABS = [
@@ -77,6 +86,8 @@ export function RuntimeSettings({
   onReconnect,
   initialTab = "connection",
   closing = false,
+  modelDiscovery,
+  discoverModels,
 }: SettingsProps) {
   const t = useT();
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -110,6 +121,8 @@ export function RuntimeSettings({
     onThemeChange,
     connected,
     onReconnect,
+    modelDiscovery,
+    discoverModels,
   };
 
   return (

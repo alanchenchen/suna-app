@@ -3,6 +3,7 @@ import { useToast } from "../../components/ui/Toast";
 import { t } from "../../lib/i18n";
 import type {
   MCPServerInfo,
+  ModelsDiscoveryResult,
   RuntimeConfig,
   RuntimeNotification,
   SessionInfo,
@@ -12,7 +13,11 @@ import { useRuntimeBridge } from "./useRuntimeBridge";
 import { useDeltaQueue } from "./useDeltaQueue";
 import { createNotificationHandler } from "./runtimeEvents";
 import { createSessionActions } from "./sessionActions";
-import { blankActive, flowFromSnapshot } from "./sessionState";
+import {
+  blankActive,
+  flowFromSnapshot,
+  interactionsFromSnapshot,
+} from "./sessionState";
 import type { ActiveData } from "./sessionState";
 
 /**
@@ -27,6 +32,14 @@ export function useRuntimeSession() {
   const [error, setError] = useState<string>();
   const [usage, setUsage] = useState<UsagePeriod>();
   const [config, setConfig] = useState<RuntimeConfig>();
+  // config.discoverModels 异步结果缓存：按 provider 存模型 ID 列表，
+  // 供模型表单“发现模型”按钮展示候选。
+  const [modelDiscovery, setModelDiscovery] = useState<
+    Record<string, ModelsDiscoveryResult>
+  >({});
+  const onModelsDiscovered = useCallback((result: ModelsDiscoveryResult) => {
+    setModelDiscovery((value) => ({ ...value, [result.provider]: result }));
+  }, []);
   const [syncing, setSyncing] = useState(false);
   // handoffRole：当前会话中我是 host（创建/拥有）还是 guest（加入别人的）。
   // idle 会话无法从 Runtime 得知 owner，因此用前端记忆判断。
@@ -122,6 +135,7 @@ export function useRuntimeSession() {
       createNotificationHandler({
         setActive,
         setConfig,
+        onModelsDiscovered,
         queueDelta,
         flushDeltas,
         acceptsRun,
@@ -140,6 +154,7 @@ export function useRuntimeSession() {
       markSessionIdle,
       mergeMcp,
       mergeSession,
+      onModelsDiscovered,
       queueDelta,
     ],
   );
@@ -257,6 +272,9 @@ export function useRuntimeSession() {
           steering: (snapshot.current_run?.pending_steering ?? []).filter(
             (item) => item.state !== "removed" && item.state !== "rejected",
           ),
+          // attach 恢复进行中 run 的交互（ask/guard）与阶段：切回正在
+          // 等待用户的 session 时直接展示决策卡，而不是等下一次通知。
+          ...interactionsFromSnapshot(snapshot),
         });
         mergeSession(snapshot.session);
       });
@@ -338,6 +356,16 @@ export function useRuntimeSession() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  // 模型发现：调用 config.discoverModels（若 catalog 支持），结果异步
+  // 通过 config.models_result 通知回传（onModelsDiscovered 已合并缓存）。
+  const discoverModels = useCallback(
+    async (provider: string) => {
+      if (!cap("config.discoverModels")) return;
+      await rpc("config.discoverModels", { provider });
+    },
+    [cap, rpc],
+  );
 
   const actions = createSessionActions({
     rpc,
@@ -448,6 +476,9 @@ export function useRuntimeSession() {
     ...actions,
     // 设置面板需要 setConfig 更新默认模型后的本地状态。
     setConfig,
+    // 模型发现缓存与触发函数（ModelsTab 用）。
+    modelDiscovery,
+    discoverModels,
     // 0.4 MCP 状态快照与刷新。
     mcpServers,
     refreshMcp,
