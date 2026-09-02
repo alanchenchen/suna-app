@@ -27,6 +27,8 @@ type ComposerProps = {
   onRemoveSteering?: (id: string) => Promise<void>;
   /** 是否已配置模型：false 时输入框禁用并提示先配置。 */
   hasModels?: boolean;
+  /** 输入框输入 / 时打开命令面板（斜杠命令入口）。 */
+  onOpenCommands?: () => void;
 };
 
 export type ComposerHandle = {
@@ -49,6 +51,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       onSteer,
       onRemoveSteering,
       hasModels = true,
+      onOpenCommands,
     },
     ref,
   ) {
@@ -308,6 +311,20 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 element.style.height = `${Math.min(element.scrollHeight, 132)}px`;
               }}
               onKeyDown={(event) => {
+                // 斜杠命令：草稿为空时输入 / 打开命令面板（Discord/Slack 惯例）。
+                // isComposing：IME 组合输入中的 / 是选词，不触发。
+                if (
+                  event.key === "/" &&
+                  !event.nativeEvent.isComposing &&
+                  !draft.trim() &&
+                  !canSteer &&
+                  !disabled &&
+                  onOpenCommands
+                ) {
+                  event.preventDefault();
+                  onOpenCommands();
+                  return;
+                }
                 // isComposing：中文输入法组合输入中的回车用于选词，不能发送。
                 // Cmd/Ctrl+Enter 强制发送（组合键下忽略 Shift，防止 IME 占用场景）；
                 // 普通 Enter 非 Shift 发送，Shift+Enter 换行。

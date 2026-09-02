@@ -45,6 +45,10 @@ export type ActiveData = {
    * run_start 置位的空档期，驱动活动卡显示“等待模型”。
    */
   awaitingRun?: boolean;
+  /** attach 恢复时展示的进行中 run 阶段（model/tool/compact/guard/ask）。 */
+  restoredPhase?: string;
+  /** attach 恢复时 run 在等待交互但尚无详情（真实通知到达前显示占位）。 */
+  waitingForInteraction?: boolean;
 };
 
 export const blankActive = (): ActiveData => ({
@@ -56,6 +60,8 @@ export const blankActive = (): ActiveData => ({
 /**
  * 从权威快照的进行中 buffer 恢复叙事流：reasoning 在前、assistant 在后，
  * 均为未结束段（运行中 attach / 发送后 reattach 时使用）。
+ * 同时恢复进行中 run 的交互：waiting_type=ask/guard 时重建决策卡，
+ * 并记录 restoredPhase 供 UI 展示恢复后的运行阶段。
  */
 export function flowFromSnapshot(snapshot: SessionSnapshot): FlowSegment[] {
   const flow: FlowSegment[] = [];
@@ -76,6 +82,53 @@ export function flowFromSnapshot(snapshot: SessionSnapshot): FlowSegment[] {
     });
   }
   return flow;
+}
+
+/**
+ * 从权威快照恢复进行中 run 的交互（ask/guard）与阶段信息。
+ * attach 后 UI 据此直接展示等待中的决策卡，而不是等下一次通知。
+ * 注意：快照只有 waiting_type，没有交互 id——重建的卡片不能直接回复
+ * （agent.askReply/guardReply 需要真实 id），真实交互会通过
+ * agent.ask_user / agent.guard_confirm 通知到达并替换占位。
+ */
+export function interactionsFromSnapshot(snapshot: SessionSnapshot): {
+  ask?: AskUserEvent;
+  guard?: GuardConfirmEvent;
+  restoredPhase?: string;
+  /** 快照显示 run 在等待交互但尚无交互详情：UI 应显示“等待详情”占位。 */
+  waitingForInteraction?: boolean;
+} {
+  const run = snapshot.current_run;
+  if (!run) return {};
+  const restoredPhase = run.phase;
+  if (run.waiting_type === "ask") {
+    return {
+      ask: {
+        id: "",
+        question: "",
+        options: [],
+        can_reply: false,
+        allow_custom: true,
+      },
+      restoredPhase,
+      waitingForInteraction: true,
+    };
+  }
+  if (run.waiting_type === "guard") {
+    return {
+      guard: {
+        id: "",
+        tool: "",
+        params: {},
+        readonly: false,
+        reason: "",
+        can_reply: false,
+      },
+      restoredPhase,
+      waitingForInteraction: true,
+    };
+  }
+  return { restoredPhase };
 }
 
 export function messageId() {

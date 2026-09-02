@@ -104,6 +104,8 @@ function AppShell() {
     maxSteering,
     mcpServers,
     refreshMcp,
+    modelDiscovery,
+    discoverModels,
   } = session;
   const sessionActionsFrozen = syncing || !selectedId;
   const current = active.snapshot?.current_run;
@@ -299,6 +301,24 @@ function AppShell() {
           onCloseError={() => setError(undefined)}
           selected={selected}
         />
+        {/* 切换/恢复会话的过渡反馈：attach 串行队列执行期间显示。 */}
+        {syncing && selectedId && (
+          <div
+            aria-live="polite"
+            className="flex items-center gap-2 border-b border-blue/20 bg-blue-soft/40 px-3 py-1.5"
+            role="status"
+          >
+            <Icon
+              aria-hidden="true"
+              className="animate-spin text-blue-strong"
+              name="loader"
+              size={13}
+            />
+            <span className="text-[12px] font-bold text-blue-strong">
+              {t("chat.restoring")}
+            </span>
+          </div>
+        )}
         {visibleWaiting.length > 0 && (
           <div className="relative z-30 flex items-center gap-2 border-b border-amber/25 bg-amber-soft/70 px-3 py-2">
             <Icon className="shrink-0 text-amber" name="warning" size={14} />
@@ -345,9 +365,11 @@ function AppShell() {
               closing={settingsClosing}
               config={config}
               connected={connected}
+              discoverModels={discoverModels}
               hello={hello}
               initialTab={settingsInitialTab}
               mcpServers={mcpServers}
+              modelDiscovery={modelDiscovery}
               onClose={closeSettings}
               onConfig={setConfig}
               onReconnect={() => void initialize()}
@@ -380,9 +402,9 @@ function AppShell() {
           <>
             <ChatTimeline
               activeTool={active.activeTool}
-              ask={active.ask}
+              ask={active.ask?.id ? active.ask : undefined}
               controlsDisabled={syncing || (running && !canControl)}
-              guard={active.guard}
+              guard={active.guard?.id ? active.guard : undefined}
               loading={syncing}
               messages={messages}
               onAskReply={(id, answer) =>
@@ -395,16 +417,25 @@ function AppShell() {
                   rpc("agent.guardReply", { id, decision }),
                 ).then(() => undefined)
               }
+              waitingForInteraction={active.waitingForInteraction}
               onSuggestion={
                 // 只读模式（observer）下不引导输入：建议卡隐藏，避免填入后无法发送。
                 observer
                   ? undefined
                   : (text) => composerRef.current?.fillDraft(text)
               }
+              onResend={
+                // 只读/无模型时不提供重发；重发 = 重新发送同内容。
+                observer || !canControl
+                  ? undefined
+                  : (content) => void send([{ type: "text", text: content }])
+              }
               pending={
                 active.pendingUsers.length > 0 || Boolean(active.awaitingRun)
               }
-              phase={active.run?.phase ?? current?.phase}
+              phase={
+                active.run?.phase ?? current?.phase ?? active.restoredPhase
+              }
               flow={active.flow}
               running={running}
               sessionId={active.snapshot?.session.id}
@@ -421,6 +452,7 @@ function AppShell() {
               disabled={sessionActionsFrozen || observer}
               hasModels={Boolean(config && config.models.length > 0)}
               maxSteering={maxSteering}
+              onOpenCommands={() => setCommandOpen(true)}
               onRemoveSteering={removeSteering}
               onSubmit={send}
               onSteer={steer}
@@ -501,7 +533,7 @@ function AppShell() {
         }
         onUpdateModel={(model) => updateModel(model)}
         open={detailsOpen}
-        phase={active.run?.phase ?? current?.phase}
+        phase={active.run?.phase ?? current?.phase ?? active.restoredPhase}
         run={active.run}
         status={selected?.status}
         toolSummary={active.toolSummary}

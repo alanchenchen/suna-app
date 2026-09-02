@@ -56,6 +56,10 @@ type ChatTimelineProps = {
   loading?: boolean;
   /** 空状态建议卡点击：把示例 prompt 交给外层（填入输入框）。 */
   onSuggestion?: (text: string) => void;
+  /** 用户消息重发：把该消息内容重新发送（仅 user 消息显示）。 */
+  onResend?: (content: string) => void;
+  /** attach 恢复时 run 在等待交互但详情未达：显示“等待详情”占位。 */
+  waitingForInteraction?: boolean;
   /** 是否已配置模型：false 时空状态显示“去配置模型”引导。 */
   hasModels?: boolean;
   /** 打开设置（无模型引导按钮用，直达模型 tab）。 */
@@ -78,6 +82,8 @@ export function ChatTimeline({
   sessionId,
   loading = false,
   onSuggestion,
+  onResend,
+  waitingForInteraction = false,
   hasModels = true,
   onOpenSettings,
 }: ChatTimelineProps) {
@@ -314,6 +320,16 @@ export function ChatTimeline({
                 >
                   <Icon name="copy" size={12} />
                 </button>
+                {message.role === "user" && onResend && (
+                  <button
+                    aria-label={t("chat.resend")}
+                    className="grid h-6 w-6 animate-[slide-in-right_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
+                    onClick={() => onResend(message.content)}
+                    type="button"
+                  >
+                    <Icon name="refresh" size={12} />
+                  </button>
+                )}
                 <span
                   className={
                     message.role === "user"
@@ -351,6 +367,26 @@ export function ChatTimeline({
               </div>
             </article>
           ))}
+        {!loading && waitingForInteraction && (
+          <section
+            aria-atomic="true"
+            aria-live="polite"
+            className="mb-7 grid max-w-[520px] min-h-[52px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[32px_minmax(0,1fr)] items-center gap-2.5 rounded-[15px] border border-amber/30 bg-amber-soft/60 p-3 shadow-sm"
+            role="status"
+          >
+            <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-amber/15 text-amber">
+              <Icon name="warning" size={16} />
+            </span>
+            <span className="grid min-w-0 gap-0.5">
+              <strong className="text-[12px] font-extrabold text-ink">
+                {t("chat.waitingInteraction")}
+              </strong>
+              <small className="text-[10.5px] text-ink-muted">
+                {t("chat.waitingInteractionHint")}
+              </small>
+            </span>
+          </section>
+        )}
         {!loading && (
           <DecisionCard
             ask={ask}

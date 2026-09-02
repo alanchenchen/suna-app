@@ -107,6 +107,19 @@ export function SessionSidebar({
     [pinned, sessions],
   );
 
+  // 运行中/等待区：所有 running/compacting/waiting 会话独立置顶展示，
+  // 让用户一眼看到哪些任务还在跑（多 session 并行视角，设计 §5.2）。
+  const activeSessions = useMemo(
+    () =>
+      sorted.filter(
+        (session) =>
+          session.status === "running" ||
+          session.status === "waiting" ||
+          session.status === "compacting",
+      ),
+    [sorted],
+  );
+
   // 搜索：过滤标题 + 路径，搜索时平铺（临时取消分组）。
   const filtered = useMemo(() => {
     if (!query.trim()) return sorted;
@@ -120,9 +133,12 @@ export function SessionSidebar({
   }, [sorted, query]);
 
   // 分组：按 cwd 聚合，组内保持 waiting 优先 + 时间倒序。
+  // 运行中/等待中的会话已由 activeSessions 置顶展示，分组里排除避免重复。
   const groups = useMemo(() => {
+    const activeIds = new Set(activeSessions.map((session) => session.id));
     const map = new Map<string, SessionInfo[]>();
     for (const session of filtered) {
+      if (activeIds.has(session.id)) continue;
       const list = map.get(session.cwd) ?? [];
       list.push(session);
       map.set(session.cwd, list);
@@ -133,10 +149,11 @@ export function SessionSidebar({
       list,
       hasWaiting: list.some((session) => session.status === "waiting"),
     }));
-  }, [filtered]);
+  }, [activeSessions, filtered]);
   const searching = Boolean(query.trim());
-  const groupsWithWaiting = groups.filter((group) => group.hasWaiting);
-  const groupsRest = groups.filter((group) => !group.hasWaiting);
+  // activeSessions 已把 running/waiting/compacting 置顶展示，分组里只剩
+  // idle 会话，无需再按 waiting 优先排序（waiting 已被排除）。
+  const groupsRest = groups;
 
   return (
     <aside
@@ -195,6 +212,36 @@ export function SessionSidebar({
             {searching ? t("sidebar.noMatch") : t("sidebar.empty")}
           </p>
         )}
+        {/* 运行中任务区：非搜索时置顶展示所有 active 会话（多 session 并行视角）。 */}
+        {!searching && activeSessions.length > 0 && (
+          <div className="mb-2">
+            <div className="flex items-center gap-1.5 px-2 py-1.5">
+              <span className="h-[7px] w-[7px] rounded-full bg-blue shadow-[0_0_0_3px_var(--color-blue-soft)]" />
+              <span className="text-[10.5px] font-extrabold tracking-[0.085em] text-ink-muted uppercase">
+                {t("sidebar.activeTasks")}
+              </span>
+              <span className="ml-auto rounded-full bg-surface-subtle px-1.5 py-px text-[10px] text-ink-soft">
+                {activeSessions.length}
+              </span>
+            </div>
+            {activeSessions.map((session) => (
+              <SessionRow
+                disabled={disabled}
+                joining={session.id === pendingId}
+                key={session.id}
+                onDelete={handleDelete}
+                onDetach={onDetach}
+                onJoinActive={onJoinActive}
+                onRename={onRename}
+                onSelect={onSelect}
+                onTogglePin={() => togglePin(session.id)}
+                pinned={pinned.has(session.id)}
+                selected={session.id === selectedId}
+                session={session}
+              />
+            ))}
+          </div>
+        )}
         {/* 搜索时平铺：不分组，保持 waiting 优先顺序 */}
         {searching
           ? filtered.map((session) => (
@@ -213,7 +260,7 @@ export function SessionSidebar({
                 session={session}
               />
             ))
-          : [...groupsWithWaiting, ...groupsRest].map((group) => {
+          : groupsRest.map((group) => {
               const isCollapsed = collapsed.has(group.cwd);
               return (
                 <div className="mb-1" key={group.cwd}>

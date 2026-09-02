@@ -92,6 +92,7 @@ const DICT: Dict = {
   "sidebar.sessionLabel": { zh: "会话", en: "Sessions" },
   "sidebar.recent": { zh: "最近会话", en: "Recent sessions" },
   "sidebar.groupPending": { zh: "有待处理任务", en: "Has pending tasks" },
+  "sidebar.activeTasks": { zh: "进行中", en: "Active" },
   "sidebar.pin": { zh: "置顶会话", en: "Pin session" },
   "sidebar.unpin": { zh: "取消置顶", en: "Unpin session" },
   "sidebar.rename": { zh: "重命名会话", en: "Rename session" },
@@ -155,6 +156,15 @@ const DICT: Dict = {
   "settings.loading": { zh: "正在加载可用设置…", en: "Loading settings…" },
   // 工作台
   "chat.sendPlaceholder": { zh: "给 Suna 发送消息…", en: "Message Suna…" },
+  "chat.restoring": { zh: "正在恢复会话…", en: "Restoring session…" },
+  "chat.waitingInteraction": {
+    zh: "等待你的处理",
+    en: "Waiting for your input",
+  },
+  "chat.waitingInteractionHint": {
+    zh: "正在获取详情…",
+    en: "Fetching details…",
+  },
   "chat.send": { zh: "发送消息", en: "Send message" },
   "chat.timelineLabel": { zh: "会话消息", en: "Session messages" },
   "chat.processLabel": { zh: "执行过程", en: "Activity" },
@@ -205,6 +215,7 @@ const DICT: Dict = {
     en: "Have it fix files, run tests and report",
   },
   "chat.copyMessage": { zh: "复制消息", en: "Copy message" },
+  "chat.resend": { zh: "重发", en: "Resend" },
   "chat.copyCode": { zh: "复制代码", en: "Copy code" },
   "chat.copied": { zh: "已复制", en: "Copied" },
   "chat.copyResult": { zh: "复制工具结果", en: "Copy result" },
@@ -507,6 +518,11 @@ const DICT: Dict = {
   "conn.uptime": { zh: "运行时长", en: "Uptime" },
   "conn.reconnect": { zh: "重新连接", en: "Reconnect" },
   "conn.todayUsage": { zh: "今日用量", en: "Usage today" },
+  "conn.usage": { zh: "用量", en: "Usage" },
+  "conn.weekTokens": { zh: "本周 tokens（入/出）", en: "This week (in/out)" },
+  "conn.weekRequests": { zh: "本周请求", en: "Week requests" },
+  "conn.monthTokens": { zh: "本月 tokens（入/出）", en: "This month (in/out)" },
+  "conn.monthRequests": { zh: "本月请求", en: "Month requests" },
   "conn.requests": { zh: "请求", en: "Requests" },
   "conn.inputTokens": { zh: "输入 tokens", en: "Input tokens" },
   "conn.outputTokens": { zh: "输出 tokens", en: "Output tokens" },
@@ -593,6 +609,22 @@ const DICT: Dict = {
   "models.error.activate": {
     zh: "无法激活模型。",
     en: "Failed to activate model.",
+  },
+  "models.discover": {
+    zh: "发现模型",
+    en: "Discover models",
+  },
+  "models.discovering": {
+    zh: "拉取中…",
+    en: "Fetching…",
+  },
+  "models.discoverHint": {
+    zh: "从 Provider 拉取模型列表…",
+    en: "Fetching model list from provider…",
+  },
+  "models.error.discover": {
+    zh: "无法拉取模型列表。",
+    en: "Failed to fetch model list.",
   },
   "models.deleteConfirm": {
     zh: "删除模型 {name}？\n同时删除已保存的 API key。",
