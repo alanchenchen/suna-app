@@ -53,7 +53,7 @@ function SessionRow({
   return (
     <button
       aria-label={`${session.title || t("sidebar.untitled")}，${pending ? t("sidebar.opening") : t(statusLabels[session.status])}`}
-      className={`grid w-full cursor-pointer grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background,transform] duration-180 hover:bg-surface-subtle active:scale-[0.985] disabled:cursor-wait disabled:opacity-60 ${selected ? "bg-surface-solid shadow-sm" : ""}`}
+      className={`grid w-full cursor-pointer grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background,transform] duration-180 hover:bg-surface-subtle active:scale-[0.985] disabled:cursor-wait disabled:opacity-60 ${selected ? "bg-surface-solid" : ""}`}
       disabled={pending}
       onClick={onClick}
       type="button"
@@ -168,7 +168,7 @@ export function TaskOverview({
     <div className="mx-auto flex h-full w-full max-w-[560px] flex-col overflow-y-auto px-5 pt-7 pb-8">
       <header className="mb-6 animate-[message-in_420ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_8px_24px_rgba(91,103,241,0.32)]">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue text-white">
             <Icon name="sparkle" size={20} />
           </span>
           <div className="min-w-0 flex-1">
@@ -183,7 +183,7 @@ export function TaskOverview({
           </div>
           <button
             aria-label={t("overview.new")}
-            className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl bg-blue text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,background] duration-150 hover:bg-blue-strong active:scale-90"
+            className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl bg-blue text-white transition-[transform,background] duration-150 hover:bg-blue-strong active:scale-90"
             onClick={onCreate}
             type="button"
           >
@@ -205,7 +205,7 @@ export function TaskOverview({
       {connected && !hasModels && (
         <section className="mb-6 animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-2xl border border-blue/25 bg-blue-soft/40 p-4">
           <div className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue text-white shadow-[0_4px_10px_var(--color-blue-glow)]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue text-white">
               <Icon name="sparkle" size={16} />
             </span>
             <div className="min-w-0 flex-1">
@@ -216,7 +216,7 @@ export function TaskOverview({
                 {t("overview.onboarding.desc")}
               </p>
               <button
-                className="mt-2.5 cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-[0.98]"
+                className="mt-2.5 cursor-pointer rounded-lg bg-blue px-3.5 py-2 text-[12px] font-bold text-white transition-colors duration-150 hover:bg-blue-strong active:scale-[0.98]"
                 onClick={onOpenSettings}
                 type="button"
               >

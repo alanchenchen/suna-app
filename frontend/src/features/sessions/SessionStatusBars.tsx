@@ -30,7 +30,7 @@ export function SessionStatusBars({
       {observer && (
         <div
           aria-live="polite"
-          className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/25 bg-[linear-gradient(180deg,rgba(244,63,94,0.09),rgba(244,63,94,0.04))] px-7 py-2.5 text-[12.5px] text-ink backdrop-blur-md max-[720px]:px-3.5"
+          className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/25 bg-rose/5 px-7 py-2.5 text-[12.5px] text-ink max-[720px]:px-3.5"
         >
           <span className="flex min-w-0 items-center gap-2.5">
             <span className="relative grid h-[26px] w-[26px] shrink-0 place-items-center rounded-[9px] bg-rose/12 text-rose">
@@ -62,7 +62,7 @@ export function SessionStatusBars({
       )}
       {error && (
         <div
-          className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/25 bg-[linear-gradient(180deg,rgba(244,63,94,0.09),rgba(244,63,94,0.04))] px-7 py-2.5 text-[12.5px] text-ink backdrop-blur-md max-[720px]:px-3.5"
+          className="animate-[slide-down_260ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex items-center justify-between gap-3 border-b border-rose/25 bg-rose/5 px-7 py-2.5 text-[12.5px] text-ink max-[720px]:px-3.5"
           role="alert"
         >
           <span className="flex min-w-0 items-center gap-2.5">

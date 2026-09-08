@@ -44,10 +44,10 @@ export function SessionHeader({
   }, [stopArming]);
   return (
     <header className="relative flex min-h-[74px] items-center justify-between gap-4 border-b border-line bg-surface/75 px-7 py-3.5 backdrop-blur-xl max-[720px]:min-h-[65px] max-[720px]:gap-2.5 max-[720px]:px-3.5 max-[720px]:pt-[max(10px,env(safe-area-inset-top))] max-[720px]:pb-2.5">
-      {/* 顶部品牌渐变细条：与用户消息/发送按钮统一视觉语言。 */}
+      {/* 顶部主色细条：与用户消息/发送按钮统一视觉语言。 */}
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,#5b67f1,#6d5df0_55%,#7c54e8)] opacity-80"
+        className="absolute inset-x-0 top-0 h-[2px] bg-blue opacity-70"
       />
       <div className="flex min-w-0 items-center gap-2.5">
         <IconButton

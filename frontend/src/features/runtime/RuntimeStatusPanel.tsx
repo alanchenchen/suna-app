@@ -38,7 +38,7 @@ export function RuntimeStatusPanel({
           className="w-[min(100%,456px)] animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
         >
           <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-blue-soft">
-            <span className="h-3 w-3 animate-[breathe_1.8s_ease-in-out_infinite] rounded-full bg-blue shadow-[0_0_0_7px_var(--color-blue-glow)]" />
+            <span className="h-3 w-3 animate-[breathe_1.8s_ease-in-out_infinite] rounded-full bg-blue" />
           </span>
           <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
             Suna App
@@ -86,7 +86,7 @@ export function RuntimeStatusPanel({
           <code className="font-mono text-ink-soft">{state.code}</code>
         </div>
         <button
-          className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue text-[12px] font-extrabold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[background,transform] duration-150 hover:bg-blue-strong active:scale-[0.97]"
+          className="mt-6 inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue text-[12px] font-extrabold text-white transition-[background,transform] duration-150 hover:bg-blue-strong active:scale-[0.97]"
           onClick={onRetry}
           type="button"
         >

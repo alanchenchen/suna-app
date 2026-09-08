@@ -162,7 +162,7 @@ export function RuntimeInstallPanel({
           <div className="mt-5">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-raised">
               <div
-                className="h-full rounded-full bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] transition-[width] duration-300"
+                className="h-full rounded-full bg-blue transition-[width] duration-300"
                 style={{
                   width: progress !== undefined ? `${progress}%` : "100%",
                 }}
@@ -194,7 +194,7 @@ export function RuntimeInstallPanel({
           {status.phase === "error" ? (
             <>
               <button
-                className="inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97]"
+                className="inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue text-[12px] font-extrabold text-white transition-colors duration-150 hover:bg-blue-strong active:scale-[0.97]"
                 onClick={() => void startInstall()}
                 type="button"
               >
@@ -223,7 +223,7 @@ export function RuntimeInstallPanel({
             </button>
           ) : (
             <button
-              className="inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97]"
+              className="inline-flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue text-[12px] font-extrabold text-white transition-colors duration-150 hover:bg-blue-strong active:scale-[0.97]"
               onClick={() => void startInstall()}
               type="button"
             >

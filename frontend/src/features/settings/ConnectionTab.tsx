@@ -98,7 +98,7 @@ export function ConnectionTab({
           </span>
           {!connected && (
             <button
-              className="cursor-pointer rounded-lg bg-blue px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong"
+              className="cursor-pointer rounded-lg bg-blue px-3 py-1.5 text-[12px] font-bold text-white transition-colors duration-150 hover:bg-blue-strong"
               onClick={onReconnect}
               type="button"
             >

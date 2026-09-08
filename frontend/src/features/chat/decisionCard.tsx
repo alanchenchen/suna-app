@@ -33,7 +33,7 @@ export function AskInlineInput({
         value={answer}
       />
       <button
-        className="cursor-pointer rounded-lg bg-blue px-3 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45 max-[720px]:min-h-[44px] max-[720px]:px-4"
+        className="cursor-pointer rounded-lg bg-blue px-3 text-[12px] font-bold text-white transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45 max-[720px]:min-h-[44px] max-[720px]:px-4"
         disabled={disabled || !answer.trim()}
         onClick={() => {
           onSubmit(answer.trim());
@@ -80,7 +80,7 @@ export function DecisionCard({
     <section
       aria-atomic="true"
       aria-live="polite"
-      className="mb-7 max-w-[520px] animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[15px] border border-amber/30 bg-amber-soft/70 p-3.5 shadow-sm"
+      className="mb-7 max-w-[520px] animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[14px] border border-amber/30 bg-amber-soft/60 p-3.5"
       role="status"
     >
       <div className="flex items-center gap-2.5">
@@ -128,7 +128,7 @@ export function DecisionCard({
       {guard && (
         <div className="mt-2.5 flex gap-2">
           <button
-            className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45 max-[720px]:min-h-[44px]"
+            className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45 max-[720px]:min-h-[44px]"
             disabled={!guard.can_reply || controlsDisabled || busy}
             onClick={() =>
               void reply(() => onGuardReply?.(guard.id, "approve"))

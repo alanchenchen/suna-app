@@ -59,7 +59,7 @@ export function ConfirmDialog({
           className={`cursor-pointer rounded-lg px-3.5 py-2 text-[12px] font-bold text-white transition-[transform,box-shadow] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 ${
             danger
               ? "bg-rose shadow-[0_4px_10px_rgba(244,63,94,0.25)] hover:bg-rose/90"
-              : "bg-blue shadow-[0_4px_10px_var(--color-blue-glow)] hover:bg-blue-strong"
+              : "bg-blue hover:bg-blue-strong"
           }`}
           disabled={busy}
           onClick={onConfirm}

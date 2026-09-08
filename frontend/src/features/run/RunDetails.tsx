@@ -179,12 +179,12 @@ export function RunDetails(props: RunDetailsProps) {
         <div className="details-scroll">
           <section
             aria-live="polite"
-            className="relative overflow-hidden rounded-2xl border border-line bg-surface-subtle p-3.5"
+            className="relative overflow-hidden rounded-[14px] border border-line bg-surface-subtle p-3.5"
           >
-            {/* 顶部品牌色渐变细条：与用户消息/发送按钮统一视觉语言 */}
+            {/* 顶部主色细条：与用户消息/发送按钮统一视觉语言 */}
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 top-0 h-[2.5px] bg-[linear-gradient(90deg,#5b67f1,#6d5df0_55%,#7c54e8)]"
+              className="absolute inset-x-0 top-0 h-[2.5px] bg-blue opacity-70"
             />
             <div className="flex items-center gap-3">
               <span className="running-orb">
@@ -246,7 +246,7 @@ export function RunDetails(props: RunDetailsProps) {
             )}
           </section>
           {(ask || guard) && (
-            <section className="mt-4 rounded-2xl border border-amber/30 bg-amber-soft/50 p-3.5 animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
+            <section className="mt-4 rounded-[14px] border border-amber/30 bg-amber-soft/50 p-3.5 animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-amber/15 text-amber">
                   <Icon name="warning" size={17} />

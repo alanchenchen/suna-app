@@ -218,7 +218,7 @@ export function ChatTimeline({
           flow.length === 0 &&
           !showActivityCard && (
             <div className="flex min-h-[300px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
-              <span className="grid h-12 w-12 animate-[float-y_5s_ease-in-out_infinite] place-items-center rounded-2xl bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white shadow-[0_8px_24px_rgba(91,103,241,0.32)]">
+              <span className="grid h-12 w-12 animate-[float-y_5s_ease-in-out_infinite] place-items-center rounded-2xl bg-blue text-white">
                 <Icon name="sparkle" size={22} />
               </span>
               <h2 className="mt-4 mb-1.5 text-[17px] font-extrabold tracking-tight text-ink">
@@ -231,7 +231,7 @@ export function ChatTimeline({
               </p>
               {!hasModels && onOpenSettings && (
                 <button
-                  className="mt-6 inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-5 text-[12px] font-extrabold text-white shadow-[0_4px_12px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_7px_18px_var(--color-blue-glow)] active:scale-[0.97]"
+                  className="mt-6 inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue px-5 text-[12px] font-extrabold text-white transition-colors duration-150 hover:bg-blue-strong active:scale-[0.97]"
                   onClick={onOpenSettings}
                   type="button"
                 >
@@ -331,7 +331,7 @@ export function ChatTimeline({
                   className={
                     message.role === "user"
                       ? "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-[7px] font-bold text-blue-strong"
-                      : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white"
+                      : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-surface-subtle text-ink-soft"
                   }
                 >
                   {message.role === "user" ? (
@@ -351,13 +351,13 @@ export function ChatTimeline({
                   message.content.length > LONG_MESSAGE_THRESHOLD ? (
                     <LongMessage text={message.content} />
                   ) : (
-                    <div className="markdown-body rounded-[18px] border border-line bg-surface-solid px-4 py-3 shadow-[0_1px_3px_rgba(28,42,72,0.07),inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <div className="markdown-body rounded-[14px] border border-line bg-surface-solid px-4 py-3">
                       <LazyMarkdown>{message.content}</LazyMarkdown>
                     </div>
                   )
                 ) : (
-                  // 用户消息：右对齐 + 品牌渐变底（靛蓝→紫），一眼可辨说话人。
-                  <span className="inline-block max-w-[min(640px,100%)] rounded-[15px_15px_4px_15px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-4 py-3 text-[13px] leading-[1.7] text-white shadow-[0_4px_14px_rgba(91,103,241,0.28)]">
+                  // 用户消息：右对齐 + 主色底（ZCode：单主色，不用渐变）。
+                  <span className="inline-block max-w-[min(640px,100%)] rounded-[14px_14px_4px_14px] bg-blue px-4 py-3 text-[13px] leading-[1.7] text-white">
                     {message.content}
                   </span>
                 )}
@@ -368,7 +368,7 @@ export function ChatTimeline({
           <section
             aria-atomic="true"
             aria-live="polite"
-            className="mb-7 grid max-w-[520px] min-h-[52px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[32px_minmax(0,1fr)] items-center gap-2.5 rounded-[15px] border border-amber/30 bg-amber-soft/60 p-3 shadow-sm"
+            className="mb-7 grid max-w-[520px] min-h-[52px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[32px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border border-amber/30 bg-amber-soft/60 p-3"
             role="status"
           >
             <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-amber/15 text-amber">
@@ -397,7 +397,7 @@ export function ChatTimeline({
           <section
             aria-atomic="true"
             aria-live="polite"
-            className={`mb-7 grid max-w-[520px] min-h-[68px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[15px] border p-3 shadow-sm ${toneClass}`}
+            className={`mb-7 grid max-w-[520px] min-h-[68px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[14px] border p-3 ${toneClass}`}
             role="status"
           >
             <span className="agent-activity-icon grid h-[34px] w-[34px] place-items-center rounded-[11px] bg-surface-solid shadow-sm">
@@ -457,7 +457,7 @@ export function ChatTimeline({
                   key={segment.id}
                 >
                   <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
-                    <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] text-white">
+                    <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-surface-subtle text-ink-soft">
                       <Icon name="sparkle" size={14} />
                     </span>
                     <strong className="text-ink">Suna</strong>
@@ -469,7 +469,7 @@ export function ChatTimeline({
                     )}
                   </div>
                   <div
-                    className={`min-w-0 max-w-[650px] rounded-[18px] border border-line px-4 py-3 text-[13px] leading-[1.82] tracking-tight shadow-[0_1px_3px_rgba(28,42,72,0.07),inset_0_1px_0_rgba(255,255,255,0.06)] [overflow-wrap:anywhere] ${streaming ? "bg-surface-solid text-ink whitespace-pre-wrap" : "markdown-body bg-surface-solid text-ink"}`}
+                    className={`min-w-0 max-w-[650px] rounded-[14px] border border-line px-4 py-3 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] ${streaming ? "bg-surface-solid text-ink whitespace-pre-wrap" : "markdown-body bg-surface-solid text-ink"}`}
                   >
                     {/* 流式过程中用纯文本（不解析 Markdown）：避免每帧对
                         全文重新解析导致 O(n²)；完成后才一次性渲染。 */}
@@ -494,7 +494,7 @@ export function ChatTimeline({
           flow.filter((segment) => segment.kind === "tool").length === 0 &&
           toolSummary &&
           toolSummary.total > 0 && (
-            <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[15px] border border-line bg-surface-solid p-3.5 shadow-sm">
+            <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[14px] border border-line bg-surface-solid p-3.5">
               <div className="mb-1 flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[11px] font-extrabold text-ink">
                   <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-blue-strong">

@@ -17,108 +17,101 @@
     sans-serif;
   --font-mono: "DM Mono", ui-monospace, monospace;
 
-  /* 字号阶梯：正文 13.5px 起，标题逐级放大，统一节奏。 */
+  /* 字号阶梯：收敛为 11/13/15/18 四档（ZCode 极简：少档位、大留白）。 */
   --text-2xs: 0.6875rem; /* 11px：标签/时间戳 */
   --text-2xs--line-height: 1.4;
-  --text-xs: 0.75rem; /* 12px：次级正文 */
-  --text-xs--line-height: 1.5;
-  --text-sm: 0.8125rem; /* 13px：正文 */
-  --text-sm--line-height: 1.65;
-  --text-base: 0.9375rem; /* 15px：强调正文/面板标题 */
-  --text-base--line-height: 1.5;
-  --text-lg: 1.0625rem; /* 17px：区块标题 */
-  --text-lg--line-height: 1.4;
-  --text-xl: 1.375rem; /* 22px：页面标题 */
-  --text-xl--line-height: 1.3;
+  --text-xs: 0.8125rem; /* 13px：正文 */
+  --text-xs--line-height: 1.6;
+  --text-sm: 0.9375rem; /* 15px：强调正文/面板标题 */
+  --text-sm--line-height: 1.5;
+  --text-base: 1.125rem; /* 18px：页面标题 */
+  --text-base--line-height: 1.35;
 
-  /* 画布与表面：三级层次（canvas < surface < raised） */
-  --color-canvas: #f5f7fb;
+  /* 画布与表面：实色为主（ZCode：实色 + 细边框表达层级，少半透明堆叠） */
+  --color-canvas: #f7f8fa;
   --color-canvas-glow: rgba(197, 216, 255, 0.5);
-  --color-surface: rgba(255, 255, 255, 0.78);
+  --color-surface: #ffffff;
   --color-surface-solid: #ffffff;
-  --color-surface-subtle: #f8f9fc;
+  --color-surface-subtle: #f2f3f5;
   --color-surface-raised: #ffffff;
-  --color-surface-muted: #f8f9fc;
+  --color-surface-muted: #f2f3f5;
 
   /* 文字 */
-  --color-ink: #172033;
-  --color-ink-soft: #536176;
-  --color-ink-muted: #8b96a9;
+  --color-ink: #1a1d21;
+  --color-ink-soft: #5c6370;
+  --color-ink-muted: #9aa0aa;
 
-  /* 边框 */
-  --color-line: rgba(32, 48, 76, 0.09);
-  --color-line-strong: rgba(32, 48, 76, 0.14);
+  /* 边框：细而清晰 */
+  --color-line: rgba(28, 32, 38, 0.1);
+  --color-line-strong: rgba(28, 32, 38, 0.16);
 
-  /* 功能色：靛蓝品牌色（AI 工具主流色系，专业 + 现代） */
-  --color-blue: #5b67f1;
-  --color-blue-strong: #4852d8;
-  --color-blue-soft: #eef0ff;
-  --color-blue-glow: rgba(91, 103, 241, 0.24);
-  --color-blue-strong-2: #3f48c4;
-  --color-green: #47a87c;
-  --color-green-soft: #ebf8f1;
-  --color-amber: #d98d32;
-  --color-amber-soft: #fff5e8;
-  --color-rose: #d45c67;
-  --color-danger: #d45c67;
-  --color-danger-soft: color-mix(in srgb, #d45c67, transparent 90%);
-  --color-sync: #5b67f1;
-  --color-sync-soft: #eef0ff;
+  /* 功能色：单一靛蓝主色（ZCode：单主色，弱化装饰） */
+  --color-blue: #4f6ef7;
+  --color-blue-strong: #3d5ae0;
+  --color-blue-soft: #eef1fe;
+  --color-blue-glow: rgba(79, 110, 247, 0.18);
+  --color-blue-strong-2: #3d5ae0;
+  --color-green: #3d9a6d;
+  --color-green-soft: #e9f6ef;
+  --color-amber: #c98a2d;
+  --color-amber-soft: #fdf3e3;
+  --color-rose: #d6455d;
+  --color-danger: #d6455d;
+  --color-danger-soft: color-mix(in srgb, #d6455d, transparent 90%);
+  --color-sync: #4f6ef7;
+  --color-sync-soft: #eef1fe;
 
-  /* 圆角：统一 8/12/16/20/26 */
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
-  --radius-xl: 26px;
+  /* 圆角：收敛为 6/10/14/18 四档（ZCode：克制圆角） */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 18px;
 
-  /* 阴影：三级 + 光晕 */
-  --shadow-xs: 0 1px 2px rgba(31, 44, 73, 0.04);
-  --shadow-sm:
-    0 2px 6px rgba(31, 44, 73, 0.04), 0 1px 2px rgba(31, 44, 73, 0.03);
-  --shadow-md:
-    0 12px 32px rgba(31, 44, 73, 0.08), 0 2px 6px rgba(31, 44, 73, 0.04);
-  --shadow-lg:
-    0 24px 64px rgba(25, 38, 66, 0.15), 0 4px 14px rgba(25, 38, 66, 0.07);
+  /* 阴影：只留两档极淡（ZCode：弱化装饰） */
+  --shadow-xs: 0 1px 2px rgba(28, 32, 38, 0.05);
+  --shadow-sm: 0 1px 3px rgba(28, 32, 38, 0.06);
+  --shadow-md: 0 8px 24px rgba(28, 32, 38, 0.1);
+  --shadow-lg: 0 16px 40px rgba(28, 32, 38, 0.14);
 
   /* 动效 */
   --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* 统一焦点环 */
-  --ring-blue: 0 0 0 3px rgba(88, 121, 235, 0.28);
+  --ring-blue: 0 0 0 3px rgba(79, 110, 247, 0.22);
 }
 
 /* 深色主题：覆盖同名 token，工具类自动生效。 */
 [data-theme="dark"] {
-  --color-canvas: #10141e;
+  --color-canvas: #14161a;
   --color-canvas-glow: rgba(61, 87, 154, 0.18);
-  --color-surface: rgba(24, 30, 43, 0.79);
-  --color-surface-solid: #191f2d;
-  --color-surface-subtle: #141a26;
-  --color-surface-raised: #202838;
-  --color-surface-muted: #141a26;
-  --color-ink: #f2f5fa;
-  --color-ink-soft: #b4bfce;
-  --color-ink-muted: #78869b;
-  --color-line: rgba(206, 217, 241, 0.09);
-  --color-line-strong: rgba(206, 217, 241, 0.15);
-  --color-blue: #93a0ff;
-  --color-blue-strong: #b1bcff;
-  --color-blue-soft: rgba(104, 116, 240, 0.17);
-  --color-blue-glow: rgba(130, 146, 255, 0.22);
-  --color-blue-strong-2: #7c89f8;
-  --color-green: #72c79b;
-  --color-green-soft: rgba(65, 164, 118, 0.14);
-  --color-amber: #efb15a;
-  --color-amber-soft: rgba(214, 139, 39, 0.13);
-  --color-rose: #f1818a;
-  --color-danger: #f1818a;
-  --color-danger-soft: color-mix(in srgb, #f1818a, transparent 87%);
-  --color-sync: #93a0ff;
-  --color-sync-soft: rgba(104, 116, 240, 0.17);
-  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.11);
-  --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.16), 0 3px 8px rgba(0, 0, 0, 0.09);
-  --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.28), 0 5px 16px rgba(0, 0, 0, 0.15);
+  --color-surface: #1b1e23;
+  --color-surface-solid: #1b1e23;
+  --color-surface-subtle: #20242a;
+  --color-surface-raised: #23272e;
+  --color-surface-muted: #20242a;
+  --color-ink: #eef1f5;
+  --color-ink-soft: #a8b0bc;
+  --color-ink-muted: #6f7885;
+  --color-line: rgba(220, 228, 240, 0.1);
+  --color-line-strong: rgba(220, 228, 240, 0.16);
+  --color-blue: #7c93f8;
+  --color-blue-strong: #9aacff;
+  --color-blue-soft: rgba(79, 110, 247, 0.16);
+  --color-blue-glow: rgba(124, 147, 248, 0.2);
+  --color-blue-strong-2: #6d84f0;
+  --color-green: #5cb98a;
+  --color-green-soft: rgba(61, 154, 109, 0.14);
+  --color-amber: #e0a44f;
+  --color-amber-soft: rgba(201, 138, 45, 0.13);
+  --color-rose: #e56a80;
+  --color-danger: #e56a80;
+  --color-danger-soft: color-mix(in srgb, #e56a80, transparent 87%);
+  --color-sync: #7c93f8;
+  --color-sync-soft: rgba(79, 110, 247, 0.16);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.36);
 }
 
 /* 基础重置 */
@@ -588,10 +581,8 @@ button {
     flex-direction: column;
     min-width: 0;
     padding: 17px 12px 12px;
-    background: var(--color-surface);
+    background: var(--color-surface-solid);
     border-right: 1px solid var(--color-line);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
   }
   .session-list {
     flex: 1;
@@ -868,11 +859,7 @@ button {
   /* 输入区底部留白与安全区。 */
   .composer-area {
     padding: 0 26px 21px 28px;
-    background: linear-gradient(
-      to top,
-      var(--color-canvas) 69%,
-      color-mix(in srgb, var(--color-canvas), transparent 100%)
-    );
+    background: var(--color-canvas);
   }
   @media (max-width: 720px) {
     .composer-area {
