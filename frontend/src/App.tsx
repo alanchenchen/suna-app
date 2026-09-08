@@ -448,15 +448,18 @@ function AppShell() {
               }}
             />
             <Composer
+              activeModel={selected?.model_ref}
               canAttachImageUrl={Boolean(hello?.content_sources.image_url)}
               canSteer={canSteer}
               disabled={sessionActionsFrozen || observer}
               hasModels={Boolean(config && config.models.length > 0)}
               maxSteering={maxSteering}
+              models={config?.models ?? []}
               onOpenCommands={() => setCommandOpen(true)}
               onRemoveSteering={removeSteering}
               onSubmit={send}
               onSteer={steer}
+              onUpdateModel={updateModel}
               observer={observer}
               ref={composerRef}
               steering={steering}

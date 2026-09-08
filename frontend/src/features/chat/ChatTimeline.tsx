@@ -298,11 +298,11 @@ export function ChatTimeline({
         {!loading &&
           messages.slice(-historyWindow).map((message, index) => (
             <article
-              className={`group mb-8 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-7`}
+              className={`group mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-6`}
               key={`${messages.length - historyWindow + index}-${message.role}`}
             >
               <div
-                className={`mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                className={`mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted ${message.role === "user" ? "" : ""}`}
               >
                 <button
                   aria-label={t("chat.copyMessage")}
@@ -327,39 +327,26 @@ export function ChatTimeline({
                     <Icon name="refresh" size={12} />
                   </button>
                 )}
-                <span
-                  className={
-                    message.role === "user"
-                      ? "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-[7px] font-bold text-blue-strong"
-                      : "grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-surface-subtle text-ink-soft"
-                  }
+                <strong
+                  className={`text-[11px] font-extrabold ${message.role === "user" ? "text-ink" : "text-ink"}`}
                 >
-                  {message.role === "user" ? (
-                    <Icon name="user" size={12} />
-                  ) : (
-                    <Icon name="sparkle" size={14} />
-                  )}
-                </span>
-                <strong className="text-ink">
                   {message.role === "user" ? t("chat.user") : "Suna"}
                 </strong>
               </div>
               <div
-                className={`min-w-0 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76] ${message.role === "user" ? "flex justify-end" : "max-w-[650px] text-ink"}`}
+                className={`min-w-0 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76] ${message.role === "user" ? "text-ink" : "max-w-[650px] text-ink"}`}
               >
                 {message.role === "assistant" ? (
                   message.content.length > LONG_MESSAGE_THRESHOLD ? (
                     <LongMessage text={message.content} />
                   ) : (
-                    <div className="markdown-body rounded-[14px] border border-line bg-surface-solid px-4 py-3">
+                    <div className="markdown-body">
                       <LazyMarkdown>{message.content}</LazyMarkdown>
                     </div>
                   )
                 ) : (
-                  // 用户消息：右对齐 + 主色底（ZCode：单主色，不用渐变）。
-                  <span className="inline-block max-w-[min(640px,100%)] rounded-[14px_14px_4px_14px] bg-blue px-4 py-3 text-[13px] leading-[1.7] text-white">
-                    {message.content}
-                  </span>
+                  // 用户消息：平铺文本（ZCode 工作台语言，不用气泡）。
+                  <div className="text-ink">{message.content}</div>
                 )}
               </div>
             </article>
@@ -456,11 +443,10 @@ export function ChatTimeline({
                   className="arriving mb-6 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]"
                   key={segment.id}
                 >
-                  <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink-soft">
-                    <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-surface-subtle text-ink-soft">
-                      <Icon name="sparkle" size={14} />
-                    </span>
-                    <strong className="text-ink">Suna</strong>
+                  <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
+                    <strong className="text-[11px] font-extrabold text-ink">
+                      Suna
+                    </strong>
                     {streaming && (running || pending) && (
                       <StreamActivity
                         label={t("chat.replying")}
@@ -469,7 +455,7 @@ export function ChatTimeline({
                     )}
                   </div>
                   <div
-                    className={`min-w-0 max-w-[650px] rounded-[14px] border border-line px-4 py-3 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] ${streaming ? "bg-surface-solid text-ink whitespace-pre-wrap" : "markdown-body bg-surface-solid text-ink"}`}
+                    className={`min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] ${streaming ? "text-ink whitespace-pre-wrap" : "markdown-body text-ink"}`}
                   >
                     {/* 流式过程中用纯文本（不解析 Markdown）：避免每帧对
                         全文重新解析导致 O(n²)；完成后才一次性渲染。 */}

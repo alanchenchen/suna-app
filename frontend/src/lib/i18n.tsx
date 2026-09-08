@@ -156,6 +156,7 @@ const DICT: Dict = {
   "settings.loading": { zh: "正在加载可用设置…", en: "Loading settings…" },
   // 工作台
   "chat.sendPlaceholder": { zh: "给 Suna 发送消息…", en: "Message Suna…" },
+  "chat.modelPicker": { zh: "会话模型", en: "Session model" },
   "chat.restoring": { zh: "正在恢复会话…", en: "Restoring session…" },
   "chat.waitingInteraction": {
     zh: "等待你的处理",

@@ -6,8 +6,13 @@ import {
   useState,
 } from "react";
 import { Icon } from "../../components/Icon";
+import { Select } from "../../components/ui/Select";
 import { useT } from "../../lib/i18n";
-import type { MessagePart, SteeringMessage } from "../../lib/runtimeBridge";
+import type {
+  ConfigModel,
+  MessagePart,
+  SteeringMessage,
+} from "../../lib/runtimeBridge";
 
 type ComposerProps = {
   onSubmit: (parts: MessagePart[]) => Promise<void>;
@@ -29,6 +34,12 @@ type ComposerProps = {
   hasModels?: boolean;
   /** 输入框输入 / 时打开命令面板（斜杠命令入口）。 */
   onOpenCommands?: () => void;
+  /** 已配置模型列表（Codex 模式：输入框上方模型选择器）。 */
+  models?: ConfigModel[];
+  /** 当前会话模型 ref（provider/model）。 */
+  activeModel?: string;
+  /** 切换会话模型。 */
+  onUpdateModel?: (modelRef: string) => Promise<void>;
 };
 
 export type ComposerHandle = {
@@ -52,6 +63,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       onRemoveSteering,
       hasModels = true,
       onOpenCommands,
+      models = [],
+      activeModel,
+      onUpdateModel,
     },
     ref,
   ) {
@@ -173,6 +187,29 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
 
     return (
       <footer className="composer-area">
+        {/* 模型选择器（Codex 模式）：输入框上方一行小字，点击弹出选择。
+            无模型时不显示（空状态引导去设置）。 */}
+        {hasModels && models.length > 0 && (
+          <div className="mx-auto mb-1.5 flex w-[min(720px,100%)] items-center justify-between px-1">
+            <Select
+              ariaLabel={t("chat.modelPicker")}
+              disabled={disabled || !onUpdateModel}
+              onValueChange={(value) => void onUpdateModel?.(value)}
+              options={models.map((model) => ({
+                value: `${model.provider}/${model.model}`,
+                label: `${model.provider}/${model.model}`,
+              }))}
+              value={
+                activeModel &&
+                models.some(
+                  (model) => `${model.provider}/${model.model}` === activeModel,
+                )
+                  ? activeModel
+                  : `${models[0].provider}/${models[0].model}`
+              }
+            />
+          </div>
+        )}
         {(waiting || error) && (
           <div className="mx-auto mb-2 flex w-[min(720px,100%)] items-center justify-between">
             {waiting && (

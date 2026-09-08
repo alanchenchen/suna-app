@@ -149,7 +149,7 @@ export function ReasoningBlock({
         {running && !done && <StreamActivity label={t("chat.thinking")} />}
       </button>
       {expanded && (
-        <div className="markdown-body min-w-0 max-w-[650px] animate-[panel-pop_180ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[18px] border border-amber/20 bg-amber-soft/45 px-4 py-3 text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
+        <div className="markdown-body min-w-0 max-w-[650px] animate-[panel-pop_180ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[14px] border border-amber/20 bg-amber-soft/45 px-4 py-3 text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
           <LazyMarkdown>{text}</LazyMarkdown>
         </div>
       )}
