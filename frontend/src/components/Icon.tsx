@@ -13,6 +13,7 @@ import {
   Eye,
   Folder,
   Image,
+  LayoutGrid,
   Link,
   Loader2,
   MessageSquare,
@@ -51,6 +52,7 @@ export type IconName =
   | "eye"
   | "folder"
   | "image"
+  | "grid"
   | "link"
   | "loader"
   | "message"
@@ -86,6 +88,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   eye: Eye,
   folder: Folder,
   image: Image,
+  grid: LayoutGrid,
   link: Link,
   loader: Loader2,
   message: MessageSquare,

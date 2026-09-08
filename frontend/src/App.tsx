@@ -6,6 +6,7 @@ import { RunDetails } from "./features/run/RunDetails";
 import { CommandPalette } from "./features/commands/CommandPalette";
 import { useRuntimeSession } from "./features/runtime/useRuntimeSession";
 import { SessionSidebar } from "./features/sessions/SessionSidebar";
+import { MobileTabbar } from "./features/sessions/MobileTabbar";
 import { SessionHeader } from "./features/sessions/SessionHeader";
 import { SessionStatusBars } from "./features/sessions/SessionStatusBars";
 import { SessionDialogs } from "./features/sessions/SessionDialogs";
@@ -464,51 +465,13 @@ function AppShell() {
           </>
         )}
       </section>
-      {/* 移动端底部导航：总览 / 任务 / 设置（设计 §12.2）。
+      {/* 移动端底部导航：总览 / 任务 / 设置（设计 §12.4）。
           仅窄屏显示；桌面由侧栏 + Header 承担同等功能。 */}
-      <nav aria-label={t("common.mainNav")} className="mobile-tabbar">
-        <button
-          aria-current={mobileTab === "overview" ? "page" : undefined}
-          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
-          onClick={() => setMobileTab("overview")}
-          type="button"
-        >
-          <Icon
-            className={
-              mobileTab === "overview" ? "text-blue-strong" : "text-ink-muted"
-            }
-            name="message"
-            size={17}
-          />
-          {t("nav.overview")}
-        </button>
-        <button
-          aria-current={mobileTab === "session" ? "page" : undefined}
-          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
-          onClick={() => setMobileTab("session")}
-          type="button"
-        >
-          <Icon
-            className={
-              mobileTab === "session" ? "text-blue-strong" : "text-ink-muted"
-            }
-            name="message"
-            size={17}
-          />
-          {t("nav.task")}
-        </button>
-        <button
-          className="flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors duration-150 disabled:opacity-40"
-          onClick={() => {
-            // 设置是 Dialog 而非 tab 内容：点击直接打开面板（移动端入口）。
-            setSettingsOpen(true);
-          }}
-          type="button"
-        >
-          <Icon className="text-ink-muted" name="settings" size={17} />
-          {t("nav.settings")}
-        </button>
-      </nav>
+      <MobileTabbar
+        mobileTab={mobileTab}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onTabChange={setMobileTab}
+      />
       <RunDetails
         ask={active.ask}
         canConfigure={canConfig}

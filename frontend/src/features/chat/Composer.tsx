@@ -358,7 +358,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 <button
                   aria-expanded={showImageInput}
                   aria-label={t("chat.imageUrl")}
-                  className={`grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] transition-colors duration-150 ${showImageInput ? "bg-blue-soft text-blue-strong" : "text-ink-muted hover:bg-surface-subtle hover:text-ink"}`}
+                  className={`grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] transition-colors duration-150 max-[720px]:h-[42px] max-[720px]:w-[42px] ${showImageInput ? "bg-blue-soft text-blue-strong" : "text-ink-muted hover:bg-surface-subtle hover:text-ink"}`}
                   disabled={disabled || sending}
                   onClick={() => setShowImageInput((value) => !value)}
                   type="button"
