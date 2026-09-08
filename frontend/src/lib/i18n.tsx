@@ -289,9 +289,6 @@ const DICT: Dict = {
   // 决策卡
   "guard.approve": { zh: "批准", en: "Approve" },
   "guard.reject": { zh: "拒绝", en: "Reject" },
-  "guard.modify": { zh: "按建议执行", en: "Apply suggestion" },
-  "guard.approveOriginal": { zh: "批准原操作", en: "Approve original" },
-  "guard.suggest": { zh: "建议改为：", en: "Suggested:" },
   "guard.title": { zh: "需要你的授权", en: "Approval needed" },
   "ask.title": { zh: "Suna 有一个问题", en: "Suna has a question" },
   "ask.replyToContinue": { zh: "请回复后继续", en: "Reply to continue" },
@@ -583,6 +580,8 @@ const DICT: Dict = {
     zh: "Subtask For（逗号分隔，可选）",
     en: "Subtask For (comma separated, optional)",
   },
+  "models.authMode": { zh: "认证方式", en: "Auth mode" },
+  "models.authModeDefault": { zh: "默认", en: "Default" },
   "models.cancel": { zh: "取消", en: "Cancel" },
   "models.save": { zh: "保存", en: "Save" },
   "models.inUse": { zh: "使用中", en: "In use" },

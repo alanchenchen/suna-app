@@ -663,27 +663,23 @@ describe("createNotificationHandler", () => {
     h.send({
       method: "agent.steering",
       params: {
-        message: {
-          id: "s2",
-          run_id: "run-1",
-          state: "queued",
-          sequence: 2,
-          can_control: true,
-          parts: [{ type: "text", text: "second" }],
-        },
+        id: "s2",
+        run_id: "run-1",
+        state: "queued",
+        sequence: 2,
+        can_control: true,
+        parts: [{ type: "text", text: "second" }],
       },
     });
     h.send({
       method: "agent.steering",
       params: {
-        message: {
-          id: "s1",
-          run_id: "run-1",
-          state: "queued",
-          sequence: 1,
-          can_control: true,
-          parts: [{ type: "text", text: "first" }],
-        },
+        id: "s1",
+        run_id: "run-1",
+        state: "queued",
+        sequence: 1,
+        can_control: true,
+        parts: [{ type: "text", text: "first" }],
       },
     });
     const steering = h.getActive().steering ?? [];
@@ -700,27 +696,23 @@ describe("createNotificationHandler", () => {
     h.send({
       method: "agent.steering",
       params: {
-        message: {
-          id: "s1",
-          run_id: "run-1",
-          state: "applied",
-          sequence: 1,
-          can_control: true,
-          parts: [{ type: "text", text: "first" }],
-        },
+        id: "s1",
+        run_id: "run-1",
+        state: "applied",
+        sequence: 1,
+        can_control: true,
+        parts: [{ type: "text", text: "first" }],
       },
     });
     h.send({
       method: "agent.steering",
       params: {
-        message: {
-          id: "s1",
-          run_id: "run-1",
-          state: "removed",
-          sequence: 1,
-          can_control: true,
-          parts: [{ type: "text", text: "first" }],
-        },
+        id: "s1",
+        run_id: "run-1",
+        state: "removed",
+        sequence: 1,
+        can_control: true,
+        parts: [{ type: "text", text: "first" }],
       },
     });
     expect(h.getActive().steering ?? []).toEqual([]);
@@ -736,14 +728,12 @@ describe("createNotificationHandler", () => {
     h.send({
       method: "agent.steering",
       params: {
-        message: {
-          id: "s1",
-          run_id: "run-other",
-          state: "queued",
-          sequence: 1,
-          can_control: true,
-          parts: [{ type: "text", text: "first" }],
-        },
+        id: "s1",
+        run_id: "run-other",
+        state: "queued",
+        sequence: 1,
+        can_control: true,
+        parts: [{ type: "text", text: "first" }],
       },
     });
     expect(h.getActive().steering ?? []).toEqual([]);

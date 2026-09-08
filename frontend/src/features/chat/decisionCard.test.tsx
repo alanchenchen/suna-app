@@ -63,7 +63,7 @@ describe("DecisionCard 交互状态机", () => {
     expect(onAskReply).toHaveBeenCalledTimes(2);
   });
 
-  it("guard 三按钮在提交中全部禁用", async () => {
+  it("guard 双按钮在提交中全部禁用", async () => {
     let resolveReply!: () => void;
     const onGuardReply = vi.fn(
       () =>
@@ -78,24 +78,20 @@ describe("DecisionCard 交互状态机", () => {
         params: { path: "a.txt" },
         readonly: false,
         reason: "Modify file",
-        suggestion: "safe/path",
         can_reply: true,
       },
       controlsDisabled: false,
       onGuardReply,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /apply suggestion/i }));
-    expect(onGuardReply).toHaveBeenCalledWith("guard-1", "modify");
-    expect(
-      isDisabled(screen.getByRole("button", { name: /apply suggestion/i })),
-    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /approve/i }));
+    expect(onGuardReply).toHaveBeenCalledWith("guard-1", "approve");
+    expect(isDisabled(screen.getByRole("button", { name: /approve/i }))).toBe(
+      true,
+    );
     expect(isDisabled(screen.getByRole("button", { name: /reject/i }))).toBe(
       true,
     );
-    expect(
-      isDisabled(screen.getByRole("button", { name: /approve original/i })),
-    ).toBe(true);
 
     resolveReply();
     await waitFor(() =>

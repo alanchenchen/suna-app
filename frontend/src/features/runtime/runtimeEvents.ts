@@ -489,7 +489,8 @@ export function createNotificationHandler({
     if (event.method === "agent.steering") {
       const scope = getScope();
       if (isSyncing() || !scope || scope.sessionId !== getSelectedId()) return;
-      const message = event.params.message;
+      // daemon 直接以 SteeringMessage 作为 params 下发（协议 §5.6）。
+      const message = event.params;
       if (message.run_id !== scope.runId) return;
       setActive((value) => {
         const current = value.steering ?? [];

@@ -33,7 +33,7 @@ export function AskInlineInput({
         value={answer}
       />
       <button
-        className="cursor-pointer rounded-lg bg-blue px-3 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
+        className="cursor-pointer rounded-lg bg-blue px-3 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45 max-[720px]:min-h-[44px] max-[720px]:px-4"
         disabled={disabled || !answer.trim()}
         onClick={() => {
           onSubmit(answer.trim());
@@ -48,8 +48,8 @@ export function AskInlineInput({
 }
 
 /** 内嵌决策卡：Guard 授权 / AskUser 问答，出现在产生它的上下文旁边。
- * guard 带 suggestion 时展示三按钮（按建议执行/拒绝/批准原操作），
- * 对齐 suna Guard 的 modify 决策语义（设计 §7.4）。 */
+ * Guard 决策只有 approve / reject 两个值（协议 §7 agent.guardReply），
+ * 与 suna Guard 的二元决策语义一致（设计 §7.4）。 */
 export function DecisionCard({
   ask,
   guard,
@@ -61,10 +61,7 @@ export function DecisionCard({
   guard?: GuardConfirmEvent;
   controlsDisabled: boolean;
   onAskReply?: (id: string, answer: string) => Promise<void>;
-  onGuardReply?: (
-    id: string,
-    decision: "approve" | "reject" | "modify",
-  ) => Promise<void>;
+  onGuardReply?: (id: string, decision: "approve" | "reject") => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const t = useT();
@@ -102,12 +99,6 @@ export function DecisionCard({
       <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
         {guard ? guard.reason : ask?.question}
       </p>
-      {guard?.suggestion && (
-        <p className="mt-1.5 rounded-lg border border-amber/25 bg-amber/10 px-2.5 py-2 text-[12px] leading-relaxed text-ink-soft">
-          <span className="font-extrabold text-ink">{t("guard.suggest")}</span>
-          <code className="font-mono">{guard.suggestion}</code>
-        </p>
-      )}
       {(ask && !ask.can_reply) || (guard && !guard.can_reply) ? (
         <small className="mt-1.5 block text-[11px] font-semibold text-ink-muted">
           {t("decision.otherClient")}
@@ -136,50 +127,24 @@ export function DecisionCard({
       )}
       {guard && (
         <div className="mt-2.5 flex gap-2">
-          {guard.suggestion ? (
-            // 有修改建议：三按钮（按建议执行 = modify / 拒绝 / 批准原操作）
-            <button
-              className="flex-1 cursor-pointer rounded-lg bg-[linear-gradient(135deg,#5b67f1,#6d5df0_68%,#7c54e8)] px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-[transform,box-shadow] duration-150 hover:shadow-[0_6px_16px_var(--color-blue-glow)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!guard.can_reply || controlsDisabled || busy}
-              onClick={() =>
-                void reply(() => onGuardReply?.(guard.id, "modify"))
-              }
-              type="button"
-            >
-              {t("guard.modify")}
-            </button>
-          ) : (
-            <button
-              className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!guard.can_reply || controlsDisabled || busy}
-              onClick={() =>
-                void reply(() => onGuardReply?.(guard.id, "approve"))
-              }
-              type="button"
-            >
-              {t("guard.approve")}
-            </button>
-          )}
           <button
-            className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
+            className="flex-1 cursor-pointer rounded-lg bg-blue px-3 py-2 text-[12px] font-bold text-white shadow-[0_4px_10px_var(--color-blue-glow)] transition-colors duration-150 hover:bg-blue-strong disabled:cursor-not-allowed disabled:opacity-45 max-[720px]:min-h-[44px]"
+            disabled={!guard.can_reply || controlsDisabled || busy}
+            onClick={() =>
+              void reply(() => onGuardReply?.(guard.id, "approve"))
+            }
+            type="button"
+          >
+            {t("guard.approve")}
+          </button>
+          <button
+            className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45 max-[720px]:min-h-[44px]"
             disabled={!guard.can_reply || controlsDisabled || busy}
             onClick={() => void reply(() => onGuardReply?.(guard.id, "reject"))}
             type="button"
           >
             {t("guard.reject")}
           </button>
-          {guard.suggestion && (
-            <button
-              className="flex-1 cursor-pointer rounded-lg border border-line bg-surface-solid px-3 py-2 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!guard.can_reply || controlsDisabled || busy}
-              onClick={() =>
-                void reply(() => onGuardReply?.(guard.id, "approve"))
-              }
-              type="button"
-            >
-              {t("guard.approveOriginal")}
-            </button>
-          )}
         </div>
       )}
     </section>

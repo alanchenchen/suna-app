@@ -98,6 +98,7 @@ export type RunError = {
   model_ref?: string;
 };
 export type AgentRunEvent = {
+  session_id?: string;
   run_id?: string;
   /** cancelling 是非终态：daemon 已接受取消，run 仍在收尾，can_control=false。 */
   state:
@@ -114,6 +115,7 @@ export type AgentRunEvent = {
 };
 export type SteeringState = "queued" | "applied" | "removed" | "rejected";
 export type SteeringMessage = {
+  session_id?: string;
   id: string;
   run_id: string;
   client_msg_id?: string;
@@ -123,6 +125,7 @@ export type SteeringMessage = {
   parts: MessagePart[];
 };
 export type AgentUsageEvent = {
+  session_id?: string;
   run_id?: string;
   input_tokens: number;
   output_tokens: number;
@@ -135,12 +138,14 @@ export type AgentUsageEvent = {
   tokens_per_sec?: number;
 };
 export type ToolStartEvent = {
+  session_id?: string;
   id: string;
   tool: string;
   params: JSONRecord;
   intent?: string;
 };
 export type ToolGuardEvent = {
+  session_id?: string;
   tool_call_id: string;
   tool: string;
   /** Guard 重构后：readonly 二元判定替代旧 risk 等级（Runtime 0.5+）。 */
@@ -152,6 +157,7 @@ export type ToolGuardEvent = {
   review_message?: string;
 };
 export type ToolEndEvent = {
+  session_id?: string;
   id: string;
   tool: string;
   result: string;
@@ -232,13 +238,13 @@ export type GuardConfirmEvent = {
   /** Guard 重构后：readonly 二元判定替代旧 risk 等级（Runtime 0.5+）。 */
   readonly: boolean;
   reason: string;
-  suggestion?: string;
   review_code?: string;
   review_message?: string;
   session_id?: string;
   can_reply: boolean;
 };
 export type CompactResultEvent = {
+  session_id?: string;
   /** 压缩进行中（running=true 时其余字段可省略）。 */
   before_tokens?: number;
   after_tokens?: number;
@@ -259,6 +265,8 @@ export type UsagePeriod = {
 export type ConfigModel = {
   provider: string;
   protocol: string;
+  /** 认证方式：default / bearer / both（由 catalog.features 控制 UI 可见性）。 */
+  auth_mode?: string;
   model: string;
   base_url?: string;
   context_window?: number;
@@ -267,6 +275,8 @@ export type ConfigModel = {
   subtask_for?: string[];
   reasoning?: JSONRecord;
   has_api_key?: boolean;
+  /** 脱敏后的 key 提示（如 sk-••••abcd），只用于展示，不得回写。 */
+  api_key_hint?: string;
 };
 export type RuntimeConfig = {
   models: ConfigModel[];
@@ -359,7 +369,7 @@ export type RuntimeBridgeMethods = {
   };
   "session.compact": {
     params: Record<string, never>;
-    result: { status: "ok" };
+    result: { status: "processing" };
   };
   "session.usage": {
     params: Record<string, never>;
@@ -383,14 +393,14 @@ export type RuntimeBridgeMethods = {
   };
   "agent.cancel": {
     params: Record<string, never>;
-    result: { status: "cancelled" };
+    result: { status: "cancelling" };
   };
   "agent.askReply": {
     params: { id: string; answer: string };
     result: { status: "ok" };
   };
   "agent.guardReply": {
-    params: { id: string; decision: "approve" | "reject" | "modify" };
+    params: { id: string; decision: "approve" | "reject" };
     result: { status: "ok" };
   };
   "config.get": { params: Record<string, never>; result: RuntimeConfig };
@@ -432,6 +442,8 @@ export type RuntimeBridgeMethods = {
       pid?: number;
       uptime?: string;
       connections?: number;
+      tcp_endpoint?: string;
+      triggers?: number;
       agent_status?: string;
       provider?: string;
       model?: string;
@@ -449,6 +461,7 @@ export type RuntimeBridgeResult<M extends RuntimeBridgeMethod> =
 
 export type RuntimeNotifications = {
   "agent.delta": {
+    session_id?: string;
     run_id?: string;
     kind: "assistant" | "reasoning";
     content: string;
@@ -460,9 +473,16 @@ export type RuntimeNotifications = {
   "agent.tool_end": ToolEndEvent;
   "agent.ask_user": AskUserEvent;
   "agent.guard_confirm": GuardConfirmEvent;
-  "agent.steering": { message: SteeringMessage };
+  /** daemon 直接以 SteeringMessage 作为 params 下发（非包裹对象）。 */
+  "agent.steering": SteeringMessage;
   "agent.interaction_resolved": { id: string; session_id?: string };
-  "session.user_message": { session_id?: string; parts?: MessagePart[] };
+  "session.user_message": {
+    session_id?: string;
+    run_id?: string;
+    message_id?: string;
+    client_msg_id?: string;
+    parts?: MessagePart[];
+  };
   "session.updated": { session: SessionInfo };
   "session.compact_result": CompactResultEvent;
   "config.state": RuntimeConfig;

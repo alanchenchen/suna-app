@@ -8,6 +8,7 @@ import type { SettingsTabProps } from "./RuntimeSettings";
 type ModelDraft = {
   provider: string;
   protocol: string;
+  auth_mode: string;
   model: string;
   base_url: string;
   context_window: string;
@@ -20,6 +21,7 @@ type ModelDraft = {
 const EMPTY_DRAFT: ModelDraft = {
   provider: "",
   protocol: "openai_chat",
+  auth_mode: "default",
   model: "",
   base_url: "",
   context_window: "",
@@ -45,6 +47,7 @@ function fromModel(model: ConfigModel): ModelDraft {
   return {
     provider: model.provider,
     protocol: model.protocol,
+    auth_mode: model.auth_mode ?? "default",
     model: model.model,
     base_url: model.base_url ?? "",
     context_window: model.context_window ? String(model.context_window) : "",
@@ -59,6 +62,7 @@ function fromModel(model: ConfigModel): ModelDraft {
 
 /** 模型 Tab：列表 + 新增/编辑（对齐 TUI 表单）+ 删除 + 激活（设计 §10.2）。 */
 export function ModelsTab({
+  cap,
   config,
   onConfig,
   rpc,
@@ -133,6 +137,10 @@ export function ModelsTab({
             .filter(Boolean)
         : undefined,
     };
+    // auth_mode 只在 feature 声明时发送（协议 §8：feature 缺失时隐藏对应 UI）。
+    if (draft.auth_mode !== "default") {
+      (payload as Record<string, unknown>).auth_mode = draft.auth_mode;
+    }
     try {
       const next = await rpc("config.set", {
         action: "upsert_model",
@@ -286,6 +294,30 @@ export function ModelsTab({
             type="password"
             value={draft.api_key}
           />
+          {/* auth_mode：由 catalog.features 控制可见性（协议 §8）。
+              bearer 需要 config.model.auth_mode.bearer，both 需要 both。 */}
+          {(cap("config.model.auth_mode.bearer") ||
+            cap("config.model.auth_mode.both")) && (
+            <label className="grid gap-1 text-[11px] font-bold text-ink-soft">
+              {t("models.authMode")}
+              <Select
+                ariaLabel={t("models.authMode")}
+                onValueChange={(value) =>
+                  setDraft({ ...draft, auth_mode: value })
+                }
+                options={[
+                  { value: "default", label: t("models.authModeDefault") },
+                  ...(cap("config.model.auth_mode.bearer")
+                    ? [{ value: "bearer", label: "Bearer" }]
+                    : []),
+                  ...(cap("config.model.auth_mode.both")
+                    ? [{ value: "both", label: "Both" }]
+                    : []),
+                ]}
+                value={draft.auth_mode}
+              />
+            </label>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             <Field
               label="Context Window"

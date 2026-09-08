@@ -263,14 +263,6 @@ export function RunDetails(props: RunDetailsProps) {
               <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
                 {guard ? guard.reason : ask?.question}
               </p>
-              {guard?.suggestion && (
-                <p className="mt-1.5 rounded-lg border border-amber/25 bg-amber/10 px-2.5 py-2 text-[12px] leading-relaxed text-ink-soft">
-                  <span className="font-extrabold text-ink">
-                    {t("guard.suggest")}
-                  </span>
-                  <code className="font-mono">{guard.suggestion}</code>
-                </p>
-              )}
               {/* 只读摘要：决策按钮在时间线内嵌决策卡上（设计 §7.4），
                   右栏不重复操作，避免同一决策两处可点分散注意力。 */}
               <small className="mt-2 block text-[11px] font-semibold text-ink-muted">
