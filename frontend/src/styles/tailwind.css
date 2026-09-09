@@ -29,7 +29,6 @@
 
   /* 画布与表面：实色为主（ZCode：实色 + 细边框表达层级，少半透明堆叠） */
   --color-canvas: #f7f8fa;
-  --color-canvas-glow: rgba(197, 216, 255, 0.5);
   --color-surface: #ffffff;
   --color-surface-solid: #ffffff;
   --color-surface-subtle: #f2f3f5;
@@ -49,7 +48,6 @@
   --color-blue: #4f6ef7;
   --color-blue-strong: #3d5ae0;
   --color-blue-soft: #eef1fe;
-  --color-blue-glow: rgba(79, 110, 247, 0.18);
   --color-blue-strong-2: #3d5ae0;
   --color-green: #3d9a6d;
   --color-green-soft: #e9f6ef;
@@ -84,7 +82,6 @@
 /* 深色主题：覆盖同名 token，工具类自动生效。 */
 [data-theme="dark"] {
   --color-canvas: #14161a;
-  --color-canvas-glow: rgba(61, 87, 154, 0.18);
   --color-surface: #1b1e23;
   --color-surface-solid: #1b1e23;
   --color-surface-subtle: #20242a;
@@ -98,7 +95,6 @@
   --color-blue: #7c93f8;
   --color-blue-strong: #9aacff;
   --color-blue-soft: rgba(79, 110, 247, 0.16);
-  --color-blue-glow: rgba(124, 147, 248, 0.2);
   --color-blue-strong-2: #6d84f0;
   --color-green: #5cb98a;
   --color-green-soft: rgba(61, 154, 109, 0.14);
@@ -132,13 +128,8 @@ body {
   min-width: 320px;
   margin: 0;
   color: var(--color-ink);
-  background:
-    radial-gradient(
-      circle at 70% 2%,
-      var(--color-canvas-glow),
-      transparent 29rem
-    ),
-    var(--color-canvas);
+  /* 纯净底色（ZCode 形态）：去掉径向辉光渐变，工作区就是干净的实色。 */
+  background: var(--color-canvas);
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -198,14 +189,6 @@ button {
   50% {
     opacity: 0.48;
     transform: scale(0.78);
-  }
-}
-@keyframes pulse-ring {
-  70% {
-    box-shadow: 0 0 0 7px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
   }
 }
 @keyframes message-in {
@@ -494,34 +477,22 @@ button {
  * 底部 Sheet、长滚动容器）。简单样式一律写在组件 JSX 的 Tailwind 原子类中。
  */
 @layer components {
-  /* 三栏工作台：桌面 260/1fr/328，关闭右栏时第三列收起。 */
+  /* 三栏工作台：桌面 260/1fr，右栏是按需 overlay（打开时覆盖工作区，
+     不挤压内容——ZCode/Codex 形态：详情是抽屉不是常驻栏）。 */
   .app-shell {
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr) 328px;
+    grid-template-columns: 260px minmax(0, 1fr);
     height: 100dvh;
     overflow: hidden;
     isolation: isolate;
   }
-  .app-shell.details-closed {
-    grid-template-columns: 260px minmax(0, 1fr) 0;
-  }
   @media (max-width: 1180px) {
     .app-shell {
-      grid-template-columns: 230px minmax(0, 1fr) 302px;
-    }
-    .app-shell.details-closed {
-      grid-template-columns: 230px minmax(0, 1fr) 0;
-    }
-  }
-  @media (max-width: 980px) {
-    .app-shell,
-    .app-shell.details-closed {
       grid-template-columns: 230px minmax(0, 1fr);
     }
   }
   @media (max-width: 720px) {
-    .app-shell,
-    .app-shell.details-closed {
+    .app-shell {
       display: flex;
       flex-direction: column;
       height: 100dvh;
@@ -534,10 +505,12 @@ button {
     }
   }
 
-  /* 中间工作区：顶部栏 / 状态条（observer、error）/ 滚动时间线 / 输入区。 */
+  /* 中间工作区：顶部栏 / 状态条（observer、error）/ 滚动时间线 / 输入区。
+     也是详情抽屉（absolute overlay）的定位基准。 */
   .workspace {
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
+    position: relative;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
@@ -615,27 +588,29 @@ button {
     }
   }
 
-  /* 右侧任务详情：桌面宽度过渡，移动端底部 Sheet。 */
+  /* 右侧任务详情：所有尺寸都是按需 overlay 抽屉（打开时覆盖工作区，
+     不挤压内容），桌面右侧滑入，移动端底部 Sheet。 */
   .details-panel {
     display: flex;
     flex-direction: column;
+    position: absolute;
+    z-index: 25;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(340px, 92vw);
     min-height: 0;
     padding: 22px 20px 18px;
     overflow: hidden;
     overscroll-behavior: contain;
+    background: var(--color-surface-solid);
     border-left: 1px solid var(--color-line);
-    transition:
-      width 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      opacity 200ms ease,
-      padding 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: var(--shadow-md);
+    transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform: translateX(105%);
   }
-  .details-panel:not(.is-open) {
-    width: 0;
-    padding-right: 0;
-    padding-left: 0;
-    overflow: hidden;
-    opacity: 0;
-    border-left-color: transparent;
+  .details-panel.is-open {
+    transform: translateX(0);
   }
   .details-scroll {
     min-height: 0;
@@ -651,31 +626,6 @@ button {
   .details-panel::before {
     display: none;
   }
-  @media (max-width: 980px) {
-    .details-panel {
-      position: absolute;
-      z-index: 25;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: min(340px, 92vw);
-      padding: 22px 20px;
-      background: var(--color-surface-solid);
-      box-shadow: var(--shadow-lg);
-      /* 覆盖基础 transition：平板/移动端只用 transform 过渡（宽度固定），
-         必须显式声明 transform，否则 Sheet 瞬移无动画。 */
-      transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-    .details-panel.is-open {
-      transform: translateX(0);
-    }
-    .details-panel:not(.is-open) {
-      width: min(340px, 92vw);
-      padding: 22px 20px;
-      opacity: 1;
-      border-left-color: var(--color-line);
-    }
-  }
   @media (max-width: 720px) {
     .details-panel {
       position: fixed;
@@ -690,16 +640,11 @@ button {
       padding: 19px 18px max(19px, env(safe-area-inset-bottom));
       border: 1px solid var(--color-line);
       border-bottom: 0;
-      border-radius: 23px 23px 0 0;
+      border-radius: 16px 16px 0 0;
       transform: translateY(105%);
     }
     .details-panel.is-open {
       transform: translateY(0);
-    }
-    .details-panel:not(.is-open) {
-      width: 100%;
-      padding: 19px 18px max(19px, env(safe-area-inset-bottom));
-      border-color: var(--color-line);
     }
     /* 底部 Sheet 拖拽把手。 */
     .details-panel::before {
@@ -715,36 +660,33 @@ button {
     }
   }
 
-  /* 移动端遮罩：常驻 DOM，用 opacity/visibility 过渡实现淡入淡出
-     （条件渲染会导致瞬显瞬消）。去掉 backdrop-filter：遮罩是半透明
-     纯色，模糊只会增加移动端合成层开销。 */
-  .mobile-scrim,
-  .details-scrim {
+  /* 遮罩：常驻 DOM，用 opacity/visibility 过渡实现淡入淡出
+     （条件渲染会导致瞬显瞬消）。details-scrim 全尺寸生效（右栏是
+     overlay 抽屉，桌面也需要遮罩）；mobile-scrim 仅窄屏。 */
+  .mobile-scrim {
     display: none;
   }
-  @media (max-width: 980px) {
-    .details-scrim {
-      display: block;
-      position: fixed;
-      z-index: 24;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      padding: 0;
-      background: rgba(11, 16, 27, 0.42);
-      border: 0;
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-      transition:
-        opacity 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
-        visibility 260ms;
-    }
-    .details-scrim.is-visible {
-      opacity: 1;
-      visibility: visible;
-      pointer-events: auto;
-    }
+  .details-scrim {
+    display: block;
+    position: fixed;
+    z-index: 24;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: rgba(11, 16, 27, 0.24);
+    border: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 260ms;
+  }
+  .details-scrim.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
   }
   @media (max-width: 720px) {
     .mobile-scrim {
@@ -867,7 +809,7 @@ button {
     }
   }
 
-  /* 运行中细节点。 */
+  /* 运行中细节点：呼吸点（ZCode：状态用小点+文字，不用光晕）。 */
   .running-orb {
     position: relative;
     display: grid;
@@ -884,7 +826,6 @@ button {
     height: 7px;
     background: currentColor;
     border-radius: 50%;
-    box-shadow: 0 0 0 0 var(--color-blue-glow);
-    animation: pulse-ring 2s ease-out infinite;
+    animation: breathe 2s ease-in-out infinite;
   }
 }

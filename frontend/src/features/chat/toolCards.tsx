@@ -272,7 +272,7 @@ export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
   }[item.status];
   const toolCount = item.tools.length;
   return (
-    <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-line/80 bg-surface-solid/70 transition-colors duration-150 hover:border-line-strong">
+    <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-transparent transition-colors duration-150 hover:border-line hover:bg-surface-subtle/60">
       <button
         aria-expanded={expanded}
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-2 py-[5px] text-left"

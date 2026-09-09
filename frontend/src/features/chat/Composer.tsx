@@ -187,29 +187,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
 
     return (
       <footer className="composer-area">
-        {/* 模型选择器（Codex 模式）：输入框上方一行小字，点击弹出选择。
-            无模型时不显示（空状态引导去设置）。 */}
-        {hasModels && models.length > 0 && (
-          <div className="mx-auto mb-1.5 flex w-[min(720px,100%)] items-center justify-between px-1">
-            <Select
-              ariaLabel={t("chat.modelPicker")}
-              disabled={disabled || !onUpdateModel}
-              onValueChange={(value) => void onUpdateModel?.(value)}
-              options={models.map((model) => ({
-                value: `${model.provider}/${model.model}`,
-                label: `${model.provider}/${model.model}`,
-              }))}
-              value={
-                activeModel &&
-                models.some(
-                  (model) => `${model.provider}/${model.model}` === activeModel,
-                )
-                  ? activeModel
-                  : `${models[0].provider}/${models[0].model}`
-              }
-            />
-          </div>
-        )}
         {(waiting || error) && (
           <div className="mx-auto mb-2 flex w-[min(720px,100%)] items-center justify-between">
             {waiting && (
@@ -228,7 +205,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           </div>
         )}
         <div
-          className={`mx-auto w-[min(720px,100%)] rounded-[14px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow] duration-180 max-[720px]:rounded-xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-dashed border-rose/30 bg-surface-subtle/70 opacity-75" : "border-line focus-within:border-blue/40 focus-within:ring-2 focus-within:ring-blue/15"}`}
+          className={`mx-auto w-[min(720px,100%)] rounded-[14px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow] duration-180 max-[720px]:rounded-xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-line bg-surface-subtle/50 opacity-80" : "border-line focus-within:border-blue/40 focus-within:ring-2 focus-within:ring-blue/15"}`}
         >
           {observer && (
             <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10.5px] font-semibold text-rose/80">
@@ -303,7 +280,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
             <div className="mb-2 flex flex-col gap-1">
               {steering.map((item) => (
                 <div
-                  className="flex items-center gap-2 rounded-lg border border-dashed border-ink-muted/30 bg-surface-raised/60 px-2.5 py-1.5"
+                  className="flex items-center gap-2 rounded-lg bg-surface-raised/60 px-2.5 py-1.5"
                   key={item.id}
                 >
                   <Icon
@@ -391,6 +368,29 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
               value={draft}
             />
             <div className="flex shrink-0 items-center gap-1.5 pb-1.5">
+              {/* 模型选择器（Codex 形态）：输入卡片内底部的紧凑下拉，
+                  与附件/发送同属工具行。无模型时隐藏。 */}
+              {hasModels && models.length > 0 && (
+                <Select
+                  ariaLabel={t("chat.modelPicker")}
+                  disabled={disabled || !onUpdateModel}
+                  fitContent
+                  onValueChange={(value) => void onUpdateModel?.(value)}
+                  options={models.map((model) => ({
+                    value: `${model.provider}/${model.model}`,
+                    label: `${model.provider}/${model.model}`,
+                  }))}
+                  value={
+                    activeModel &&
+                    models.some(
+                      (model) =>
+                        `${model.provider}/${model.model}` === activeModel,
+                    )
+                      ? activeModel
+                      : `${models[0].provider}/${models[0].model}`
+                  }
+                />
+              )}
               {canAttachImageUrl && (
                 <button
                   aria-expanded={showImageInput}

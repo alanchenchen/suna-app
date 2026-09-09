@@ -188,7 +188,7 @@ export function ChatTimeline({
   const showActivityCard = Boolean((running || pending) && !hasStream);
   const streamActivity = activityCopy(t, phase, false, activeTool);
   const activity = activityCopy(t, phase, pending, activeTool);
-  const toneClass = toneClasses[activity.tone] ?? toneClasses.default;
+  const activityToneClass = toneClasses[activity.tone] ?? toneClasses.default;
 
   return (
     <div className="conversation-wrap" onScroll={onScroll} ref={scrollRef}>
@@ -355,19 +355,14 @@ export function ChatTimeline({
           <section
             aria-atomic="true"
             aria-live="polite"
-            className="mb-7 grid max-w-[520px] min-h-[52px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[32px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border border-amber/30 bg-amber-soft/60 p-3"
+            className="mb-6 flex max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] items-center gap-2 border-l-2 border-amber py-1 pl-2.5 text-[11px]"
             role="status"
           >
-            <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-amber/15 text-amber">
-              <Icon name="warning" size={16} />
+            <span className="shrink-0 font-extrabold text-amber">
+              {t("chat.waitingInteraction")}
             </span>
-            <span className="grid min-w-0 gap-0.5">
-              <strong className="text-[12px] font-extrabold text-ink">
-                {t("chat.waitingInteraction")}
-              </strong>
-              <small className="text-[10.5px] text-ink-muted">
-                {t("chat.waitingInteractionHint")}
-              </small>
+            <span className="min-w-0 truncate text-ink-muted">
+              {t("chat.waitingInteractionHint")}
             </span>
           </section>
         )}
@@ -384,22 +379,12 @@ export function ChatTimeline({
           <section
             aria-atomic="true"
             aria-live="polite"
-            className={`mb-7 grid max-w-[520px] min-h-[68px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[14px] border p-3 ${toneClass}`}
+            className={`mb-6 flex max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] items-center gap-2 border-l-2 py-1 pl-2.5 text-[11px] ${activityToneClass}`}
             role="status"
           >
-            <span className="agent-activity-icon grid h-[34px] w-[34px] place-items-center rounded-[11px] bg-surface-solid shadow-sm">
-              <Icon
-                name={activity.tone === "guard" ? "warning" : "sparkle"}
-                size={17}
-              />
-            </span>
-            <span className="grid min-w-0 gap-0.5">
-              <strong className="text-[11px] font-extrabold text-ink">
-                {activity.label}
-              </strong>
-              <small className="truncate text-[10px] leading-[1.4] text-ink-muted">
-                {activity.detail}
-              </small>
+            <span className="shrink-0 font-extrabold">{activity.label}</span>
+            <span className="min-w-0 flex-1 truncate text-ink-muted">
+              {activity.detail}
             </span>
             <ActivityDots />
           </section>
@@ -480,15 +465,12 @@ export function ChatTimeline({
           flow.filter((segment) => segment.kind === "tool").length === 0 &&
           toolSummary &&
           toolSummary.total > 0 && (
-            <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[14px] border border-line bg-surface-solid p-3.5">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-extrabold text-ink">
-                  <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-blue-soft text-blue-strong">
-                    <Icon name="tool" size={13} />
-                  </span>
+            <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
+              <div className="mb-0.5 flex items-center justify-between text-[11px]">
+                <span className="font-extrabold text-ink">
                   {t("toolSummary.title")}
                 </span>
-                <span className="text-[10px] font-bold text-ink-muted">
+                <span className="font-semibold text-ink-muted">
                   {t("toolSummary.total", {
                     total: toolSummary.total,
                     success: toolSummary.success,
@@ -505,12 +487,12 @@ export function ChatTimeline({
               </div>
               {toolSummary.recent?.slice(0, 4).map((tool, index) => (
                 <div
-                  className="flex items-center gap-2 border-t border-line/60 py-2 text-[11px] first:border-t-0"
+                  className="flex items-center gap-2 py-[5px] pl-2.5 text-[11px]"
                   key={`${tool.tool}-${index}`}
                 >
                   <span
                     aria-hidden="true"
-                    className={`h-[6px] w-[6px] shrink-0 rounded-full ${tool.status === "success" ? "bg-green" : tool.status === "failed" ? "bg-rose" : "bg-ink-muted"}`}
+                    className={`h-[5px] w-[5px] shrink-0 rounded-full ${tool.status === "success" ? "bg-green" : tool.status === "failed" ? "bg-rose" : "bg-ink-muted"}`}
                   />
                   <code className="shrink-0 font-mono text-[11px] font-semibold text-ink">
                     {tool.tool}
@@ -528,7 +510,7 @@ export function ChatTimeline({
       </section>
       {showJumpToLatest && (
         <button
-          className="animate-[slide-up_240ms_cubic-bezier(0.2,0.8,0.2,1)_both] sticky bottom-4 left-1/2 z-10 -mt-4 mb-4 flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-blue/25 bg-surface-solid/95 px-3 py-2 text-[11px] font-extrabold text-blue-strong shadow-md backdrop-blur-xl transition-[transform,background] duration-160 hover:bg-surface-solid hover:-translate-y-px"
+          className="animate-[slide-up_240ms_cubic-bezier(0.2,0.8,0.2,1)_both] sticky bottom-4 left-1/2 z-10 -mt-4 mb-4 flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface-solid px-3 py-2 text-[11px] font-extrabold text-ink shadow-sm transition-[transform,background] duration-160 hover:bg-surface-subtle hover:-translate-y-px"
           onClick={() => scrollToLatest()}
           type="button"
         >

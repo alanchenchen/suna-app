@@ -328,7 +328,7 @@ export function SessionSidebar({
           type="button"
         >
           <span
-            className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-green" : "bg-[#8a8f9d]"}`}
+            className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-green" : "bg-ink-muted"}`}
           />
           {connected ? t("sidebar.connected") : t("sidebar.disconnected")}
           {connected && runtimeVersion && (
@@ -337,14 +337,6 @@ export function SessionSidebar({
             </span>
           )}
         </button>
-        <div className="flex items-center gap-2.5 px-2 py-2">
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-surface-subtle text-[11px] font-extrabold text-ink-soft">
-            SU
-          </span>
-          <span className="text-[12px] font-semibold text-ink-soft">
-            {t("sidebar.workspace")}
-          </span>
-        </div>
       </div>
     </aside>
   );

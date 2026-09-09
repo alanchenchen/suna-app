@@ -105,7 +105,7 @@ export function RuntimeInstallPanel({
     <main className="grid min-h-dvh place-items-center p-6">
       <section
         aria-live="polite"
-        className="animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] w-[min(100%,456px)] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
+        className="animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] w-[min(100%,456px)] rounded-[18px] border border-line bg-surface p-10 text-center shadow-sm"
       >
         <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-blue-soft text-blue">
           <Icon name="download" size={22} />

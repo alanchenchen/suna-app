@@ -10,12 +10,15 @@ export function Select<T extends string>({
   options,
   disabled,
   ariaLabel,
+  /** 紧凑变体：宽度随内容（输入卡片工具行用），默认全宽（表单用）。 */
+  fitContent = false,
 }: {
   value: T;
   onValueChange: (value: T) => void;
   options: { value: string; label: string; disabled?: boolean }[];
   disabled?: boolean;
   ariaLabel?: string;
+  fitContent?: boolean;
 }) {
   return (
     <SelectPrimitive.Root
@@ -25,7 +28,7 @@ export function Select<T extends string>({
     >
       <SelectPrimitive.Trigger
         aria-label={ariaLabel}
-        className="inline-flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-line bg-surface-raised px-3 text-[13px] font-semibold text-ink transition-colors duration-150 hover:border-line-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/40 disabled:cursor-not-allowed disabled:opacity-45"
+        className={`inline-flex h-8 cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-line bg-surface-raised px-2.5 text-[12px] font-semibold text-ink-soft transition-colors duration-150 hover:border-line-strong hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/40 disabled:cursor-not-allowed disabled:opacity-45 ${fitContent ? "max-w-[240px]" : "h-9 w-full px-3 text-[13px] text-ink"}`}
       >
         <SelectPrimitive.Value />
         <SelectPrimitive.Icon>

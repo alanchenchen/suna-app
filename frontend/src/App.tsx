@@ -187,7 +187,7 @@ function AppShell() {
         ) : (
           <section
             aria-live="polite"
-            className="animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] w-[min(100%,456px)] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
+            className="animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] w-[min(100%,456px)] rounded-[18px] border border-line bg-surface p-10 text-center shadow-sm"
           >
             <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-amber-soft text-amber">
               <Icon name="warning" size={22} />
@@ -227,9 +227,7 @@ function AppShell() {
     );
 
   return (
-    <main
-      className={`animate-[message-in_420ms_cubic-bezier(0.2,0.8,0.2,1)_both] app-shell ${detailsOpen ? "" : "details-closed"}`}
-    >
+    <main className="animate-[message-in_420ms_cubic-bezier(0.2,0.8,0.2,1)_both] app-shell">
       <SessionSidebar
         connected={connected}
         onCreate={create}
@@ -467,6 +465,39 @@ function AppShell() {
             />
           </>
         )}
+        {/* 任务详情抽屉：workspace 内的 overlay（absolute 定位基准）。
+            打开时覆盖工作区，不挤压时间线（ZCode/Codex 形态）。 */}
+        <RunDetails
+          ask={active.ask}
+          canConfigure={canConfig}
+          compact={active.compact}
+          config={config}
+          controlsDisabled={syncing || (running && !canControl)}
+          guard={active.guard}
+          modelRef={selected?.model_ref}
+          onClose={() => setDetailsOpen(false)}
+          onCompact={() =>
+            queueSessionOperation(() => rpc("session.compact", {})).then(
+              () => undefined,
+            )
+          }
+          onResume={
+            active.run?.resume_available && canControl && !sessionActionsFrozen
+              ? () =>
+                  queueSessionOperation(() => rpc("agent.resumeRun", {})).then(
+                    () => undefined,
+                  )
+              : undefined
+          }
+          onUpdateModel={(model) => updateModel(model)}
+          open={detailsOpen}
+          phase={active.run?.phase ?? current?.phase ?? active.restoredPhase}
+          run={active.run}
+          status={selected?.status}
+          toolSummary={active.toolSummary}
+          totals={usage}
+          usage={active.usage}
+        />
       </section>
       {/* 移动端底部导航：总览 / 任务 / 设置（设计 §12.4）。
           仅窄屏显示；桌面由侧栏 + Header 承担同等功能。 */}
@@ -474,37 +505,6 @@ function AppShell() {
         mobileTab={mobileTab}
         onOpenSettings={() => setSettingsOpen(true)}
         onTabChange={setMobileTab}
-      />
-      <RunDetails
-        ask={active.ask}
-        canConfigure={canConfig}
-        compact={active.compact}
-        config={config}
-        controlsDisabled={syncing || (running && !canControl)}
-        guard={active.guard}
-        modelRef={selected?.model_ref}
-        onClose={() => setDetailsOpen(false)}
-        onCompact={() =>
-          queueSessionOperation(() => rpc("session.compact", {})).then(
-            () => undefined,
-          )
-        }
-        onResume={
-          active.run?.resume_available && canControl && !sessionActionsFrozen
-            ? () =>
-                queueSessionOperation(() => rpc("agent.resumeRun", {})).then(
-                  () => undefined,
-                )
-            : undefined
-        }
-        onUpdateModel={(model) => updateModel(model)}
-        open={detailsOpen}
-        phase={active.run?.phase ?? current?.phase ?? active.restoredPhase}
-        run={active.run}
-        status={selected?.status}
-        toolSummary={active.toolSummary}
-        totals={usage}
-        usage={active.usage}
       />
       <CommandPalette
         canCompact={Boolean(selected && !syncing)}

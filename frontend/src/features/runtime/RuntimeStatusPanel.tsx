@@ -35,7 +35,7 @@ export function RuntimeStatusPanel({
       <main aria-busy="true" className="grid min-h-dvh place-items-center p-6">
         <section
           aria-live="polite"
-          className="w-[min(100%,456px)] animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
+          className="w-[min(100%,456px)] animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[18px] border border-line bg-surface p-10 text-center shadow-sm"
         >
           <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-blue-soft">
             <span className="h-3 w-3 animate-[breathe_1.8s_ease-in-out_infinite] rounded-full bg-blue" />
@@ -61,7 +61,7 @@ export function RuntimeStatusPanel({
     <main className="grid min-h-dvh place-items-center p-6">
       <section
         aria-live="assertive"
-        className="w-[min(100%,456px)] animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[28px] border border-line bg-surface p-[42px] text-center shadow-lg backdrop-blur-2xl"
+        className="w-[min(100%,456px)] animate-[message-in_480ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-[18px] border border-line bg-surface p-10 text-center shadow-sm"
       >
         <span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-amber-soft text-amber">
           <Icon name="warning" size={22} />

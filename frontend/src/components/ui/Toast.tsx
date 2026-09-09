@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       >
         {toasts.map((item) => (
           <div
-            className="pointer-events-auto flex max-w-[min(420px,92vw)] animate-[slide-up_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] items-center gap-2.5 rounded-xl border border-line bg-surface-solid py-2.5 pr-2 pl-3.5 shadow-lg backdrop-blur-xl"
+            className="pointer-events-auto flex max-w-[min(420px,92vw)] animate-[slide-up_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] items-center gap-2.5 rounded-xl border border-line bg-surface-solid py-2.5 pr-2 pl-3.5 shadow-md"
             key={item.id}
             role={item.kind === "error" ? "alert" : "status"}
           >
