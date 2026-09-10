@@ -109,27 +109,30 @@ export function useAppShell() {
   );
 
   // 全局快捷键：Cmd/Ctrl+K 命令面板、Cmd/Ctrl+N 新建任务、Cmd/Ctrl+, 设置。
+  // 面板打开时其他快捷键不叠加触发（避免两个模态同时打开互相叠压）。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey;
-      if (mod && event.key.toLowerCase() === "k") {
+      if (!mod) return;
+      if (event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandOpen((value) => !value);
         return;
       }
-      if (mod && event.key.toLowerCase() === "n") {
+      if (commandOpen) return;
+      if (event.key.toLowerCase() === "n") {
         event.preventDefault();
         setCreateOpen(true);
         return;
       }
-      if (mod && event.key === ",") {
+      if (event.key === ",") {
         event.preventDefault();
         setSettingsOpen(true);
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [commandOpen]);
 
   return {
     showInstall,

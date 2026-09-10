@@ -540,14 +540,16 @@ export function ChatTimeline({
         <div ref={endRef} />
       </section>
       {showJumpToLatest && (
-        <button
-          className="animate-[slide-up_240ms_cubic-bezier(0.2,0.8,0.2,1)_both] sticky bottom-4 left-1/2 z-10 -mt-4 mb-4 flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface-solid px-3 py-2 text-[11px] font-extrabold text-ink shadow-sm transition-[transform,background] duration-160 hover:bg-surface-subtle hover:-translate-y-px"
-          onClick={() => scrollToLatest()}
-          type="button"
-        >
-          <Icon name="arrow-up" size={14} />
-          {t("chat.backToLatest")}
-        </button>
+        <div className="pointer-events-none sticky bottom-4 z-10 -mt-9 mb-4 flex justify-center">
+          <button
+            className="pointer-events-auto flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface-solid px-3 py-2 text-[11px] font-extrabold text-ink shadow-sm transition-[transform,background] duration-160 hover:bg-surface-subtle hover:-translate-y-px"
+            onClick={() => scrollToLatest()}
+            type="button"
+          >
+            <Icon name="arrow-down" size={14} />
+            {t("chat.backToLatest")}
+          </button>
+        </div>
       )}
     </div>
   );

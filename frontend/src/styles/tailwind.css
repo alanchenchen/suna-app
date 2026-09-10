@@ -589,18 +589,20 @@ button {
   }
 
   /* 右侧任务详情：所有尺寸都是按需 overlay 抽屉（打开时覆盖工作区，
-     不挤压内容），桌面右侧滑入，移动端底部 Sheet。 */
+     不挤压内容），桌面右侧滑入，移动端底部 Sheet。
+     桌面 top 从 header 下沿开始：header 的开关/主题/设置按钮保持
+     可点（非模态面板，ZCode 形态），也避免“开了找不到开关”。 */
   .details-panel {
     display: flex;
     flex-direction: column;
     position: absolute;
     z-index: 25;
-    top: 0;
+    top: 60px;
     right: 0;
     bottom: 0;
     width: min(340px, 92vw);
     min-height: 0;
-    padding: 22px 20px 18px;
+    padding: 18px 20px 18px;
     overflow: hidden;
     overscroll-behavior: contain;
     background: var(--color-surface-solid);
@@ -661,13 +663,13 @@ button {
   }
 
   /* 遮罩：常驻 DOM，用 opacity/visibility 过渡实现淡入淡出
-     （条件渲染会导致瞬显瞬消）。details-scrim 全尺寸生效（右栏是
-     overlay 抽屉，桌面也需要遮罩）；mobile-scrim 仅窄屏。 */
+     （条件渲染会导致瞬显瞬消）。详情抽屉桌面是非模态面板：不遮罩，
+     header 开关与 Esc 即可关闭；遮罩仅移动端底部 Sheet 使用。 */
   .mobile-scrim {
     display: none;
   }
   .details-scrim {
-    display: block;
+    display: none;
     position: fixed;
     z-index: 24;
     inset: 0;
@@ -689,6 +691,10 @@ button {
     pointer-events: auto;
   }
   @media (max-width: 720px) {
+    /* 移动端底部 Sheet 是模态：显示遮罩。 */
+    .details-scrim {
+      display: block;
+    }
     .mobile-scrim {
       display: block;
       position: fixed;

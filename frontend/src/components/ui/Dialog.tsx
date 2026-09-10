@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { useT } from "../../lib/i18n";
+import { useModalEscape } from "../../lib/useModalEscape";
 
 /**
  * 轻量 Dialog：自管 mounted/closing 状态，打开播放 panel-pop / scrim-in，
@@ -44,15 +45,8 @@ export function Dialog({
     return () => window.clearTimeout(timer);
   }, [open, mounted]);
 
-  // Esc 关闭。
-  useEffect(() => {
-    if (!mounted) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [mounted, onOpenChange]);
+  // Esc 关闭：走全局浮层栈，只有栈顶浮层响应（多浮层叠加时不串关）。
+  useModalEscape(mounted && !closing, () => onOpenChange(false));
 
   // 打开时锁定背景滚动 + 聚焦面板（简易焦点管理）。
   useEffect(() => {

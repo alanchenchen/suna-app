@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "../../components/Icon";
 import { useChangeLocale, useLocale, useT } from "../../lib/i18n";
+import { useModalEscape } from "../../lib/useModalEscape";
 import type { SessionInfo } from "../../lib/runtimeBridge";
 
 type CommandPaletteProps = {
@@ -53,6 +54,10 @@ export function CommandPalette({
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Esc 关闭：走全局浮层栈，只在自己是最顶层时响应
+  //（避免 Dialog/抽屉同时打开时一按 Esc 全关）。
+  useModalEscape(open, onClose);
+
   // 打开时聚焦 + 清空查询。
   useEffect(() => {
     if (open) {
@@ -61,16 +66,6 @@ export function CommandPalette({
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
-
-  // Esc 关闭。
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
 
   const commands = useMemo(() => {
     const raw = query.trim();

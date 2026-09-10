@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../lib/i18n";
+import { useModalEscape } from "../../lib/useModalEscape";
 import { ActivityDots } from "../chat/activity";
 import type {
   AgentRunEvent,
@@ -43,11 +44,13 @@ function tokenCount(value?: number) {
     : "—";
 }
 
-/** 数字变化时的轻微过渡：key 变化触发 slide-up + fade，避免闪跳。 */
+/** 数字变化时的轻微过渡：key 变化触发纯淡入。
+    不用位移/缩放：运行中用量高频更新时，位移动画会呈现
+    “数字狂跳”的错觉（抽屉动画怪异的主因之一）。 */
 function AnimatedNumber({ value }: { value: string }) {
   return (
     <span
-      className="inline-block animate-[slide-up_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+      className="inline-block animate-[view-fade-in_200ms_cubic-bezier(0.2,0.8,0.2,1)_both] tabular-nums"
       key={value}
     >
       {value}
@@ -90,17 +93,8 @@ export function RunDetails(props: RunDetailsProps) {
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose, open]);
+  // Esc 关闭：走全局浮层栈（移动端 Sheet 模态时才登记）。
+  useModalEscape(open, onClose);
 
   async function act(fn: () => Promise<void>) {
     setBusy(true);
