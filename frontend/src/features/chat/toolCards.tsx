@@ -264,9 +264,10 @@ export function SkillRow({ item }: { item: SkillFlowItem }) {
 export const ToolCard = ToolRow;
 export const SkillCard = SkillRow;
 
-/** 子任务组：折叠行显示任务目标 + 工具数 + 状态，展开后内嵌工具行。
+/** 子任务组：折叠行显示任务目标 + 模型 + 工具数 + 状态，展开后内嵌工具行。
  * 由 spawn 工具的 tool_start/end 创建与结算，组内工具来自
- * `spawn:<spawnID>:<toolID>` 命名空间（suna 协议透传）。 */
+ * `spawn:<spawnID>:<toolID>` 命名空间（suna 协议透传）。
+ * 展开区固定高度、内部滚动：长子任务不再撑爆主时间线。 */
 export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
@@ -289,6 +290,8 @@ export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
     failed: "bg-rose/15 text-rose",
   }[item.status];
   const toolCount = item.tools.length;
+  // 模型 ref 只取 model 名（provider 前缀省略），节省折叠行宽度。
+  const modelName = item.model?.split("/").pop();
   return (
     <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-transparent transition-colors duration-150 hover:border-line hover:bg-surface-subtle/60">
       <button
@@ -314,6 +317,14 @@ export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
         <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-ink">
           {item.task || t("chat.subtask")}
         </span>
+        {modelName && (
+          <span
+            className="hidden max-w-[130px] shrink-0 truncate rounded-full bg-surface-raised px-1.5 py-px font-mono text-[9.5px] font-semibold text-ink-muted sm:inline-block"
+            title={item.model}
+          >
+            {modelName}
+          </span>
+        )}
         <span className="shrink-0 text-[10px] font-semibold text-ink-muted">
           {toolCount > 0 ? t("chat.subtaskTools", { count: toolCount }) : ""}
         </span>
@@ -324,22 +335,39 @@ export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
         </span>
       </button>
       {expanded && (
-        <div className="mx-1 mb-1 grid gap-0.5 border-t border-line/60 pt-1">
-          {item.tools.map((tool) => (
-            <ToolRow item={tool} key={tool.id} />
-          ))}
-          {toolCount === 0 && (
-            <p className="px-2 py-1.5 text-[10.5px] text-ink-muted">
-              {item.status === "running"
-                ? t("chat.subtaskWaiting")
-                : t("chat.subtaskNoTools")}
-            </p>
-          )}
-          {item.result && (
-            <pre className="mx-1 mb-1 mt-1 max-h-[160px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
-              {item.result}
-            </pre>
-          )}
+        <div className="mx-1 mb-1 border-t border-line/60 pt-1">
+          {/* 固定高度 + 内部滚动：长工具列表/结果不撑爆主时间线。 */}
+          <div className="max-h-[300px] overflow-y-auto overscroll-contain">
+            <div className="grid gap-0.5">
+              {item.tools.map((tool) => (
+                <ToolRow item={tool} key={tool.id} />
+              ))}
+              {toolCount === 0 && (
+                <p className="px-2 py-1.5 text-[10.5px] text-ink-muted">
+                  {item.status === "running"
+                    ? t("chat.subtaskWaiting")
+                    : t("chat.subtaskNoTools")}
+                </p>
+              )}
+            </div>
+            {item.result && (
+              <pre className="mx-1 mb-1 mt-1 max-h-[160px] overflow-auto whitespace-pre-wrap rounded-lg bg-surface-raised p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-soft">
+                {item.result}
+              </pre>
+            )}
+            {item.grantedTools && item.grantedTools.length > 0 && (
+              <div className="mx-1 mb-1.5 flex flex-wrap gap-1">
+                {item.grantedTools.map((name) => (
+                  <span
+                    className="rounded-md bg-surface-raised px-1.5 py-px font-mono text-[9.5px] text-ink-muted"
+                    key={name}
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </article>

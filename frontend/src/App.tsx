@@ -135,13 +135,19 @@ function AppShell() {
       setShowInstall(true);
     }
   }, [bridgeError, setShowInstall]);
-  // 选中会话变化 → 同步 hash；无选中 → 回到根 hash。
+  // 选中会话变化 → 同步 hash + 记录最后浏览的会话（刷新后恢复用，
+  // 只是视图偏好，不是第二份会话数据）；无选中 → 回到根 hash。
   useEffect(() => {
     const target = selectedId
       ? `#/session/${encodeURIComponent(selectedId)}`
       : "#/";
     if (window.location.hash !== target) {
       window.history.replaceState(null, "", target);
+    }
+    try {
+      if (selectedId) localStorage.setItem("suna-app:lastSession", selectedId);
+    } catch {
+      // 存储失败静默忽略（隐私模式等）。
     }
   }, [selectedId]);
 

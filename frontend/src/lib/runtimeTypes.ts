@@ -216,6 +216,10 @@ export type SubtaskFlowItem = {
   id: string;
   /** 子任务目标（来自 spawn params.task / intent）。 */
   task?: string;
+  /** 子任务模型 ref（来自 spawn params.model，协议必传）。 */
+  model?: string;
+  /** 子任务被授予的工具名清单（来自 spawn params.tools）。 */
+  grantedTools?: string[];
   status: "running" | "success" | "failed";
   /** 组内工具执行记录（按到达顺序）。 */
   tools: ToolFlowItem[];

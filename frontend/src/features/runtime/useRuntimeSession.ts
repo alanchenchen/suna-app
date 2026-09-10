@@ -320,12 +320,24 @@ export function useRuntimeSession() {
       )
         return;
       // 重连后的 bridge 没有 attachment：只恢复权威 Runtime 快照，
-      // 绝不重放本地状态。
-      const target =
+      // 绝不重放本地状态。目标优先级：hash 深链（App 层已处理）→
+      // 上次浏览的会话（视图偏好，localStorage）→ 最近更新的会话。
+      let target: string | undefined;
+      if (
         selectedIdRef.current &&
         list.some((item) => item.id === selectedIdRef.current)
-          ? selectedIdRef.current
-          : list[0]?.id;
+      ) {
+        target = selectedIdRef.current;
+      } else {
+        try {
+          const lastViewed = localStorage.getItem("suna-app:lastSession");
+          if (lastViewed && list.some((item) => item.id === lastViewed))
+            target = lastViewed;
+        } catch {
+          // 存储不可用（隐私模式等）：回退到最近更新的会话。
+        }
+        target ??= list[0]?.id;
+      }
       if (target) await attach(target);
       else {
         setSelectedId(undefined);

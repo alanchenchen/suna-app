@@ -93,13 +93,14 @@ export function StreamActivity({
   label,
   detail,
 }: {
-  label: string;
+  /** label 可为空：只显示呼吸点（按钮文案已表达状态时不重复）。 */
+  label?: string;
   detail?: string;
 }) {
   return (
     <span className="ml-0.5 inline-flex min-w-0 items-center gap-1.5 text-[10px] font-bold text-blue-strong">
       <ActivityDots />
-      <span role="status">{label}</span>
+      {label ? <span role="status">{label}</span> : null}
       {detail && (
         <span className="max-w-[175px] truncate text-[10px] font-semibold text-ink-muted">
           · {detail}
@@ -145,7 +146,7 @@ export function ReasoningBlock({
               : t("chat.viewThinking")
             : t("chat.thinking")}
         </span>
-        {running && !done && <StreamActivity label={t("chat.thinking")} />}
+        {running && !done && <StreamActivity label="" />}
       </button>
       {expanded && (
         <div className="markdown-body min-w-0 max-w-[650px] animate-[panel-pop_180ms_cubic-bezier(0.2,0.8,0.2,1)_both] border-l-2 border-amber/50 py-1 pl-3 text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">

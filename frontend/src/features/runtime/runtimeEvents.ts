@@ -147,6 +147,11 @@ export function createNotificationHandler({
           hadToolCall: terminal ? false : value.hadToolCall,
           // 收到权威 run 事件（含终态）即结束“等待模型”窗口。
           awaitingRun: false,
+          // 终态对账：daemon 对 session.user_message 通知屏蔽发送者本人
+          // （协议 §5：owner 不回显），乐观 pendingUsers 等不到回执。
+          // run 终态即本轮对话已入权威快照，本地清空 pending——否则
+          // loading 永不消失、后续 re-attach 后与快照重复渲染。
+          pendingUsers: terminal ? [] : value.pendingUsers,
           snapshot: value.snapshot
             ? {
                 ...value.snapshot,
@@ -167,6 +172,23 @@ export function createNotificationHandler({
         // 这里直接以 run 事件为准同步置为 idle。
         if (terminal) {
           markSessionIdle(getSelectedId());
+          // 乐观消息并入权威快照：若终态通知早于状态保存落库（快照里
+          // 还没有这条 user turn），补一条占位，保证与 re-attach 后的
+          // 权威 messages 一致，不重不漏。
+          if (next.snapshot && value.pendingUsers.length > 0) {
+            const existing = new Set(
+              (next.snapshot.messages ?? []).map(
+                (message) => `${message.role}:${message.content}`,
+              ),
+            );
+            const merged = [...(next.snapshot.messages ?? [])];
+            for (const item of value.pendingUsers) {
+              if (!existing.has(`user:${item.content}`)) {
+                merged.push({ role: "user", content: item.content });
+              }
+            }
+            next.snapshot = { ...next.snapshot, messages: merged };
+          }
         }
         // 叙事流保留：思考/回复段全部标为已结束，工具卡与回复块作为
         // 本轮操作流继续显示在时间线中（不再清空、不再拍平成消息）。
@@ -236,6 +258,16 @@ export function createNotificationHandler({
             typeof event.params.params?.task === "string"
               ? event.params.params.task
               : event.params.intent;
+          // spawn params 里的权威元数据：模型 ref 与被授予的工具清单。
+          const model =
+            typeof event.params.params?.model === "string"
+              ? event.params.params.model
+              : undefined;
+          const grantedTools = Array.isArray(event.params.params?.tools)
+            ? event.params.params.tools.filter(
+                (name): name is string => typeof name === "string",
+              )
+            : undefined;
           return {
             ...base,
             activeTool: { ...event.params, status: "running" },
@@ -246,6 +278,8 @@ export function createNotificationHandler({
                 item: {
                   id,
                   task,
+                  model,
+                  grantedTools,
                   status: "running" as const,
                   tools: [],
                 },

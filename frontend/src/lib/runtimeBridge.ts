@@ -104,6 +104,30 @@ export class RuntimeBridgeClient {
     this.connection = undefined;
     await this.deleteConnection(id);
   }
+  /**
+   * 页面真实卸载时的同步清理：keepalive fetch 不受页面销毁影响，gateway
+   * 收到 DELETE 后立即关闭 Runtime 连接，daemon 随即 detach——否则刷新
+   * 后旧 bridge 要等 10s 空闲计时（run 进行中还会被阻塞），TUI 的
+   * client_count 虚高（“多一个窗口”）。卸载路径没有机会 await，
+   * 所以这里不等待网络结果，失败由 gateway 空闲超时兑底。
+   */
+  dispose(): void {
+    const id = this.connection?.id;
+    this.closed = true;
+    this.cancelReconnect();
+    this.activeSource?.close();
+    this.activeSource = undefined;
+    this.connection = undefined;
+    if (!id) return;
+    try {
+      void this.fetcher(`${this.baseUrl}${ROOT}/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        keepalive: true,
+      });
+    } catch {
+      /* 卸载路径尽力而为：失败由 gateway 空闲超时兑底。 */
+    }
+  }
   private async deleteConnection(id: string): Promise<void> {
     try {
       await this.request("DELETE", `${ROOT}/${encodeURIComponent(id)}`);

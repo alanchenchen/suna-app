@@ -171,7 +171,13 @@ export function useRuntimeBridge(
 
   useEffect(() => {
     mountedRef.current = true;
+    // pagehide 是页面真实卸载（刷新/关闭/跳转）的可靠信号：keepalive
+    // DELETE 立即回收 gateway bridge，daemon 的 client 计数即时正确。
+    // visibilitychange 不用——移动端切后台不卸载页面，连接应保留。
+    const onPageHide = () => clientRef.current?.dispose();
+    window.addEventListener("pagehide", onPageHide);
     return () => {
+      window.removeEventListener("pagehide", onPageHide);
       mountedRef.current = false;
       invalidateGeneration();
       connectAbortRef.current?.abort();

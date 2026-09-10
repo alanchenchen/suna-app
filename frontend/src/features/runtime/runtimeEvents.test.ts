@@ -398,6 +398,57 @@ describe("createNotificationHandler", () => {
     }
   });
 
+  it("reconciles pending users into the snapshot on terminal run", () => {
+    // daemon 对 session.user_message 屏蔽发送者（协议 §5 owner 不回显），
+    // 乐观 pending 等不到回执；终态时必须本地对账并入快照，
+    // 否则 loading 不消失、后续 re-attach 后重复渲染。
+    const { deps, send, getActive } = createHarness();
+    deps.setActive((value) => ({
+      ...value,
+      snapshot: { session: snapshotSession(), messages: [] },
+      pendingUsers: [
+        { id: "p1", content: "第一条" },
+        { id: "p2", content: "第二条" },
+      ],
+    }));
+    deps.setActive.mockClear();
+
+    send({
+      method: "agent.run",
+      params: {
+        state: "running",
+        can_control: true,
+        run_id: "r3",
+      } as never,
+    });
+    send({
+      method: "agent.run",
+      params: { state: "done", can_control: false, run_id: "r3" } as never,
+    });
+
+    const active = getActive();
+    expect(active.pendingUsers).toHaveLength(0);
+    expect(active.awaitingRun).toBe(false);
+    expect(active.snapshot?.messages).toEqual([
+      { role: "user", content: "第一条" },
+      { role: "user", content: "第二条" },
+    ]);
+  });
+
+  it("keeps pending users while the run is still active", () => {
+    const { send, getActive } = createHarness();
+    send({
+      method: "agent.run",
+      params: {
+        state: "running",
+        can_control: true,
+        run_id: "r4",
+      } as never,
+    });
+    // 非终态 run 事件不清 pending：对账只发生在终态。
+    expect(getActive().pendingUsers).toHaveLength(0);
+  });
+
   it("stores ask and guard with reply permission", () => {
     const { send, getActive } = createHarness();
     send({

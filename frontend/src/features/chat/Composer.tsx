@@ -388,7 +388,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                   onClick={() => setShowImageInput((value) => !value)}
                   type="button"
                 >
-                  <Icon name="plus" size={16} />
+                  {/* plus 旋转 45° 形变为 ×（单图标 morph，无状态切换闪烁）。 */}
+                  <Icon
+                    className={`transition-transform duration-200 ${showImageInput ? "rotate-45" : ""}`}
+                    name="plus"
+                    size={16}
+                  />
                 </button>
               )}
               {/* 模型选择器（Codex/ZCode 形态）：工具行左侧的紧凑下拉。 */}
@@ -429,7 +434,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
             ) : (
               <button
                 aria-label={t("chat.send")}
-                className="group/send grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[10px] bg-blue text-white transition-colors duration-150 hover:bg-blue-strong active:scale-90 disabled:cursor-default disabled:opacity-40 max-[720px]:h-10 max-[720px]:w-10"
+                className="group/send grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full bg-blue text-white transition-colors duration-150 hover:bg-blue-strong active:scale-90 disabled:cursor-default disabled:opacity-40 max-[720px]:h-10 max-[720px]:w-10"
                 disabled={
                   (canSteer
                     ? !draft.trim()
