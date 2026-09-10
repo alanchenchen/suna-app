@@ -247,6 +247,11 @@ func listenWithFallback(address string, allowFallback bool) (net.Listener, error
 		}
 	}
 	if isSunaAppRunning(probeURL) {
+		// 已有实例在跑：双击入口（SUNA_APP_OPEN_BROWSER=1）直接打开浏览器复用，
+		// 而非静默退出——GUI 下 stderr 不可见，用户会误以为启动失败。
+		if os.Getenv("SUNA_APP_OPEN_BROWSER") == "1" {
+			openBrowser(address)
+		}
 		fmt.Fprintf(os.Stderr, "suna-app: 检测到已有 Suna App 正在运行，请直接打开 http://%s\n", address)
 		os.Exit(0)
 	}
