@@ -16,7 +16,7 @@ import {
 } from "./activity";
 import { DecisionCard } from "./decisionCard";
 import { LONG_MESSAGE_THRESHOLD, LongMessage } from "./longMessage";
-import { SkillCard, SubtaskCard, ToolCard } from "./toolCards";
+import { SkillRow, SubtaskCard, ToolRow } from "./toolCards";
 import { LazyMarkdown } from "./LazyMarkdown";
 import { useT } from "../../lib/i18n";
 
@@ -189,6 +189,57 @@ export function ChatTimeline({
   const streamActivity = activityCopy(t, phase, false, activeTool);
   const activity = activityCopy(t, phase, pending, activeTool);
   const activityToneClass = toneClasses[activity.tone] ?? toneClasses.default;
+
+  /** 思考/回复段渲染（工具块之间的叙事内容，ZCode 平铺形态）。 */
+  const renderNarrative = (segment: FlowSegment) => {
+    if (segment.kind === "reasoning") {
+      return (
+        <div className="my-5" key={segment.id}>
+          <ReasoningBlock
+            done={segment.done}
+            running={running && !segment.done}
+            text={segment.text}
+          />
+        </div>
+      );
+    }
+    // 类型收窄：只剩 assistant 段。
+    if (segment.kind !== "assistant") return null;
+    const streaming = !segment.done;
+    return (
+      <article
+        className="arriving mb-6 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]"
+        key={segment.id}
+      >
+        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <strong className="text-[11px] font-extrabold text-ink">Suna</strong>
+          {streaming && (running || pending) && (
+            <StreamActivity
+              label={t("chat.replying")}
+              detail={streamActivity.detail}
+            />
+          )}
+        </div>
+        <div
+          className={`min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] ${streaming ? "text-ink whitespace-pre-wrap" : "markdown-body text-ink"}`}
+        >
+          {/* 流式过程中用纯文本（不解析 Markdown）：避免每帧对
+              全文重新解析导致 O(n²)；完成后才一次性渲染。 */}
+          {streaming ? (
+            <>
+              {segment.text}
+              <span
+                aria-hidden="true"
+                className="ml-[3px] inline-block h-[1em] w-[2px] animate-[stream-blink_1s_steps(1)_infinite] rounded-[1px] bg-blue align-[-0.15em]"
+              />
+            </>
+          ) : (
+            <LazyMarkdown>{segment.text}</LazyMarkdown>
+          )}
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div className="conversation-wrap" onScroll={onScroll} ref={scrollRef}>
@@ -390,75 +441,55 @@ export function ChatTimeline({
           </section>
         )}
         {!loading && flow.length > 0 && (
-          <div aria-label={t("chat.processLabel")} className="space-y-0.5">
-            {flow.map((segment) => {
-              if (segment.kind === "reasoning") {
-                return (
-                  <div className="mb-6" key={segment.id}>
-                    <ReasoningBlock
-                      done={segment.done}
-                      running={running && !segment.done}
-                      text={segment.text}
-                    />
-                  </div>
-                );
-              }
-              if (segment.kind === "tool") {
-                return <ToolCard item={segment.item} key={segment.item.id} />;
-              }
-              if (segment.kind === "skill") {
-                return (
-                  <SkillCard
-                    item={segment.item}
-                    key={`skill-${segment.item.name}`}
-                  />
-                );
-              }
-              if (segment.kind === "subtask") {
-                return (
-                  <SubtaskCard
-                    item={segment.item}
-                    key={`subtask-${segment.item.id}`}
-                  />
-                );
-              }
-              const streaming = !segment.done;
-              return (
-                <article
-                  className="arriving mb-6 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]"
-                  key={segment.id}
-                >
-                  <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
-                    <strong className="text-[11px] font-extrabold text-ink">
-                      Suna
-                    </strong>
-                    {streaming && (running || pending) && (
-                      <StreamActivity
-                        label={t("chat.replying")}
-                        detail={streamActivity.detail}
-                      />
-                    )}
-                  </div>
+          <div aria-label={t("chat.processLabel")}>
+            {/* ZCode 工作台语言：连续的工具/技能/子任务活动收进一个
+                带边框的容器（行间分隔线），与消息的平铺形态区分开，
+                也避免每张工具卡独立描边造成的碎片感。 */}
+            {(() => {
+              const blocks: React.ReactNode[] = [];
+              let current: React.ReactNode[] = [];
+              const flush = () => {
+                if (current.length === 0) return;
+                blocks.push(
                   <div
-                    className={`min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] ${streaming ? "text-ink whitespace-pre-wrap" : "markdown-body text-ink"}`}
+                    className="my-5 overflow-hidden rounded-[10px] border border-line bg-surface-solid/60"
+                    key={`toolblock-${blocks.length}`}
                   >
-                    {/* 流式过程中用纯文本（不解析 Markdown）：避免每帧对
-                        全文重新解析导致 O(n²)；完成后才一次性渲染。 */}
-                    {streaming ? (
-                      <>
-                        {segment.text}
-                        <span
-                          aria-hidden="true"
-                          className="ml-[3px] inline-block h-[1em] w-[2px] animate-[stream-blink_1s_steps(1)_infinite] rounded-[1px] bg-blue align-[-0.15em]"
-                        />
-                      </>
+                    {current}
+                  </div>,
+                );
+                current = [];
+              };
+              for (const segment of flow) {
+                if (
+                  segment.kind === "tool" ||
+                  segment.kind === "skill" ||
+                  segment.kind === "subtask"
+                ) {
+                  current.push(
+                    segment.kind === "tool" ? (
+                      <ToolRow item={segment.item} key={segment.item.id} />
+                    ) : segment.kind === "skill" ? (
+                      <SkillRow
+                        item={segment.item}
+                        key={`skill-${segment.item.name}`}
+                      />
                     ) : (
-                      <LazyMarkdown>{segment.text}</LazyMarkdown>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
+                      <SubtaskCard
+                        item={segment.item}
+                        key={`subtask-${segment.item.id}`}
+                      />
+                    ),
+                  );
+                } else {
+                  // 思考/回复段打断工具块：先落盘已积累的工具组。
+                  flush();
+                  blocks.push(renderNarrative(segment));
+                }
+              }
+              flush();
+              return blocks;
+            })()}
           </div>
         )}
         {!loading &&

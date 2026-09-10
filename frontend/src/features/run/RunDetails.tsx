@@ -159,15 +159,10 @@ export function RunDetails(props: RunDetailsProps) {
         id={id}
         inert={!open ? true : undefined}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-              {t("run.currentSession")}
-            </p>
-            <h2 className="mt-1 text-[16px] font-extrabold text-ink">
-              {t("run.title")}
-            </h2>
-          </div>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[15px] font-extrabold text-ink">
+            {t("run.title")}
+          </h2>
           <IconButton
             buttonRef={closeButtonRef}
             label={t("run.close")}
@@ -177,19 +172,17 @@ export function RunDetails(props: RunDetailsProps) {
           </IconButton>
         </div>
         <div className="details-scroll">
+          {/* 状态卡：ZCode 清单式——呼吸点 + 状态名 + 阶段副文本，
+              去掉装饰性主色顶条与 orb 容器（信息用点+文字表达已足够）。 */}
           <section
             aria-live="polite"
-            className="relative overflow-hidden rounded-[14px] border border-line bg-surface-subtle p-3.5"
+            className="rounded-[12px] border border-line bg-surface-subtle p-3.5"
           >
-            {/* 顶部主色细条：与用户消息/发送按钮统一视觉语言 */}
-            <span
-              aria-hidden="true"
-              className="absolute inset-x-0 top-0 h-[2.5px] bg-blue opacity-70"
-            />
-            <div className="flex items-center gap-3">
-              <span className="running-orb">
-                <i />
-              </span>
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className={`h-[8px] w-[8px] shrink-0 rounded-full ${status === "running" || status === "compacting" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue" : status === "waiting" ? "bg-amber" : "bg-ink-muted"}`}
+              />
               <div className="min-w-0 flex-1">
                 <strong className="block text-[13px] font-extrabold text-ink">
                   {status === "running"

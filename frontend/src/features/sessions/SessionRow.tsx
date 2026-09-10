@@ -86,7 +86,7 @@ export function SessionRow({
       {canJoin && (
         <button
           aria-label={t("sidebar.joinRunning")}
-          className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-md bg-blue px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-sm transition-[opacity,background-color] duration-150 group-hover:opacity-100 hover:bg-blue-strong focus-visible:opacity-100 max-[720px]:opacity-100"
+          className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-md bg-blue px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-sm transition-[opacity,background-color] duration-150 group-hover:opacity-100 hover:bg-blue-strong focus-visible:opacity-100 max-[720px]:top-auto max-[720px]:bottom-1.5 max-[720px]:translate-y-0 max-[720px]:opacity-100"
           onClick={() => onJoinActive(session.id)}
           type="button"
         >

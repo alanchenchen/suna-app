@@ -205,22 +205,22 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           </div>
         )}
         <div
-          className={`mx-auto w-[min(720px,100%)] rounded-[14px] border bg-surface-solid px-4 pt-3 pb-2.5 transition-[border-color,box-shadow] duration-180 max-[720px]:rounded-xl max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-2 ${observer ? "border-line bg-surface-subtle/50 opacity-80" : "border-line focus-within:border-blue/40 focus-within:ring-2 focus-within:ring-blue/15"}`}
+          className={`mx-auto w-[min(720px,100%)] rounded-[16px] border bg-surface-solid transition-[border-color,box-shadow] duration-200 max-[720px]:rounded-[14px] ${observer ? "border-line bg-surface-subtle/50 opacity-80" : "border-line shadow-xs focus-within:border-blue/35 focus-within:ring-4 focus-within:ring-blue/10"}`}
         >
           {observer && (
-            <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10.5px] font-semibold text-rose/80">
+            <div className="flex items-center gap-1.5 px-4 pt-2.5 text-[10.5px] font-semibold text-rose/80 max-[720px]:px-3">
               <Icon name="eye" size={12} />
               {t("chat.observerNotice")}
             </div>
           )}
           {showImageInput && (
-            <div className="mb-2 grid gap-1.5 px-0.5">
+            <div className="grid gap-1.5 px-4 pt-3 max-[720px]:px-3">
               <label className="grid gap-1 text-[10px] font-bold text-ink-muted">
                 {t("chat.imageUrl")}
                 <span className="flex gap-1.5">
                   <input
                     autoFocus
-                    className="min-w-0 flex-1 rounded-lg bg-surface-raised px-3 py-2 text-ink outline-none focus-visible:shadow-none transition-[background-color] duration-150"
+                    className="min-w-0 flex-1 rounded-lg border border-line bg-surface-raised px-3 py-2 text-[12px] text-ink outline-none focus:border-blue/40"
                     disabled={disabled || sending}
                     onChange={(event) => setImageUrl(event.target.value)}
                     onKeyDown={(event) => {
@@ -238,7 +238,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                   />
                   <button
                     aria-label={t("chat.addImage")}
-                    className="shrink-0 cursor-pointer rounded-lg bg-surface-raised px-2.5 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:opacity-45"
+                    className="shrink-0 cursor-pointer rounded-lg border border-line bg-surface-raised px-3 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:bg-surface-subtle hover:text-ink disabled:opacity-45"
                     disabled={disabled || sending || !imageUrl.trim()}
                     onClick={addImageUrl}
                     type="button"
@@ -277,7 +277,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           )}
           {/* 运行中引导消息列表：已注入的 steer 消息，可逐条撤回。 */}
           {canSteer && steering.length > 0 && (
-            <div className="mb-2 flex flex-col gap-1">
+            <div className="flex flex-col gap-1 px-4 pt-3 max-[720px]:px-3">
               {steering.map((item) => (
                 <div
                   className="flex items-center gap-2 rounded-lg bg-surface-raised/60 px-2.5 py-1.5"
@@ -308,68 +308,82 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           )}
           {/* 引导消息已达上限提示（hello.limits.max_steering_messages）。 */}
           {canSteer && steering.length >= maxSteering && (
-            <div className="mb-2 rounded-lg border border-ink-muted/20 bg-surface-raised/50 px-2.5 py-1.5 text-[11px] text-ink-muted">
+            <div className="mx-4 mt-3 rounded-lg border border-ink-muted/20 bg-surface-raised/50 px-2.5 py-1.5 text-[11px] text-ink-muted max-[720px]:mx-3">
               {t("chat.steeringLimit", { count: String(maxSteering) })}
             </div>
           )}
-          <div className="flex items-end gap-1.5">
-            <textarea
-              aria-label={t("chat.inputLabel")}
-              className="min-h-[38px] max-h-[132px] flex-1 resize-none bg-transparent px-1 py-[9px] text-[13px] leading-[20px] text-ink outline-none focus-visible:shadow-none placeholder:text-ink-muted max-[720px]:min-h-[44px] max-[720px]:py-[11px]"
-              disabled={disabled || sending || !hasModels}
-              onChange={(event) => setDraft(event.target.value)}
-              onInput={(event) => {
-                // 随内容自动增高，最多 132px（与 CSS max-height 一致）；超出后内部滚动。
-                const element = event.currentTarget;
-                element.style.height = "auto";
-                element.style.height = `${Math.min(element.scrollHeight, 132)}px`;
-              }}
-              onKeyDown={(event) => {
-                // 斜杠命令：草稿为空时输入 / 打开命令面板（Discord/Slack 惯例）。
-                // isComposing：IME 组合输入中的 / 是选词，不触发。
-                if (
-                  event.key === "/" &&
-                  !event.nativeEvent.isComposing &&
-                  !draft.trim() &&
-                  !canSteer &&
-                  !disabled &&
-                  onOpenCommands
-                ) {
-                  event.preventDefault();
-                  onOpenCommands();
-                  return;
-                }
-                // isComposing：中文输入法组合输入中的回车用于选词，不能发送。
-                // Cmd/Ctrl+Enter 强制发送（组合键下忽略 Shift，防止 IME 占用场景）；
-                // 普通 Enter 非 Shift 发送，Shift+Enter 换行。
-                const mod = event.metaKey || event.ctrlKey;
-                if (
-                  event.key === "Enter" &&
-                  !event.nativeEvent.isComposing &&
-                  (mod || !event.shiftKey)
-                ) {
-                  event.preventDefault();
-                  void submit();
-                }
-              }}
-              placeholder={
-                !hasModels
-                  ? t("chat.noModelPlaceholder")
-                  : canSteer
-                    ? t("chat.steerPlaceholder")
-                    : disabled
-                      ? observer
-                        ? t("chat.observerPlaceholder")
-                        : t("chat.selectSessionFirst")
-                      : t("chat.sendPlaceholder")
+          {/* ZCode 输入区形态：上下两行——textarea 独占上部，
+              工具行贴底（左：附件入口；右：模型 + 发送）。 */}
+          <textarea
+            aria-label={t("chat.inputLabel")}
+            className="min-h-[52px] max-h-[148px] w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[13.5px] leading-[22px] text-ink outline-none focus-visible:shadow-none placeholder:text-ink-muted max-[720px]:min-h-[48px] max-[720px]:px-3 max-[720px]:text-[13px]"
+            disabled={disabled || sending || !hasModels}
+            onChange={(event) => setDraft(event.target.value)}
+            onInput={(event) => {
+              // 随内容自动增高，最多 148px（与 CSS max-height 一致）；超出后内部滚动。
+              const element = event.currentTarget;
+              element.style.height = "auto";
+              element.style.height = `${Math.min(element.scrollHeight, 148)}px`;
+            }}
+            onKeyDown={(event) => {
+              // 斜杠命令：草稿为空时输入 / 打开命令面板（Discord/Slack 惯例）。
+              // isComposing：IME 组合输入中的 / 是选词，不触发。
+              if (
+                event.key === "/" &&
+                !event.nativeEvent.isComposing &&
+                !draft.trim() &&
+                !canSteer &&
+                !disabled &&
+                onOpenCommands
+              ) {
+                event.preventDefault();
+                onOpenCommands();
+                return;
               }
-              ref={textareaRef}
-              rows={1}
-              value={draft}
-            />
-            <div className="flex shrink-0 items-center gap-1.5 pb-1.5">
-              {/* 模型选择器（Codex 形态）：输入卡片内底部的紧凑下拉，
-                  与附件/发送同属工具行。无模型时隐藏。 */}
+              // isComposing：中文输入法组合输入中的回车用于选词，不能发送。
+              // Cmd/Ctrl+Enter 强制发送（组合键下忽略 Shift，防止 IME 占用场景）；
+              // 普通 Enter 非 Shift 发送，Shift+Enter 换行。
+              const mod = event.metaKey || event.ctrlKey;
+              if (
+                event.key === "Enter" &&
+                !event.nativeEvent.isComposing &&
+                (mod || !event.shiftKey)
+              ) {
+                event.preventDefault();
+                void submit();
+              }
+            }}
+            placeholder={
+              !hasModels
+                ? t("chat.noModelPlaceholder")
+                : canSteer
+                  ? t("chat.steerPlaceholder")
+                  : disabled
+                    ? observer
+                      ? t("chat.observerPlaceholder")
+                      : t("chat.selectSessionFirst")
+                    : t("chat.sendPlaceholder")
+            }
+            ref={textareaRef}
+            rows={1}
+            value={draft}
+          />
+          {/* 底部工具行：左侧附件入口，右侧模型选择 + 发送。 */}
+          <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 max-[720px]:px-2 max-[720px]:pb-2">
+            <div className="flex min-w-0 items-center gap-1">
+              {canAttachImageUrl && (
+                <button
+                  aria-expanded={showImageInput}
+                  aria-label={t("chat.imageUrl")}
+                  className={`grid h-8 w-8 cursor-pointer place-items-center rounded-[10px] transition-colors duration-150 max-[720px]:h-10 max-[720px]:w-10 ${showImageInput ? "bg-blue-soft text-blue-strong" : "text-ink-muted hover:bg-surface-subtle hover:text-ink"}`}
+                  disabled={disabled || sending}
+                  onClick={() => setShowImageInput((value) => !value)}
+                  type="button"
+                >
+                  <Icon name="plus" size={16} />
+                </button>
+              )}
+              {/* 模型选择器（Codex/ZCode 形态）：工具行左侧的紧凑下拉。 */}
               {hasModels && models.length > 0 && (
                 <Select
                   ariaLabel={t("chat.modelPicker")}
@@ -391,49 +405,37 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                   }
                 />
               )}
-              {canAttachImageUrl && (
-                <button
-                  aria-expanded={showImageInput}
-                  aria-label={t("chat.imageUrl")}
-                  className={`grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] transition-colors duration-150 max-[720px]:h-[42px] max-[720px]:w-[42px] ${showImageInput ? "bg-blue-soft text-blue-strong" : "text-ink-muted hover:bg-surface-subtle hover:text-ink"}`}
-                  disabled={disabled || sending}
-                  onClick={() => setShowImageInput((value) => !value)}
-                  type="button"
-                >
-                  <Icon name="image" size={16} />
-                </button>
-              )}
-              <button
-                aria-label={t("chat.send")}
-                className="group/send grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[11px] bg-blue text-white transition-colors duration-150 hover:bg-blue-strong active:scale-90 disabled:cursor-default disabled:opacity-40 max-[720px]:h-[42px] max-[720px]:w-[42px]"
-                disabled={
-                  (canSteer
-                    ? !draft.trim()
-                    : !draft.trim() &&
-                      !imageUrl.trim() &&
-                      imageUrls.length === 0) ||
-                  disabled ||
-                  sending
-                }
-                onClick={() => void submit()}
-                type="button"
-              >
-                {sending ? (
-                  <Icon
-                    aria-hidden="true"
-                    className="animate-spin"
-                    name="loader"
-                    size={16}
-                  />
-                ) : (
-                  <Icon
-                    className="transition-transform duration-160 group-hover/send:animate-[icon-lift_240ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
-                    name="arrow-up"
-                    size={17}
-                  />
-                )}
-              </button>
             </div>
+            <button
+              aria-label={t("chat.send")}
+              className="group/send grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[10px] bg-blue text-white transition-colors duration-150 hover:bg-blue-strong active:scale-90 disabled:cursor-default disabled:opacity-40 max-[720px]:h-10 max-[720px]:w-10"
+              disabled={
+                (canSteer
+                  ? !draft.trim()
+                  : !draft.trim() &&
+                    !imageUrl.trim() &&
+                    imageUrls.length === 0) ||
+                disabled ||
+                sending
+              }
+              onClick={() => void submit()}
+              type="button"
+            >
+              {sending ? (
+                <Icon
+                  aria-hidden="true"
+                  className="animate-spin"
+                  name="loader"
+                  size={15}
+                />
+              ) : (
+                <Icon
+                  className="transition-transform duration-160 group-hover/send:animate-[icon-lift_240ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+                  name="arrow-up"
+                  size={16}
+                />
+              )}
+            </button>
           </div>
         </div>
         {/* 提示行仅桌面显示（窄屏空间有限且用户熟悉触屏输入）。 */}
