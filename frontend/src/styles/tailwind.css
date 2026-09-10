@@ -713,21 +713,23 @@ button {
     }
   }
 
-  /* 设置浮层定位。 */
+  /* 设置浮层定位。层级高于详情抽屉（z 25）：设置从 header 弹出，
+     两者同时打开时设置必须在顶层可交互。 */
   .runtime-settings {
     position: absolute;
     right: 18px;
     top: 76px;
     width: min(380px, calc(100vw - 36px));
     max-height: calc(100vh - 130px);
-    z-index: 8;
+    z-index: 31;
     transform-origin: top right;
   }
-  /* 设置浮层点击外部关闭的透明遮罩：覆盖全屏但低于面板（z 7 < 8）。 */
+  /* 设置浮层点击外部关闭的透明遮罩：覆盖全屏但低于面板（z 30 < 31），
+     且高于详情抽屉（z 24/25），保证点击抽屉区域也能关闭设置。 */
   .settings-scrim {
     position: fixed;
     inset: 0;
-    z-index: 7;
+    z-index: 30;
     width: 100%;
     height: 100%;
     padding: 0;

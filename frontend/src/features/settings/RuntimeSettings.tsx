@@ -134,23 +134,20 @@ export function RuntimeSettings({
           : "animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
       }`}
     >
-      <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
-        <div>
-          <p className="text-[10px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-            {t("settings.title")}
-          </p>
-          <h2 className="mt-0.5 text-[16px] font-extrabold text-ink">
-            {t("settings.title")}
-          </h2>
-        </div>
+      {/* 面板标题：单行（eyebrow 与标题重复是视觉噪声，ZCode：标题只出现一次）。 */}
+      <div className="flex items-center justify-between border-b border-line pr-2 pl-4">
+        <h2 className="text-[15px] font-extrabold text-ink">
+          {t("settings.title")}
+        </h2>
         <IconButton label={t("settings.close")} onClick={onClose}>
           <Icon name="close" />
         </IconButton>
       </div>
-      {/* Tab 栏：横向滚动，移动端可滑 */}
+      {/* Tab 栏：图标 + 文字，横向滚动，移动端可滑。
+          面板较窄时仅图标不截断文字（min-w-0 + shrink-0 平衡）。 */}
       <div
         aria-label={t("settings.tabs")}
-        className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2"
+        className="flex gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5"
         role="tablist"
       >
         {TABS.map((item) => {
@@ -158,7 +155,7 @@ export function RuntimeSettings({
           return (
             <button
               aria-selected={tab === item.id}
-              className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold transition-colors duration-150 ${
+              className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold transition-colors duration-150 ${
                 tab === item.id
                   ? "bg-blue-soft text-blue-strong"
                   : "text-ink-soft hover:bg-surface-subtle hover:text-ink"
@@ -174,7 +171,7 @@ export function RuntimeSettings({
           );
         })}
       </div>
-      <div className="max-h-[calc(100vh-230px)] overflow-auto p-4">
+      <div className="max-h-[calc(100vh-190px)] overflow-auto p-4">
         {error && (
           <p className="mb-3 text-[12px] font-semibold text-rose">{error}</p>
         )}

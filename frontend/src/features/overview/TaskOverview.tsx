@@ -42,40 +42,45 @@ function SessionRow({
   session,
   selected,
   pending,
+  index,
   onClick,
 }: {
   session: SessionInfo;
   selected: boolean;
   pending: boolean;
+  /** 组内序号：首行不画分隔线（容器已带圆角裁切）。 */
+  index: number;
   onClick: () => void;
 }) {
   const t = useT();
   return (
     <button
       aria-label={`${session.title || t("sidebar.untitled")}，${pending ? t("sidebar.opening") : t(statusLabels[session.status])}`}
-      className={`grid w-full cursor-pointer grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background,transform] duration-180 hover:bg-surface-subtle active:scale-[0.985] disabled:cursor-wait disabled:opacity-60 ${selected ? "bg-surface-solid" : ""}`}
+      className={`grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3.5 py-2.5 text-left transition-colors duration-150 hover:bg-surface-subtle active:bg-surface-muted disabled:cursor-wait disabled:opacity-60 ${index > 0 ? "border-t border-line" : ""} ${selected ? "bg-blue-soft/50" : ""}`}
       disabled={pending}
       onClick={onClick}
       type="button"
     >
-      <span
-        aria-hidden="true"
-        className={`h-[8px] w-[8px] rounded-full ${session.status === "running" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue shadow-[0_0_0_5px_var(--color-blue-soft)]" : session.status === "waiting" ? "bg-amber shadow-[0_0_0_5px_var(--color-amber-soft)]" : session.status === "compacting" ? "animate-[breathe_1.8s_ease-in-out_infinite] bg-blue shadow-[0_0_0_4px_var(--color-blue-soft)]" : "bg-ink-muted"}`}
-      />
       <span className="grid min-w-0 gap-0.5">
-        <strong className="truncate text-[13px] font-extrabold text-ink">
-          {session.title || t("sidebar.untitled")}
-        </strong>
-        <small className="truncate text-[11px] text-ink-muted">
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={`h-[7px] w-[7px] shrink-0 rounded-full ${session.status === "running" ? "animate-[breathe_2.4s_ease-in-out_infinite] bg-blue" : session.status === "waiting" ? "bg-amber" : session.status === "compacting" ? "animate-[breathe_1.8s_ease-in-out_infinite] bg-blue" : "bg-ink-muted"}`}
+          />
+          <strong className="truncate text-[13px] font-bold text-ink">
+            {session.title || t("sidebar.untitled")}
+          </strong>
+        </span>
+        <span className="truncate pl-[15px] text-[11px] text-ink-muted">
           {session.cwd}
-        </small>
+        </span>
       </span>
-      <span className="grid justify-items-end gap-0.5">
-        <time className="text-[10px] text-ink-muted">
+      <span className="grid shrink-0 justify-items-end gap-0.5">
+        <time className="text-[10.5px] text-ink-muted">
           {t(relativeTime(session.updated_at, t))}
         </time>
         <span
-          className={`text-[10px] font-bold ${session.status === "running" ? "text-blue-strong" : session.status === "waiting" ? "text-amber" : "text-ink-muted"}`}
+          className={`text-[10.5px] font-bold ${session.status === "running" ? "text-blue-strong" : session.status === "waiting" ? "text-amber" : "text-ink-muted"}`}
         >
           {pending ? t("sidebar.opening") : t(statusLabels[session.status])}
         </span>
@@ -131,17 +136,17 @@ export function TaskOverview({
     <section
       className={`animate-[message-in_420ms_cubic-bezier(0.2,0.8,0.2,1)_both] ${delay > 0 ? `[animation-delay:${delay}ms]` : ""}`}
     >
-      <h2 className="mb-1.5 flex items-center gap-2 px-1 text-[11px] font-extrabold tracking-[0.095em] text-ink-muted uppercase">
-        <span className={`h-2 w-2 rounded-full ${tone}`} />
+      <h2 className="mb-2 flex items-center gap-2 px-1 text-[11px] font-extrabold tracking-[0.09em] text-ink-muted uppercase">
+        <span className={`h-[7px] w-[7px] rounded-full ${tone}`} />
         {t(title)}
         {count > 0 && (
-          <span className="rounded-full bg-surface-subtle px-1.5 py-px text-[10px] text-ink-soft">
+          <span className="rounded-full bg-surface-subtle px-1.5 py-px text-[10px] font-bold text-ink-soft">
             {count}
           </span>
         )}
       </h2>
       {items.length === 0 ? (
-        <p className="px-1 pb-2 text-[12px] text-ink-muted">
+        <p className="px-1 text-[12px] text-ink-muted">
           {t(
             title === "overview.needsYou"
               ? "overview.empty.needsYou"
@@ -149,9 +154,12 @@ export function TaskOverview({
           )}
         </p>
       ) : (
-        <div className="space-y-1">
-          {items.map((session) => (
+        /* 分组卡片容器：一个边框 + 行间分隔线（Linear/Things 风格，
+           比“每行一张卡”更安静，也比裸列表更有结构感）。 */
+        <div className="overflow-hidden rounded-xl border border-line bg-surface-solid shadow-xs">
+          {items.map((session, index) => (
             <SessionRow
+              index={index}
               key={session.id}
               onClick={() => onSelect(session.id)}
               pending={pendingId === session.id}
@@ -165,42 +173,41 @@ export function TaskOverview({
   );
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[560px] flex-col overflow-y-auto px-5 pt-7 pb-8">
-      <header className="mb-6 animate-[message-in_420ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue text-white">
-            <Icon name="sparkle" size={20} />
+    <div className="mx-auto flex h-full w-full max-w-[680px] flex-col overflow-y-auto px-6 pt-5 pb-8 max-[720px]:px-4 max-[720px]:pt-4">
+      {/* 顶部操作行：连接状态一句话 + 新建任务主按钮。
+          页面标题只出现在工作区 header（ZCode：标题全局唯一，
+          正文不再重复大图标 + 大标题区）。 */}
+      <div className="mb-5 flex shrink-0 items-center justify-between gap-3">
+        <p className="flex min-w-0 items-center gap-2 text-[12px] font-semibold text-ink-muted">
+          <span
+            aria-hidden="true"
+            className={`h-[7px] w-[7px] shrink-0 rounded-full ${connected ? "bg-green" : "bg-ink-muted"}`}
+          />
+          <span className="truncate">
+            {connected
+              ? t("overview.subtitle.connected")
+              : t("overview.subtitle.disconnected")}
           </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[20px] font-extrabold tracking-tight text-ink">
-              {t("overview.title")}
-            </h1>
-            <p className="text-[12px] text-ink-muted">
-              {connected
-                ? t("overview.subtitle.connected")
-                : t("overview.subtitle.disconnected")}
-            </p>
-          </div>
-          <button
-            aria-label={t("overview.new")}
-            className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl bg-blue text-white transition-[transform,background] duration-150 hover:bg-blue-strong active:scale-90"
-            onClick={onCreate}
-            type="button"
-          >
-            <Icon name="plus" size={18} />
-          </button>
-        </div>
-        {!connected && (
-          <button
-            className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-surface-solid px-4 py-2.5 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle"
-            onClick={onReconnect}
-            type="button"
-          >
-            <span className="h-2 w-2 rounded-full bg-[#8a8f9d]" />
-            {t("overview.reconnect")}
-          </button>
-        )}
-      </header>
+        </p>
+        <button
+          className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-blue px-3 text-[12px] font-bold text-white transition-[background-color,transform] duration-150 hover:bg-blue-strong active:scale-[0.97]"
+          onClick={onCreate}
+          type="button"
+        >
+          <Icon name="plus" size={14} />
+          {t("overview.new")}
+        </button>
+      </div>
+      {!connected && (
+        <button
+          className="mb-5 flex w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-surface-solid px-4 py-2.5 text-[12px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle"
+          onClick={onReconnect}
+          type="button"
+        >
+          <span className="h-2 w-2 rounded-full bg-[#8a8f9d]" />
+          {t("overview.reconnect")}
+        </button>
+      )}
 
       {connected && !hasModels && (
         <section className="mb-6 animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both] rounded-2xl border border-blue/25 bg-blue-soft/40 p-4">
@@ -227,7 +234,7 @@ export function TaskOverview({
         </section>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-5">
         {section("overview.needsYou", waiting.length, "bg-amber", waiting, 60)}
         {section("overview.running", running.length, "bg-blue", running, 120)}
         {section("overview.recent", rest.length, "bg-ink-muted", rest, 180)}

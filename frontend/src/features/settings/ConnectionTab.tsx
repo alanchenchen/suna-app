@@ -106,7 +106,8 @@ export function ConnectionTab({
             </button>
           )}
         </div>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+        {/* 三列网格：面板宽度下比两列更宽松，长值（provider/model）不易截断。 */}
+        <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-[12px]">
           <InfoRow
             label={t("conn.runtimeState")}
             value={
@@ -127,7 +128,8 @@ export function ConnectionTab({
         </dl>
       </section>
 
-      {/* 用量 + 版本 */}
+      {/* 用量 + 版本：数字不截断（token 数用 tabular-nums + 缩写格式，
+          10.4k / 1.2M 比全数字更易扫读，也避免窄面板下溢出）。 */}
       <section className="rounded-xl border border-line bg-surface-raised/60 p-3.5">
         <h3 className="m-0 text-[13px] font-extrabold text-ink">
           {t("conn.usage")}
@@ -136,18 +138,20 @@ export function ConnectionTab({
           <InfoRow label={t("conn.requests")} value={fmt(today?.requests)} />
           <InfoRow
             label={t("conn.inputTokens")}
-            value={fmt(today?.input_tokens)}
+            value={fmtCompact(today?.input_tokens)}
           />
           <InfoRow
             label={t("conn.outputTokens")}
-            value={fmt(today?.output_tokens)}
+            value={fmtCompact(today?.output_tokens)}
           />
         </dl>
         {(usage?.week || usage?.month) && (
-          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-line pt-2 text-[12px]">
+          /* 周/月行单列：in/out 两值拼接在半宽列里必然截断，
+             改为整行展示（label 左、值右），宽度充裕。 */
+          <dl className="mt-2 grid grid-cols-1 gap-y-1.5 border-t border-line pt-2 text-[12px]">
             <InfoRow
               label={t("conn.weekTokens")}
-              value={`${fmt(usage?.week?.input_tokens ?? 0)} / ${fmt(usage?.week?.output_tokens ?? 0)}`}
+              value={`${fmtCompact(usage?.week?.input_tokens ?? 0)} / ${fmtCompact(usage?.week?.output_tokens ?? 0)}`}
             />
             <InfoRow
               label={t("conn.weekRequests")}
@@ -155,7 +159,7 @@ export function ConnectionTab({
             />
             <InfoRow
               label={t("conn.monthTokens")}
-              value={`${fmt(usage?.month?.input_tokens ?? 0)} / ${fmt(usage?.month?.output_tokens ?? 0)}`}
+              value={`${fmtCompact(usage?.month?.input_tokens ?? 0)} / ${fmtCompact(usage?.month?.output_tokens ?? 0)}`}
             />
             <InfoRow
               label={t("conn.monthRequests")}
@@ -167,7 +171,7 @@ export function ConnectionTab({
           <summary className="cursor-pointer text-[11px] font-bold text-ink-muted transition-colors duration-150 hover:text-ink">
             {t("conn.versionAdvanced")}
           </summary>
-          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+          <dl className="mt-2 grid grid-cols-2 gap-x-5 gap-y-2 text-[12px]">
             <InfoRow label="Runtime" value={hello?.runtime_version ?? "—"} />
             <InfoRow
               label={t("conn.protocol")}
@@ -179,7 +183,7 @@ export function ConnectionTab({
               label={t("conn.context")}
               value={
                 status?.context_tokens != null
-                  ? `${fmt(status.context_tokens)} / ${fmt(status.context_window)}`
+                  ? `${fmtCompact(status.context_tokens)} / ${fmtCompact(status.context_window)}`
                   : "—"
               }
             />
@@ -276,9 +280,23 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <dt className="shrink-0 text-[11px] font-semibold text-ink-muted">
         {label}
       </dt>
-      <dd className="min-w-0 truncate text-[12px] font-bold text-ink">
+      <dd className="min-w-0 truncate text-right font-mono text-[12px] font-bold text-ink tabular-nums">
         {value}
       </dd>
     </div>
   );
+}
+
+/** token 数缩写：≥1B 显示 1.1B，≥1M 显示 10.4M，≥10k 显示 10.4k，其余原样。
+    窄面板里全数字（34,523,190）必然截断；周/月行是两值拼接（in/out），
+    用 B/M/k 缩写才能完整可读。 */
+function fmtCompact(value?: number) {
+  if (value == null) return "—";
+  if (value >= 1_000_000_000)
+    return `${(value / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
+  if (value >= 1_000_000)
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (value >= 10_000)
+    return `${(value / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
+  return value.toLocaleString();
 }
