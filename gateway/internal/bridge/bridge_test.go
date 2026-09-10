@@ -15,6 +15,22 @@ type fakeConnector struct{ connection *fakeConnection }
 
 func (f fakeConnector) Connect(context.Context) (Connection, error) { return f.connection, nil }
 
+// rotatingConnector 每次 Connect 返回队列里的下一个连接，用于模拟
+// "pagehide DELETE 后新页面重连建立全新 Runtime 连接"的场景。
+type rotatingConnector struct {
+	connections []*fakeConnection
+	index       int
+}
+
+func (c *rotatingConnector) Connect(context.Context) (Connection, error) {
+	if c.index >= len(c.connections) {
+		return nil, errors.New("no more fake connections")
+	}
+	connection := c.connections[c.index]
+	c.index++
+	return connection, nil
+}
+
 type endpointConnector struct {
 	mu               sync.Mutex
 	endpoint         string
@@ -328,6 +344,118 @@ func TestOnIdleExitFiresAfterRunTerminalState(t *testing.T) {
 	case <-onIdleExit:
 	case <-time.After(time.Second):
 		t.Fatal("OnIdleExit was not fired after run reached a terminal state")
+	}
+}
+
+// TestOnIdleExitFiresAfterDisconnect 验证：pagehide keepalive DELETE 移除
+// 最后一个连接后，OnIdleExit 延迟触发。这是“用户关掉所有浏览器后 gateway
+// 应退出”的关键路径：DELETE 关闭 Runtime socket（daemon 随后自退），
+// 若不评估自退则 gateway 空转驻留。
+func TestOnIdleExitFiresAfterDisconnect(t *testing.T) {
+	connection := newFakeConnection()
+	onIdleExit := make(chan struct{}, 1)
+	service, err := New(fakeConnector{connection}, Config{
+		Random:            zeroReader{},
+		ClientIdleTimeout: 20 * time.Millisecond,
+		OnIdleExit: func() {
+			select {
+			case onIdleExit <- struct{}{}:
+			default:
+			}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := service.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Disconnect(id); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-onIdleExit:
+	case <-time.After(time.Second):
+		t.Fatal("OnIdleExit was not fired after explicit DELETE of the last client")
+	}
+}
+
+// TestOnIdleExitFiresAfterRuntimeTermination 验证：Runtime 被动断开（daemon
+// 退出/网络中断）移除最后一个连接后，OnIdleExit 同样延迟触发，否则 daemon
+// 先退出后 gateway 永远失去退出时机。
+func TestOnIdleExitFiresAfterRuntimeTermination(t *testing.T) {
+	connection := newFakeConnection()
+	onIdleExit := make(chan struct{}, 1)
+	service, err := New(fakeConnector{connection}, Config{
+		Random:            zeroReader{},
+		ClientIdleTimeout: 20 * time.Millisecond,
+		OnIdleExit: func() {
+			select {
+			case onIdleExit <- struct{}{}:
+			default:
+			}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := service.Connect(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// 被动断开：pump 的 Done 分支走 retire 路径。
+	connection.Close()
+
+	select {
+	case <-onIdleExit:
+	case <-time.After(time.Second):
+		t.Fatal("OnIdleExit was not fired after Runtime terminated the last connection")
+	}
+}
+
+// TestOnIdleExitEvaluationCancelledByReconnect 验证：pagehide DELETE 后
+// 瞬间重开浏览器（延迟评估窗口内 Connect 新连接）时，不触发自退。
+func TestOnIdleExitEvaluationCancelledByReconnect(t *testing.T) {
+	// 重连必须拿到全新的 Runtime 连接（与真实浏览器刷新一致）：复用已关闭的
+	// 连接会让新 client 的 pump 立即 retire，无法表达"重连成功"。
+	onIdleExit := make(chan struct{}, 1)
+	service, err := New(&rotatingConnector{connections: []*fakeConnection{newFakeConnection(), newFakeConnection()}}, Config{
+		Random:            zeroReader{},
+		ClientIdleTimeout: 30 * time.Millisecond,
+		OnIdleExit: func() {
+			select {
+			case onIdleExit <- struct{}{}:
+			default:
+			}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := service.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 模拟刷新：pagehide DELETE 后新页面立即 Connect 并订阅 SSE（真实浏览器
+	// 重连后马上建立事件流，Subscribe 会取消空闲计时）。
+	if err := service.Disconnect(id); err != nil {
+		t.Fatal(err)
+	}
+	reconnectedID, _, err := service.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, unsubscribe, err := service.Subscribe(reconnectedID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsubscribe()
+
+	select {
+	case <-onIdleExit:
+		t.Fatal("OnIdleExit fired although a new client reconnected within the grace window")
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 

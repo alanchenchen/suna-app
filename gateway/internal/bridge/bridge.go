@@ -88,8 +88,10 @@ type Config struct {
 	// AllowedMethod returns true only for exact public Runtime methods exposed to browsers.
 	// Nil uses the v0.3 browser bridge method allowlist.
 	AllowedMethod func(string) bool
-	// OnIdleExit 在所有浏览器连接都因空闲超时断开、且无 run 在跑时调用。
-	// gateway 用它实现"用户关闭浏览器后自动退出"；主动 Close/Disconnect 不触发。
+	// OnIdleExit 在所有浏览器连接都消失、且无 run 在跑时调用。
+	// gateway 用它实现"用户关闭浏览器后自动退出"。空闲超时路径同步触发；
+	// 主动 Disconnect 与 Runtime 被动断开不同步触发，但会延迟评估（见
+	// scheduleIdleExitEvaluation），否则 pagehide DELETE 后 gateway 永不退出。
 	OnIdleExit func()
 }
 
@@ -325,12 +327,39 @@ func (s *Service) Disconnect(id string) error {
 	if ok {
 		delete(s.clients, id)
 	}
+	// 移除的是最后一个连接时需要延迟评估空闲自退：pagehide keepalive DELETE
+	// 是"用户关掉所有浏览器"的最后一环，若不评估，Runtime socket 关闭后
+	// daemon 退出而 gateway 空转驻留。
+	noClients := ok && len(s.clients) == 0
 	s.mu.Unlock()
 	if !ok {
 		return ErrNotFound
 	}
 	c.closeSubscribers()
-	return c.connection.Close()
+	err := c.connection.Close()
+	if noClients {
+		s.scheduleIdleExitEvaluation()
+	}
+	return err
+}
+
+// scheduleIdleExitEvaluation 在最后一个浏览器连接被移除后延迟评估空闲自退。
+// 立即评估会与"刷新后瞬间重连"竞态（pagehide DELETE 与新页面 Connect 间隔
+// 只有几毫秒），因此沿用 ClientIdleTimeout 作为宽限：触发时二次确认仍无
+// 客户端才调用 OnIdleExit，最终决定权（installer 状态等）留在回调实现里。
+func (s *Service) scheduleIdleExitEvaluation() {
+	if s.onIdleExit == nil {
+		return
+	}
+	time.AfterFunc(s.idleTimeout, func() {
+		s.mu.RLock()
+		empty := len(s.clients) == 0
+		fn := s.onIdleExit
+		s.mu.RUnlock()
+		if empty && fn != nil {
+			fn()
+		}
+	})
 }
 
 func (s *Service) releaseSubscriber(id string, c *client, subscriber chan runtime.Notification) {
@@ -447,10 +476,16 @@ func (s *Service) retire(id string, c *client) {
 	if active {
 		delete(s.clients, id)
 	}
+	// Runtime 被动断开（daemon 退出/网络中断）移除最后一个连接时，同样需要
+	// 延迟评估空闲自退；否则 daemon 先退出后 gateway 永远失去退出时机。
+	noClients := active && len(s.clients) == 0
 	s.mu.Unlock()
 	c.closeSubscribers()
 	if active && s.discovery != nil {
 		s.discovery.RefreshDiscovery()
+	}
+	if noClients {
+		s.scheduleIdleExitEvaluation()
 	}
 }
 
