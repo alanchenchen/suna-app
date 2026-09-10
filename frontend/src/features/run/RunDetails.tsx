@@ -268,7 +268,7 @@ export function RunDetails(props: RunDetailsProps) {
             </section>
           )}
           <section
-            className="border-t border-line pt-4 mt-4 animate-[message-in_260ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+            className="border-t border-line pt-4 mt-4"
             key={`usage-${usage?.run_id ?? "none"}-${status ?? "none"}`}
           >
             <div className="mb-2 flex items-center justify-between">

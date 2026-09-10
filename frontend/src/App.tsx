@@ -227,7 +227,7 @@ function AppShell() {
     );
 
   return (
-    <main className="animate-[message-in_420ms_cubic-bezier(0.2,0.8,0.2,1)_both] app-shell">
+    <main className="app-shell">
       <SessionSidebar
         connected={connected}
         onCreate={create}

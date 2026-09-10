@@ -207,10 +207,7 @@ export function ChatTimeline({
     if (segment.kind !== "assistant") return null;
     const streaming = !segment.done;
     return (
-      <article
-        className="arriving mb-6 animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:80ms]"
-        key={segment.id}
-      >
+      <article className="arriving mb-6" key={segment.id}>
         <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
           <strong className="text-[11px] font-extrabold text-ink">Suna</strong>
           {streaming && (running || pending) && (
@@ -245,7 +242,7 @@ export function ChatTimeline({
     <div className="conversation-wrap" onScroll={onScroll} ref={scrollRef}>
       <section
         aria-label={t("chat.timelineLabel")}
-        className="animate-[message-in_300ms_cubic-bezier(0.2,0.8,0.2,1)_both] mx-auto w-[min(720px,calc(100%-48px))] px-0 pt-8 pb-12 max-[720px]:w-[min(100%-28px,640px)] max-[720px]:pt-6 max-[720px]:pb-7"
+        className="mx-auto w-[min(720px,calc(100%-48px))] px-0 pt-8 pb-12 max-[720px]:w-[min(100%-28px,640px)] max-[720px]:pt-6 max-[720px]:pb-7"
         key={sessionId ?? "none"}
       >
         {loading && (
@@ -349,7 +346,7 @@ export function ChatTimeline({
         {!loading &&
           messages.slice(-historyWindow).map((message, index) => (
             <article
-              className={`group mb-7 animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] max-[720px]:mb-6`}
+              className="group mb-7 max-[720px]:mb-6"
               key={`${messages.length - historyWindow + index}-${message.role}`}
             >
               <div
@@ -444,21 +441,28 @@ export function ChatTimeline({
           <div aria-label={t("chat.processLabel")}>
             {/* ZCode 工作台语言：连续的工具/技能/子任务活动收进一个
                 带边框的容器（行间分隔线），与消息的平铺形态区分开，
-                也避免每张工具卡独立描边造成的碎片感。 */}
+                也避免每张工具卡独立描边造成的碎片感。
+                容器 key 用首尾段 id（内容寻址）：运行中分组变化时
+                React 能正确复用节点，不会因 index key 错位重放动画
+                （消息区“抽搐”的根源之一）。 */}
             {(() => {
               const blocks: React.ReactNode[] = [];
               let current: React.ReactNode[] = [];
+              let currentIds: string[] = [];
               const flush = () => {
                 if (current.length === 0) return;
+                const first = currentIds[0];
+                const last = currentIds[currentIds.length - 1];
                 blocks.push(
                   <div
                     className="my-5 overflow-hidden rounded-[10px] border border-line bg-surface-solid/60"
-                    key={`toolblock-${blocks.length}`}
+                    key={`toolblock-${first}-${last}-${current.length}`}
                   >
                     {current}
                   </div>,
                 );
                 current = [];
+                currentIds = [];
               };
               for (const segment of flow) {
                 if (
@@ -466,6 +470,13 @@ export function ChatTimeline({
                   segment.kind === "skill" ||
                   segment.kind === "subtask"
                 ) {
+                  const id =
+                    segment.kind === "tool"
+                      ? segment.item.id
+                      : segment.kind === "skill"
+                        ? `skill-${segment.item.name}`
+                        : `subtask-${segment.item.id}`;
+                  currentIds.push(id);
                   current.push(
                     segment.kind === "tool" ? (
                       <ToolRow item={segment.item} key={segment.item.id} />

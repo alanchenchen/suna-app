@@ -50,13 +50,6 @@ export function SessionRow({
     <div
       className={`group relative my-px ${selected ? "rounded-lg bg-surface-subtle" : "rounded-lg"} ${joining ? "opacity-60" : ""}`}
     >
-      {/* 选中态左侧品牌色指示条：扁平高亮 + 细指示条（ZCode：不用描边卡片）。 */}
-      {selected && (
-        <span
-          aria-hidden="true"
-          className="absolute top-1/2 left-0 h-[55%] w-[2.5px] -translate-y-1/2 rounded-r-full bg-blue"
-        />
-      )}
       <button
         aria-current={selected ? "page" : undefined}
         aria-label={`${session.title || t("sidebar.untitled")}，${joining ? t("sidebar.opening") : t(statusLabels[session.status])}`}
