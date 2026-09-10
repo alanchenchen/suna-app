@@ -415,16 +415,16 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
               )}
               <UsageBadge usage={usage} />
             </div>
-            {/* 右下主按钮（ZCode 形态）：运行中且有停止能力时是红色停止钮；
+            {/* 右下主按钮（主流 agent 形态）：运行中时发送钮原地变为同色圆形停止钮；
                 其余时刻是发送钮（含 sending 转圈）。 */}
             {canSteer && onStop ? (
               <button
                 aria-label={t("chat.stopRun")}
-                className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[10px] bg-rose text-white transition-colors duration-150 hover:bg-rose/85 active:scale-90 max-[720px]:h-10 max-[720px]:w-10"
+                className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full bg-blue text-white transition-colors duration-150 hover:bg-blue-strong active:scale-90 max-[720px]:h-10 max-[720px]:w-10"
                 onClick={onStop}
                 type="button"
               >
-                <Icon name="stop" size={14} />
+                <Icon name="stop" size={13} />
               </button>
             ) : (
               <button

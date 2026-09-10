@@ -832,6 +832,41 @@ describe("createNotificationHandler", () => {
     expect(h.getActive().steering ?? []).toEqual([]);
   });
 
+  it("drops applied steering messages (consumed by daemon)", () => {
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-1",
+    });
+    h.send({
+      method: "agent.steering",
+      params: {
+        id: "s1",
+        run_id: "run-1",
+        state: "queued",
+        sequence: 1,
+        can_control: true,
+        parts: [{ type: "text", text: "first" }],
+      },
+    });
+    expect(h.getActive().steering ?? []).toHaveLength(1);
+    // applied 通知到达后，消息已注入模型并出现在对话流（user_message），
+    // 输入区上方的待发列表必须同步清掉。
+    h.send({
+      method: "agent.steering",
+      params: {
+        id: "s1",
+        run_id: "run-1",
+        state: "applied",
+        sequence: 1,
+        can_control: true,
+        parts: [{ type: "text", text: "first" }],
+      },
+    });
+    expect(h.getActive().steering ?? []).toEqual([]);
+  });
+
   it("ignores steering for other runs", () => {
     const h = createHarness();
     h.deps.getScope.mockReturnValue({

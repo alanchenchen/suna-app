@@ -413,9 +413,10 @@ export function ChatTimeline({
                     aria-label={t("chat.resend")}
                     className="grid h-6 w-6 cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
                     onClick={() => onResend(message.content)}
+                    title={t("chat.resendHint")}
                     type="button"
                   >
-                    <Icon name="refresh" size={12} />
+                    <Icon name="resend" size={12} />
                   </button>
                 )}
               </div>

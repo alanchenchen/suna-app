@@ -551,6 +551,16 @@ export function createNotificationHandler({
             .sort((a, b) => a.sequence - b.sequence),
         };
       });
+      // applied = daemon 已消费（注入模型）；立即从待发列表移除，
+      // 避免消息已出现在对话流里、输入区上方还挂着“待注入”的陈旧状态。
+      if (message.state === "applied") {
+        setActive((value) => ({
+          ...value,
+          steering: (value.steering ?? []).filter(
+            (item) => item.id !== message.id,
+          ),
+        }));
+      }
       return;
     }
     if (event.method === "session.user_message") {

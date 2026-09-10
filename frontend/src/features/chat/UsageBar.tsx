@@ -48,7 +48,7 @@ export function UsageBadge({ usage }: { usage?: AgentUsageEvent }) {
         total: compact(usage.context_window),
       })}
     >
-      <span className="relative h-[3px] w-9 shrink-0 overflow-hidden rounded-full bg-surface-subtle">
+      <span className="relative h-[3px] w-7 shrink-0 overflow-hidden rounded-full bg-surface-subtle">
         <span
           className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ${tone}`}
           style={{ width: `${Math.max(3, contextPercent)}%` }}
@@ -58,6 +58,10 @@ export function UsageBadge({ usage }: { usage?: AgentUsageEvent }) {
         className={`shrink-0 text-[10.5px] font-semibold tabular-nums ${textTone}`}
       >
         {contextPercent.toFixed(0)}%
+      </span>
+      {/* 完整数字全端显示（移动端压缩字号）；紧凑格式避免撑爆工具行。 */}
+      <span className="shrink-0 text-[10px] font-semibold tabular-nums text-ink-muted max-[720px]:hidden">
+        {compact(context)}
       </span>
     </span>
   );
