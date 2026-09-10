@@ -217,11 +217,6 @@ const DICT: Dict = {
     en: "Have it fix files, run tests and report",
   },
   "chat.copyMessage": { zh: "复制消息", en: "Copy message" },
-  "chat.resend": { zh: "重发", en: "Resend" },
-  "chat.resendHint": {
-    zh: "重发：用相同内容再发一次（重新生成回复）",
-    en: "Resend: send the same content again (regenerate reply)",
-  },
   "chat.copyCode": { zh: "复制代码", en: "Copy code" },
   "chat.copied": { zh: "已复制", en: "Copied" },
   "chat.workedFor": { zh: "已工作", en: "Worked for" },

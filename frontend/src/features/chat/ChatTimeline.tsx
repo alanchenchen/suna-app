@@ -114,8 +114,6 @@ type ChatTimelineProps = {
   loading?: boolean;
   /** 空状态建议卡点击：把示例 prompt 交给外层（填入输入框）。 */
   onSuggestion?: (text: string) => void;
-  /** 用户消息重发：把该消息内容重新发送（仅 user 消息显示）。 */
-  onResend?: (content: string) => void;
   /** 当前 run 的权威状态（失败且可恢复时显示“恢复执行”）。 */
   run?: AgentRunEvent;
   /** 恢复执行（agent.resumeRun）：不新增用户消息，重试未完成的 turn。 */
@@ -144,7 +142,6 @@ export function ChatTimeline({
   sessionId,
   loading = false,
   onSuggestion,
-  onResend,
   run,
   onResume,
   waitingForInteraction = false,
@@ -415,17 +412,6 @@ export function ChatTimeline({
                 className={`mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted ${message.role === "user" ? "flex-row-reverse" : ""}`}
               >
                 <CopyButton text={message.content} />
-                {message.role === "user" && onResend && (
-                  <button
-                    aria-label={t("chat.resend")}
-                    className="grid h-6 w-6 cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
-                    onClick={() => onResend(message.content)}
-                    title={t("chat.resendHint")}
-                    type="button"
-                  >
-                    <Icon name="resend" size={12} />
-                  </button>
-                )}
               </div>
               <div
                 className={`min-w-0 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76] ${message.role === "user" ? "max-w-[85%] rounded-[14px] rounded-br-[4px] border border-line bg-surface-raised px-3.5 py-2.5 text-ink" : "max-w-[650px] text-ink"}`}
@@ -560,6 +546,24 @@ export function ChatTimeline({
                       key={`turn-${segment.id}`}
                     />,
                   );
+                } else if (segment.kind === "reasoning") {
+                  // 思考段：后面紧邻 assistant 时由其合并渲染；否则
+                  // （思考中、后面是工具块或收尾行）独立渲染——否则流式
+                  // 中的思考在正文到来前完全不可见（TUI 有思考中状态，
+                  // App 却空白）。
+                  const next = flow[flow.indexOf(segment) + 1];
+                  if (!next || next.kind !== "assistant") {
+                    flush();
+                    blocks.push(
+                      <div className="mb-6" key={`reasoning-${segment.id}`}>
+                        <ReasoningBlock
+                          done={segment.done}
+                          running={running && !segment.done}
+                          text={segment.text}
+                        />
+                      </div>,
+                    );
+                  }
                 } else {
                   // 思考/回复段打断工具块：先落盘已积累的工具组。
                   flush();

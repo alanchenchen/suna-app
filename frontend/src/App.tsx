@@ -415,12 +415,6 @@ function AppShell() {
                   ? undefined
                   : (text) => composerRef.current?.fillDraft(text)
               }
-              onResend={
-                // 只读/无模型时不提供重发；重发 = 重新发送同内容。
-                observer || !canControl
-                  ? undefined
-                  : (content) => void send([{ type: "text", text: content }])
-              }
               run={active.run}
               onResume={
                 // agent.resumeRun：协议为 run 失败准备的干净重试——不新增

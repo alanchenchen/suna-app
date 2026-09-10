@@ -25,7 +25,6 @@ import {
   Plug,
   Plus,
   RefreshCw,
-  RotateCcw,
   Search,
   Settings,
   Shield,
@@ -76,8 +75,7 @@ export type IconName =
   | "users"
   | "warning"
   | "plug"
-  | "refresh"
-  | "resend";
+  | "refresh";
 
 const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "arrow-down": ArrowDown,
@@ -116,7 +114,6 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   warning: TriangleAlert,
   plug: Plug,
   refresh: RefreshCw,
-  resend: RotateCcw,
 };
 
 export function Icon({
