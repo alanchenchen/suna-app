@@ -49,3 +49,4 @@ lerna-debug.log*
 /dist/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/
+.tmp-*
