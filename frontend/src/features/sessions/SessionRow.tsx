@@ -48,13 +48,13 @@ export function SessionRow({
 
   return (
     <div
-      className={`group relative my-0.5 ${selected ? "rounded-xl border border-line bg-surface-solid" : ""} ${joining ? "opacity-60" : ""}`}
+      className={`group relative my-px ${selected ? "rounded-lg bg-surface-subtle" : "rounded-lg"} ${joining ? "opacity-60" : ""}`}
     >
-      {/* 选中态左侧品牌色指示条：现代导航的经典做法 */}
+      {/* 选中态左侧品牌色指示条：扁平高亮 + 细指示条（ZCode：不用描边卡片）。 */}
       {selected && (
         <span
           aria-hidden="true"
-          className="absolute top-1/2 left-0 h-[60%] w-[3px] -translate-y-1/2 rounded-r-full bg-blue"
+          className="absolute top-1/2 left-0 h-[55%] w-[2.5px] -translate-y-1/2 rounded-r-full bg-blue"
         />
       )}
       <button
