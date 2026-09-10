@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./components/Icon";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer, type ComposerHandle } from "./features/chat/Composer";
-import { RunDetails } from "./features/run/RunDetails";
+import { UsageBar } from "./features/chat/UsageBar";
 import { CommandPalette } from "./features/commands/CommandPalette";
 import { useRuntimeSession } from "./features/runtime/useRuntimeSession";
 import { SessionSidebar } from "./features/sessions/SessionSidebar";
@@ -37,8 +37,6 @@ function AppShell() {
     setTheme,
     resolvedTheme,
     toggleTheme,
-    detailsOpen,
-    setDetailsOpen,
     mobileMenuOpen,
     setMobileMenuOpen,
     mobileTab,
@@ -72,7 +70,6 @@ function AppShell() {
     selected,
     active,
     messages,
-    usage,
     config,
     setConfig,
     syncing,
@@ -81,7 +78,6 @@ function AppShell() {
     observer,
     running,
     canControl,
-    canConfig,
     handoffRole,
     rpc,
     connected,
@@ -266,14 +262,12 @@ function AppShell() {
       <section className="workspace">
         <SessionHeader
           canControl={canControl}
-          detailsOpen={detailsOpen}
           handoffRole={handoffRole}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen((value) => !value)}
           onStop={() =>
             void queueSessionOperation(() => rpc("agent.cancel", {}))
           }
-          onToggleDetails={() => setDetailsOpen(!detailsOpen)}
           onToggleTheme={toggleTheme}
           resolvedTheme={resolvedTheme}
           running={running}
@@ -445,6 +439,7 @@ function AppShell() {
                 setSettingsOpen(true);
               }}
             />
+            <UsageBar usage={active.usage} />
             <Composer
               activeModel={selected?.model_ref}
               canAttachImageUrl={Boolean(hello?.content_sources.image_url)}
@@ -465,39 +460,6 @@ function AppShell() {
             />
           </>
         )}
-        {/* 任务详情抽屉：workspace 内的 overlay（absolute 定位基准）。
-            打开时覆盖工作区，不挤压时间线（ZCode/Codex 形态）。 */}
-        <RunDetails
-          ask={active.ask}
-          canConfigure={canConfig}
-          compact={active.compact}
-          config={config}
-          controlsDisabled={syncing || (running && !canControl)}
-          guard={active.guard}
-          modelRef={selected?.model_ref}
-          onClose={() => setDetailsOpen(false)}
-          onCompact={() =>
-            queueSessionOperation(() => rpc("session.compact", {})).then(
-              () => undefined,
-            )
-          }
-          onResume={
-            active.run?.resume_available && canControl && !sessionActionsFrozen
-              ? () =>
-                  queueSessionOperation(() => rpc("agent.resumeRun", {})).then(
-                    () => undefined,
-                  )
-              : undefined
-          }
-          onUpdateModel={(model) => updateModel(model)}
-          open={detailsOpen}
-          phase={active.run?.phase ?? current?.phase ?? active.restoredPhase}
-          run={active.run}
-          status={selected?.status}
-          toolSummary={active.toolSummary}
-          totals={usage}
-          usage={active.usage}
-        />
       </section>
       {/* 移动端底部导航：总览 / 任务 / 设置（设计 §12.4）。
           仅窄屏显示；桌面由侧栏 + Header 承担同等功能。 */}
@@ -527,10 +489,6 @@ function AppShell() {
         onStopTask={() => {
           setCommandOpen(false);
           void queueSessionOperation(() => rpc("agent.cancel", {}));
-        }}
-        onToggleDetails={() => {
-          setCommandOpen(false);
-          setDetailsOpen((value) => !value);
         }}
         onToggleTheme={() => {
           setCommandOpen(false);

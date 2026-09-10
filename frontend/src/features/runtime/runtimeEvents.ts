@@ -13,6 +13,20 @@ import type { ActiveData, Scope } from "./sessionState";
 /** 单个 run 的时间线工具卡上限：超出丢弃最旧，避免超长 run 累积 DOM。 */
 const MAX_TOOL_CARDS = 24;
 
+/**
+ * 从 tool_end.metadata 提取 Runtime 权威耗时（毫秒）。
+ * exec 系工具由 daemon 在执行侧计时（不含 SSE 传输/批处理延迟），
+ * 比前端 receivedAt 差值更接近 TUI 的本地计时；其他工具无此字段。
+ */
+function metadataDuration(
+  metadata?: Record<string, unknown>,
+): number | undefined {
+  const value = metadata?.["duration_ms"];
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
+}
+
 export type NotificationDeps = {
   setActive: Dispatch<SetStateAction<ActiveData>>;
   setConfig: Dispatch<SetStateAction<RuntimeConfig | undefined>>;
@@ -96,9 +110,41 @@ export function createNotificationHandler({
       // 终态事件前先提交本帧内积压的 delta，避免最后一段内容重复出现。
       if (event.params.state === "done") flushDeltas();
       setActive((value) => {
+        const terminal =
+          event.params.state === "done" ||
+          event.params.state === "cancelled" ||
+          event.params.state === "failed";
+        // 轮次耗时行（模仿 TUI）：run 终态且本轮调用过工具时，在叙事流
+        // 末尾追加“已工作”行。Runtime 权威 usage.duration_ms 优先
+        // （含模型等待与全部工具执行），本地计时仅在缺失时兑底。
+        let flow = value.flow;
+        if (terminal && value.hadToolCall) {
+          const durationMs =
+            value.usage?.duration_ms ??
+            (value.runStartedAt != null
+              ? receivedAt - value.runStartedAt
+              : undefined);
+          if (durationMs != null && durationMs >= 0) {
+            flow = [
+              ...flow,
+              {
+                kind: "turnDuration",
+                id: Date.now(),
+                durationMs,
+                endedAt: receivedAt,
+              },
+            ];
+          }
+        }
         const next: ActiveData = {
           ...value,
+          flow,
           run: event.params,
+          // 终态后清零计时状态，下轮 run 重新开始；非终态首次出现时记录起点。
+          runStartedAt: terminal
+            ? undefined
+            : (value.runStartedAt ?? receivedAt),
+          hadToolCall: terminal ? false : value.hadToolCall,
           // 收到权威 run 事件（含终态）即结束“等待模型”窗口。
           awaitingRun: false,
           snapshot: value.snapshot
@@ -106,35 +152,26 @@ export function createNotificationHandler({
                 ...value.snapshot,
                 current_run: {
                   run_id: event.params.run_id,
-                  status:
-                    event.params.state === "done" ||
-                    event.params.state === "cancelled" ||
-                    event.params.state === "failed"
-                      ? "idle"
-                      : // cancelling/retrying/running 都保持 running 展示：
-                        // 取消收尾阶段 UI 仍应显示任务在进行，can_control 以
-                        // 事件参数为准（cancelling 时 Runtime 会置 false）。
-                        "running",
+                  // terminal 时置 idle；cancelling/retrying/running 保持
+                  // running 展示：取消收尾阶段 UI 仍显示任务在进行，
+                  // can_control 以事件参数为准（cancelling 时 Runtime 置 false）。
+                  status: terminal ? ("idle" as const) : ("running" as const),
                   phase: event.params.phase,
                   can_control: event.params.can_control,
                 },
               }
             : value.snapshot,
         };
-        // 运行终态兜底：sessions 目录的 status 可能因 session.updated 通知
+        // 运行终态兑底：sessions 目录的 status 可能因 session.updated 通知
         // 丢失（重连窗口）而卡在 running，导致 observer 误判、输入框禁用；
         // 这里直接以 run 事件为准同步置为 idle。
-        if (
-          event.params.state === "done" ||
-          event.params.state === "cancelled" ||
-          event.params.state === "failed"
-        ) {
+        if (terminal) {
           markSessionIdle(getSelectedId());
         }
         // 叙事流保留：思考/回复段全部标为已结束，工具卡与回复块作为
         // 本轮操作流继续显示在时间线中（不再清空、不再拍平成消息）。
         if (event.params.state === "done" && value.snapshot) {
-          next.flow = value.flow.map((segment) =>
+          next.flow = next.flow.map((segment) =>
             segment.kind === "assistant" || segment.kind === "reasoning"
               ? { ...segment, done: true }
               : segment,
@@ -241,6 +278,8 @@ export function createNotificationHandler({
         return {
           ...base,
           activeTool: { ...event.params, status: "running" },
+          // 本轮已调用工具：终态时据此决定是否显示“已工作”行（与 TUI 一致）。
+          hadToolCall: true,
           flow: [...flow, { kind: "tool", item }],
         };
       });
@@ -322,10 +361,12 @@ export function createNotificationHandler({
                               result: event.params.result,
                               resultTruncated: event.params.result_truncated,
                               error: event.params.error,
+                              // 耗时来源与主时间线一致：Runtime 权威优先。
                               durationMs:
-                                tool.startedAt != null
+                                metadataDuration(event.params.metadata) ??
+                                (tool.startedAt != null
                                   ? receivedAt - tool.startedAt
-                                  : undefined,
+                                  : undefined),
                             }
                           : tool,
                       ),
@@ -377,12 +418,15 @@ export function createNotificationHandler({
                     result: event.params.result,
                     resultTruncated: event.params.result_truncated,
                     error: event.params.error,
-                    // tool_end 时结算耗时（以解析层收到事件时刻为终点）；
-                    // 仅当 startedAt 缺失（如快照恢复）时不计。
+                    // 耗时来源优先级：Runtime 权威 metadata.duration_ms（
+                    // exec 系工具由 daemon 计时，不含 SSE 传输延迟）→
+                    // 前端 receivedAt 差值兑底（其他工具）；startedAt 缺失
+                    // （快照恢复）且无 metadata 时不计。
                     durationMs:
-                      segment.item.startedAt != null
+                      metadataDuration(event.params.metadata) ??
+                      (segment.item.startedAt != null
                         ? receivedAt - segment.item.startedAt
-                        : undefined,
+                        : undefined),
                   },
                 }
               : segment,

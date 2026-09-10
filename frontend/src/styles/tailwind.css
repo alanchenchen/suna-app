@@ -136,11 +136,20 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* 统一键盘焦点环：所有可交互元素保持一致的可视焦点。 */
+/* 统一键盘焦点环：按钮/链接等可交互元素保持一致的可视焦点。
+   表单域（input/textarea/select）除外：它们的焦点反馈由组件
+   自身的边框变色表达（如 Composer 容器 focus-within），叠加
+   ring 会形成“双层边框 + 阴影”的观感。 */
 :focus-visible {
   outline: none;
   box-shadow: var(--ring-blue);
   border-radius: var(--radius-xs);
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: none;
+  border-radius: inherit;
 }
 
 /* 统一细滚动条。 */
@@ -586,113 +595,12 @@ button {
     }
   }
 
-  /* 右侧任务详情：所有尺寸都是按需 overlay 抽屉（打开时覆盖工作区，
-     不挤压内容），桌面右侧滑入，移动端底部 Sheet。
-     桌面 top 从 header 下沿开始：header 的开关/主题/设置按钮保持
-     可点（非模态面板，ZCode 形态），也避免“开了找不到开关”。 */
-  .details-panel {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    z-index: 25;
-    top: 60px;
-    right: 0;
-    bottom: 0;
-    width: min(340px, 92vw);
-    min-height: 0;
-    padding: 18px 20px 18px;
-    overflow: hidden;
-    overscroll-behavior: contain;
-    background: var(--color-surface-solid);
-    border-left: 1px solid var(--color-line);
-    box-shadow: var(--shadow-md);
-    transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    transform: translateX(105%);
-  }
-  .details-panel.is-open {
-    transform: translateX(0);
-  }
-  .details-scroll {
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    touch-action: pan-y;
-    padding-right: 2px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-line-strong) transparent;
-  }
-  .details-panel::before {
-    display: none;
-  }
-  @media (max-width: 720px) {
-    .details-panel {
-      position: fixed;
-      z-index: 25;
-      top: auto;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: min(78dvh, 680px);
-      max-height: min(78dvh, 680px);
-      padding: 19px 18px max(19px, env(safe-area-inset-bottom));
-      border: 1px solid var(--color-line);
-      border-bottom: 0;
-      border-radius: 16px 16px 0 0;
-      transform: translateY(105%);
-    }
-    .details-panel.is-open {
-      transform: translateY(0);
-    }
-    /* 底部 Sheet 拖拽把手。 */
-    .details-panel::before {
-      display: block;
-      flex: 0 0 auto;
-      align-self: center;
-      width: 34px;
-      height: 4px;
-      margin-bottom: 14px;
-      content: "";
-      background: var(--color-line-strong);
-      border-radius: 4px;
-    }
-  }
-
   /* 遮罩：常驻 DOM，用 opacity/visibility 过渡实现淡入淡出
-     （条件渲染会导致瞬显瞬消）。详情抽屉桌面是非模态面板：不遮罩，
-     header 开关与 Esc 即可关闭；遮罩仅移动端底部 Sheet 使用。 */
+     （条件渲染会导致瞬显瞬消）。移动端侧栏抽屉模态使用。 */
   .mobile-scrim {
     display: none;
   }
-  .details-scrim {
-    display: none;
-    position: fixed;
-    z-index: 24;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    background: rgba(11, 16, 27, 0.24);
-    border: 0;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition:
-      opacity 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      visibility 260ms;
-  }
-  .details-scrim.is-visible {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-  }
   @media (max-width: 720px) {
-    /* 移动端底部 Sheet 是模态：显示遮罩。 */
-    .details-scrim {
-      display: block;
-    }
     .mobile-scrim {
       display: block;
       position: fixed;
@@ -717,8 +625,7 @@ button {
     }
   }
 
-  /* 设置浮层定位。层级高于详情抽屉（z 25）：设置从 header 弹出，
-     两者同时打开时设置必须在顶层可交互。 */
+  /* 设置浮层定位。设置从 header 弹出，浮于工作区之上。 */
   .runtime-settings {
     position: absolute;
     right: 18px;
@@ -728,8 +635,7 @@ button {
     z-index: 31;
     transform-origin: top right;
   }
-  /* 设置浮层点击外部关闭的透明遮罩：覆盖全屏但低于面板（z 30 < 31），
-     且高于详情抽屉（z 24/25），保证点击抽屉区域也能关闭设置。 */
+  /* 设置浮层点击外部关闭的透明遮罩：覆盖全屏但低于面板（z 30 < 31）。 */
   .settings-scrim {
     position: fixed;
     inset: 0;

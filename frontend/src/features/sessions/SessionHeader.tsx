@@ -8,30 +8,26 @@ type SessionHeaderProps = {
   selected?: SessionInfo;
   handoffRole: "host" | "guest";
   resolvedTheme: "light" | "dark";
-  detailsOpen: boolean;
   running: boolean;
   canControl: boolean;
   syncing: boolean;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
   onStop: () => void;
-  onToggleDetails: () => void;
   onOpenMobileMenu: () => void;
 };
 
-/** 工作区顶部栏：会话标题、状态徽章与高频操作（主题/设置/停止/详情）。 */
+/** 工作区顶部栏：会话标题、状态徽章与高频操作（主题/设置/停止）。 */
 export function SessionHeader({
   selected,
   handoffRole,
   resolvedTheme,
-  detailsOpen,
   running,
   canControl,
   syncing,
   onToggleTheme,
   onOpenSettings,
   onStop,
-  onToggleDetails,
   onOpenMobileMenu,
 }: SessionHeaderProps) {
   const t = useT();
@@ -72,23 +68,18 @@ export function SessionHeader({
                     : t("header.idle")}
               </span>
             )}
+            {/* 多客户端共享：只显示客户端数量（“已加入/共享中”与状态点
+                语义重复，数量才是真正缺的信息）。 */}
             {selected &&
               (handoffRole === "guest" || selected.client_count > 1) && (
                 <span
-                  aria-label={
-                    handoffRole === "guest"
-                      ? t("header.joined")
-                      : t("header.shared")
-                  }
+                  aria-label={t("header.clients", {
+                    count: selected.client_count,
+                  })}
                   className="inline-flex shrink-0 items-center gap-1 rounded-full bg-blue-soft px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-blue-strong"
                 >
                   <Icon name="users" size={11} />
-                  <span className="max-[720px]:hidden">
-                    {handoffRole === "guest"
-                      ? t("header.joined")
-                      : t("header.shared")}
-                  </span>
-                  {selected.client_count > 1 && `· ${selected.client_count}`}
+                  {t("header.clients", { count: selected.client_count })}
                 </span>
               )}
           </div>
@@ -142,23 +133,6 @@ export function SessionHeader({
             </span>
           </button>
         )}
-        <Tooltip
-          label={
-            detailsOpen ? t("header.closeDetails") : t("header.toggleDetails")
-          }
-        >
-          <IconButton
-            ariaControls="run-details"
-            ariaExpanded={detailsOpen}
-            className="aria-expanded:false:bg-blue-soft aria-expanded:false:text-blue-strong"
-            label={
-              detailsOpen ? t("header.closeDetails") : t("header.toggleDetails")
-            }
-            onClick={onToggleDetails}
-          >
-            <Icon name="panel" />
-          </IconButton>
-        </Tooltip>
       </div>
     </header>
   );

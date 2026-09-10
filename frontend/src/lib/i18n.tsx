@@ -219,6 +219,7 @@ const DICT: Dict = {
   "chat.resend": { zh: "重发", en: "Resend" },
   "chat.copyCode": { zh: "复制代码", en: "Copy code" },
   "chat.copied": { zh: "已复制", en: "Copied" },
+  "chat.workedFor": { zh: "已工作", en: "Worked for" },
   "chat.copyResult": { zh: "复制工具结果", en: "Copy result" },
   "chat.resultCopied": { zh: "已复制工具结果", en: "Result copied" },
   "chat.moreHistory": {
@@ -397,35 +398,13 @@ const DICT: Dict = {
     zh: "请在对话中处理此请求",
     en: "Handle this request in the chat",
   },
-  "run.usage": { zh: "本次用量", en: "This run" },
-  "run.compact": { zh: "压缩", en: "Compact" },
-  "run.compactingNow": { zh: "正在压缩上下文…", en: "Compacting…" },
-  "run.compactFailed": {
-    zh: "压缩失败：{error}",
-    en: "Compact failed: {error}",
+  // UsageBar（输入区上方的轻量用量条，替代原右侧详情抽屉）。
+  "usage.inOut": {
+    zh: "{input} / {output} tok",
+    en: "{input} / {output} tok",
   },
-  "run.compactNoop": {
-    zh: "上下文足够短，无需压缩。",
-    en: "Context is short enough; no need to compact.",
-  },
-  "run.compacted": {
-    zh: "✓ 已压缩 {before} → {after} tokens",
-    en: "✓ Compacted {before} → {after} tokens",
-  },
-  "run.turnsCompressed": {
-    zh: "压缩 {count} 轮",
-    en: "{count} turns compressed",
-  },
-  "run.inputOutput": { zh: "输入 / 输出", en: "Input / Output" },
-  "run.cacheHit": { zh: "缓存命中", en: "Cache hit" },
-  "run.todayRequests": { zh: "今日请求", en: "Requests today" },
-  "run.context": {
-    zh: "上下文 {used} / {total}",
-    en: "Context {used} / {total}",
-  },
-  "run.sessionModel": { zh: "会话模型", en: "Session model" },
-  "run.close": { zh: "关闭任务详情", en: "Close details" },
-  "run.detailsLabel": { zh: "任务详情", en: "Run details" },
+  "usage.cache": { zh: "缓存", en: "cache" },
+  "usage.context": { zh: "上下文", en: "context" },
   // Header
   "header.overview": { zh: "任务总览", en: "Tasks" },
   "header.running": { zh: "运行中", en: "Running" },
@@ -446,7 +425,10 @@ const DICT: Dict = {
   "header.closeDetails": { zh: "关闭任务详情", en: "Close details" },
   "header.shared": { zh: "共享中", en: "Shared" },
   "header.joined": { zh: "已加入", en: "Joined" },
-  "header.clients": { zh: "个客户端", en: "clients" },
+  "header.clients": {
+    zh: "{count} 个客户端",
+    en: "{count} client(s)",
+  },
   // 命令面板
   "cmd.searchPlaceholder": {
     zh: "搜索任务或输入命令…",
@@ -461,7 +443,6 @@ const DICT: Dict = {
   "cmd.compact": { zh: "压缩上下文", en: "Compact context" },
   "cmd.settings": { zh: "打开设置", en: "Open settings" },
   "cmd.theme": { zh: "切换主题", en: "Toggle theme" },
-  "cmd.details": { zh: "切换状态面板", en: "Toggle details panel" },
   "cmd.localeZh": {
     zh: "切换语言（English）",
     en: "Switch language (English)",

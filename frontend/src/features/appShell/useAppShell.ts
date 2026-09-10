@@ -61,20 +61,8 @@ export function useAppShell() {
     window.localStorage.setItem("suna-theme", theme);
   }, [resolvedTheme, theme]);
 
-  // 纯 UI 状态：面板开关与表单草稿。
-  // 桌面默认打开右栏；移动端详情是底部 Sheet，默认关闭避免打开即弹层，
-  // 缩小到移动端时也自动关闭（避免残留弹出）。
-  const [detailsOpen, setDetailsOpen] = useState(
-    () => !window.matchMedia("(max-width: 720px)").matches,
-  );
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 720px)");
-    const onChange = () => {
-      if (media.matches) setDetailsOpen(false);
-    };
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
+  // 移动端抽屉遮罩状态。原右侧详情抽屉已移除（用量收进输入区上方
+  // 的 UsageBar，决策/压缩等一等交互全在时间线内）。
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   /** 移动端底部导航：总览 / 任务（工作台）/ 设置。 */
   const [mobileTab, setMobileTab] = useState<MobileTab>(() =>
@@ -141,8 +129,6 @@ export function useAppShell() {
     setTheme,
     resolvedTheme,
     toggleTheme,
-    detailsOpen,
-    setDetailsOpen,
     mobileMenuOpen,
     setMobileMenuOpen,
     mobileTab,

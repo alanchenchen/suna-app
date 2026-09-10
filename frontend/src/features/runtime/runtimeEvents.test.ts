@@ -125,13 +125,14 @@ describe("createNotificationHandler", () => {
     const active = getActive();
     // current_run 状态收敛为 idle。
     expect(active.snapshot?.current_run?.status).toBe("idle");
-    // 叙事流段全部标为已结束（工具段/技能段/子任务段除外）。
+    // 叙事流段全部标为已结束（工具段/技能段/子任务段/耗时行除外）。
     expect(
       active.flow.every(
         (segment) =>
           segment.kind === "tool" ||
           segment.kind === "skill" ||
           segment.kind === "subtask" ||
+          segment.kind === "turnDuration" ||
           segment.done,
       ),
     ).toBe(true);
@@ -279,6 +280,119 @@ describe("createNotificationHandler", () => {
         throw new Error("tool segment not found");
       }
       expect(segment.item.durationMs).toBe(3000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("prefers runtime metadata duration over local timing", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-15T00:00:00Z"));
+    try {
+      const { send, getActive } = createHarness();
+      send({
+        method: "agent.tool_start",
+        params: { id: "t4", tool: "exec", params: {}, intent: "构建" },
+      });
+      // 本地 receivedAt 差值是 5s，但 Runtime 权威 metadata 是 2s：应取 2s。
+      vi.setSystemTime(new Date("2026-08-15T00:00:05Z"));
+      send({
+        method: "agent.tool_end",
+        params: {
+          id: "t4",
+          tool: "exec",
+          result: "ok",
+          metadata: { kind: "exec", duration_ms: 2000 },
+        },
+      });
+      const segment = getActive().flow.find(
+        (s): s is Extract<FlowSegment, { kind: "tool" }> =>
+          s.kind === "tool" && s.item.id === "t4",
+      );
+      if (segment?.kind !== "tool") {
+        throw new Error("tool segment not found");
+      }
+      expect(segment.item.durationMs).toBe(2000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("appends a turn duration row on terminal run when tools were called", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-15T10:00:00Z"));
+    try {
+      const { send, getActive } = createHarness();
+      // 快照存在（run 事件才结算 turnDuration）。
+      send({
+        method: "session.updated",
+        params: { session: snapshotSession() },
+      });
+      send({
+        method: "agent.run",
+        params: {
+          state: "running",
+          can_control: true,
+          run_id: "r1",
+        } as never,
+      });
+      send({
+        method: "agent.tool_start",
+        params: { id: "t5", tool: "exec", params: {}, intent: "构建" },
+      });
+      send({
+        method: "agent.tool_end",
+        params: { id: "t5", tool: "exec", result: "ok" },
+      });
+      // usage 先到（Runtime 权威总耗时 12s）。
+      send({
+        method: "agent.usage",
+        params: {
+          run_id: "r1",
+          input_tokens: 100,
+          output_tokens: 50,
+          duration_ms: 12000,
+        } as never,
+      });
+      vi.setSystemTime(new Date("2026-08-15T10:01:00Z"));
+      send({
+        method: "agent.run",
+        params: { state: "done", can_control: false, run_id: "r1" } as never,
+      });
+      const rows = getActive().flow.filter(
+        (s): s is Extract<FlowSegment, { kind: "turnDuration" }> =>
+          s.kind === "turnDuration",
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].durationMs).toBe(12000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not append turn duration when no tools were called", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-15T10:00:00Z"));
+    try {
+      const { send, getActive } = createHarness();
+      send({
+        method: "session.updated",
+        params: { session: snapshotSession() },
+      });
+      send({
+        method: "agent.run",
+        params: {
+          state: "running",
+          can_control: true,
+          run_id: "r2",
+        } as never,
+      });
+      send({
+        method: "agent.run",
+        params: { state: "done", can_control: false, run_id: "r2" } as never,
+      });
+      const rows = getActive().flow.filter((s) => s.kind === "turnDuration");
+      expect(rows).toHaveLength(0);
     } finally {
       vi.useRealTimers();
     }

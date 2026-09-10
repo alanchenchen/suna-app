@@ -49,6 +49,14 @@ export type ActiveData = {
   restoredPhase?: string;
   /** attach 恢复时 run 在等待交互但尚无详情（真实通知到达前显示占位）。 */
   waitingForInteraction?: boolean;
+  /**
+   * 当前 run 的本地计时起点（解析层收到首个非终态 run 事件的时刻）。
+   * run 终态时结合 hadToolCall 结算“已工作”耗时行；Runtime 权威的
+   * usage.duration_ms 存在时优先于本地计时。
+   */
+  runStartedAt?: number;
+  /** 本轮 run 是否调用过工具：终态时决定是否显示“已工作”行（与 TUI 一致）。 */
+  hadToolCall?: boolean;
 };
 
 export const blankActive = (): ActiveData => ({

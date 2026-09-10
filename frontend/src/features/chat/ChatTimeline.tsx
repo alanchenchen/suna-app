@@ -16,7 +16,12 @@ import {
 } from "./activity";
 import { DecisionCard } from "./decisionCard";
 import { LONG_MESSAGE_THRESHOLD, LongMessage } from "./longMessage";
-import { SkillRow, SubtaskCard, ToolRow } from "./toolCards";
+import {
+  SkillRow,
+  SubtaskCard,
+  ToolRow,
+  formatTurnDuration,
+} from "./toolCards";
 import { LazyMarkdown } from "./LazyMarkdown";
 import { useT } from "../../lib/i18n";
 
@@ -26,6 +31,62 @@ type ActiveTool = {
   intent?: string;
   status?: "running" | "guard" | "failed";
 };
+
+/**
+ * 轮次收尾行（模仿 TUI 的“✦ 已工作 1m23s · 14:05”）：
+ * 品牌色星标 + 已工作文案 + 耗时 + 结束时刻，安静地收束一轮工具活动。
+ */
+function TurnDurationRow({
+  durationMs,
+  endedAt,
+}: {
+  durationMs: number;
+  endedAt: number;
+}) {
+  const t = useT();
+  const ended = new Date(endedAt);
+  const timeLabel = `${String(ended.getHours()).padStart(2, "0")}:${String(ended.getMinutes()).padStart(2, "0")}`;
+  return (
+    <div className="my-4 flex items-center gap-2 text-[11px] text-ink-muted">
+      <span aria-hidden="true" className="text-blue">
+        ✦
+      </span>
+      <span>{t("chat.workedFor")}</span>
+      <span className="font-mono font-bold text-ink">
+        {formatTurnDuration(durationMs)}
+      </span>
+      <span aria-hidden="true">·</span>
+      <time className="font-mono" dateTime={ended.toISOString()}>
+        {timeLabel}
+      </time>
+    </div>
+  );
+}
+
+/** 消息复制按钮：点击后短暂切换为对勾 + “已复制”，给操作明确反馈。 */
+function CopyButton({ text }: { text: string }) {
+  const t = useT();
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      aria-label={copied ? t("chat.copied") : t("chat.copyMessage")}
+      className={`grid h-6 w-6 cursor-pointer place-items-center rounded-md transition-colors duration-150 ${copied ? "text-green" : "text-ink-muted opacity-0 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"}`}
+      onClick={() => {
+        // 剪贴板写入失败静默忽略（非安全上下文等场景），不误报“已复制”。
+        void navigator.clipboard
+          ?.writeText(text)
+          .then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+          })
+          .catch(() => undefined);
+      }}
+      type="button"
+    >
+      <Icon name={copied ? "check" : "copy"} size={12} />
+    </button>
+  );
+}
 
 type ChatTimelineProps = {
   messages: SnapshotMessage[];
@@ -163,7 +224,7 @@ export function ChatTimeline({
     historyAnchorRef.current = undefined;
   }, [historyWindow]);
   useLayoutEffect(() => {
-    const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : s.kind === "skill" ? `sk${s.item.name}:${s.item.status}` : s.kind === "subtask" ? `st${s.item.id}:${s.item.status}:${s.item.tools.length}` : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
+    const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : s.kind === "skill" ? `sk${s.item.name}:${s.item.status}` : s.kind === "subtask" ? `st${s.item.id}:${s.item.status}:${s.item.tools.length}` : s.kind === "turnDuration" ? `td${s.durationMs}` : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
     if (lastContentKeyRef.current === key) return;
     lastContentKeyRef.current = key;
     // 只在读者已经位于最新边缘时保持活跃对话锚定；浏览历史时绝不能被
@@ -207,8 +268,13 @@ export function ChatTimeline({
     if (segment.kind !== "assistant") return null;
     const streaming = !segment.done;
     return (
-      <article className="arriving mb-6" key={segment.id}>
-        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
+      <article className="mb-6" key={segment.id}>
+        <div className="mb-1.5 flex items-center gap-2 text-[11px] text-ink-muted">
+          {/* Suna 侧身份标记：主色圆点 + 名字，与用户消息的右对齐形态区分。 */}
+          <span
+            aria-hidden="true"
+            className="h-[14px] w-[14px] shrink-0 rounded-[5px] bg-blue"
+          />
           <strong className="text-[11px] font-extrabold text-ink">Suna</strong>
           {streaming && (running || pending) && (
             <StreamActivity
@@ -346,29 +412,23 @@ export function ChatTimeline({
         {!loading &&
           messages.slice(-historyWindow).map((message, index) => (
             <article
-              className="group mb-7 max-[720px]:mb-6"
+              className={`group mb-7 max-[720px]:mb-6 ${message.role === "user" ? "flex flex-col items-end" : ""}`}
               key={`${messages.length - historyWindow + index}-${message.role}`}
             >
               <div
-                className={`mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted ${message.role === "user" ? "" : ""}`}
+                className={`mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted ${message.role === "user" ? "flex-row-reverse" : ""}`}
               >
-                <button
-                  aria-label={t("chat.copyMessage")}
-                  className="grid h-6 w-6 animate-[slide-in-right_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
-                  onClick={() => {
-                    // 剪贴板写入失败静默忽略（非安全上下文等场景）。
-                    void navigator.clipboard
-                      ?.writeText(message.content)
-                      .catch(() => undefined);
-                  }}
-                  type="button"
-                >
-                  <Icon name="copy" size={12} />
-                </button>
+                {message.role === "assistant" && (
+                  <span
+                    aria-hidden="true"
+                    className="h-[14px] w-[14px] shrink-0 rounded-[5px] bg-blue"
+                  />
+                )}
+                <CopyButton text={message.content} />
                 {message.role === "user" && onResend && (
                   <button
                     aria-label={t("chat.resend")}
-                    className="grid h-6 w-6 animate-[slide-in-right_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
+                    className="grid h-6 w-6 cursor-pointer place-items-center rounded-md text-ink-muted opacity-0 transition-opacity duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
                     onClick={() => onResend(message.content)}
                     type="button"
                   >
@@ -376,13 +436,13 @@ export function ChatTimeline({
                   </button>
                 )}
                 <strong
-                  className={`text-[11px] font-extrabold ${message.role === "user" ? "text-ink" : "text-ink"}`}
+                  className={`text-[11px] font-extrabold ${message.role === "user" ? "text-blue-strong" : "text-ink"}`}
                 >
                   {message.role === "user" ? t("chat.user") : "Suna"}
                 </strong>
               </div>
               <div
-                className={`min-w-0 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76] ${message.role === "user" ? "text-ink" : "max-w-[650px] text-ink"}`}
+                className={`min-w-0 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76] ${message.role === "user" ? "max-w-[85%] rounded-[14px] rounded-br-[4px] border border-line bg-surface-raised px-3.5 py-2.5 text-ink" : "max-w-[650px] text-ink"}`}
               >
                 {message.role === "assistant" ? (
                   message.content.length > LONG_MESSAGE_THRESHOLD ? (
@@ -393,8 +453,9 @@ export function ChatTimeline({
                     </div>
                   )
                 ) : (
-                  // 用户消息：平铺文本（ZCode 工作台语言，不用气泡）。
-                  <div className="text-ink">{message.content}</div>
+                  // 用户消息：浅色圆角气泡 + 右对齐（ZCode/Linear 惯例），
+                  // 与 Suna 的平铺形态一眼区分。
+                  <div className="whitespace-pre-wrap">{message.content}</div>
                 )}
               </div>
             </article>
@@ -491,6 +552,16 @@ export function ChatTimeline({
                         key={`subtask-${segment.item.id}`}
                       />
                     ),
+                  );
+                } else if (segment.kind === "turnDuration") {
+                  // 轮次收尾行（模仿 TUI）：工具块先落盘，再追加耗时行。
+                  flush();
+                  blocks.push(
+                    <TurnDurationRow
+                      durationMs={segment.durationMs}
+                      endedAt={segment.endedAt}
+                      key={`turn-${segment.id}`}
+                    />,
                   );
                 } else {
                   // 思考/回复段打断工具块：先落盘已积累的工具组。

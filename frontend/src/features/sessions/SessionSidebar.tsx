@@ -199,7 +199,7 @@ export function SessionSidebar({
           </span>
           <input
             aria-label={t("sidebar.search")}
-            className="w-full rounded-lg border border-line bg-surface-raised py-1.5 pr-2.5 pl-8 text-[12px] text-ink placeholder:text-ink-muted focus:border-blue/50 focus:ring-2 focus:ring-blue/25 focus:outline-none"
+            className="w-full rounded-lg border border-line bg-surface-raised py-1.5 pr-2.5 pl-8 text-[12px] text-ink placeholder:text-ink-muted focus:border-blue/50 focus:outline-none"
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("sidebar.search")}
             value={query}

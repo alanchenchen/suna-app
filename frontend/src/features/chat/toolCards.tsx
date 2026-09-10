@@ -14,6 +14,24 @@ export function formatDuration(ms?: number) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+/**
+ * 紧凑轮次耗时（与 TUI FormatCompactDuration 一致）：
+ * <1ms → “<1ms”，<1s → 毫秒，<10s → 一位小数秒，≥10s → 取整秒
+ * （分钟/小时自然进位，如 1m23s / 2m5s）。
+ */
+export function formatTurnDuration(ms: number) {
+  if (ms < 1) return "<1ms";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
+  const total = Math.round(ms / 1000);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) return `${hours}h${minutes}m${seconds}s`;
+  if (minutes > 0) return `${minutes}m${seconds}s`;
+  return `${seconds}s`;
+}
+
 /** 工具行折叠态的目标摘要：优先 intent，其次 params 里的路径/命令。 */
 export function toolTarget(item: ToolFlowItem) {
   if (item.intent) return item.intent;

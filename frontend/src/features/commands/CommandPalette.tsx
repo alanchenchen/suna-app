@@ -17,7 +17,6 @@ type CommandPaletteProps = {
   onCreateTask: () => void;
   onOpenSettings: () => void;
   onToggleTheme: () => void;
-  onToggleDetails: () => void;
   onStopTask: () => void;
   onCompact: () => void;
 };
@@ -43,7 +42,6 @@ export function CommandPalette({
   onCreateTask,
   onOpenSettings,
   onToggleTheme,
-  onToggleDetails,
   onStopTask,
   onCompact,
 }: CommandPaletteProps) {
@@ -138,13 +136,6 @@ export function CommandPalette({
         run: onToggleTheme,
       },
       {
-        id: "details",
-        label: t("cmd.details"),
-        icon: "panel" as const,
-        kind: "action" as const,
-        run: onToggleDetails,
-      },
-      {
         id: "locale",
         label: locale === "zh" ? t("cmd.localeZh") : t("cmd.localeEn"),
         icon: "message" as const,
@@ -165,7 +156,6 @@ export function CommandPalette({
     onOpenSettings,
     onSelectSession,
     onStopTask,
-    onToggleDetails,
     onToggleTheme,
     query,
     running,

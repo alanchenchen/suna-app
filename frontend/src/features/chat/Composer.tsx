@@ -205,7 +205,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           </div>
         )}
         <div
-          className={`mx-auto w-[min(720px,100%)] rounded-[16px] border bg-surface-solid transition-[border-color,box-shadow] duration-200 max-[720px]:rounded-[14px] ${observer ? "border-line bg-surface-subtle/50 opacity-80" : "border-line shadow-xs focus-within:border-blue/35 focus-within:ring-4 focus-within:ring-blue/10"}`}
+          className={`mx-auto w-[min(720px,100%)] rounded-[16px] border bg-surface-solid transition-colors duration-200 max-[720px]:rounded-[14px] ${observer ? "border-line bg-surface-subtle/50 opacity-80" : "border-line focus-within:border-blue/40"}`}
         >
           {observer && (
             <div className="flex items-center gap-1.5 px-4 pt-2.5 text-[10.5px] font-semibold text-rose/80 max-[720px]:px-3">

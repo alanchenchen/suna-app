@@ -28,11 +28,11 @@ export function Select<T extends string>({
     >
       <SelectPrimitive.Trigger
         aria-label={ariaLabel}
-        className={`inline-flex h-8 cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-line bg-surface-raised px-2.5 text-[12px] font-semibold text-ink-soft transition-colors duration-150 hover:border-line-strong hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/40 disabled:cursor-not-allowed disabled:opacity-45 ${fitContent ? "max-w-[240px]" : "h-9 w-full px-3 text-[13px] text-ink"}`}
+        className={`inline-flex h-8 min-w-0 cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-lg border border-line bg-surface-raised px-2.5 text-[12px] font-semibold whitespace-nowrap text-ink-soft transition-colors duration-150 hover:border-line-strong hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/40 disabled:cursor-not-allowed disabled:opacity-45 ${fitContent ? "max-w-[240px]" : "h-9 w-full px-3 text-[13px] text-ink"}`}
       >
         <SelectPrimitive.Value />
         <SelectPrimitive.Icon>
-          <ChevronDown size={14} className="text-ink-muted" />
+          <ChevronDown size={14} className="shrink-0 text-ink-muted" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>

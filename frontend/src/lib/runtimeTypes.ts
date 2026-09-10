@@ -192,16 +192,18 @@ export type SkillFlowItem = {
   detail?: string;
 };
 /**
- * 时间线中的一段叙事：思考 / 回复 / 工具 / 技能，按真实到达顺序排列。
+ * 时间线中的一段叙事：思考 / 回复 / 工具 / 技能 / 轮次耗时，按真实到达顺序排列。
  * reasoning 与 assistant 是流式累积段（done 表示该段已结束），
- * tool 是工具调用生命周期记录，skill 是 Skill 加载/校验状态。
+ * tool 是工具调用生命周期记录，skill 是 Skill 加载/校验状态，
+ * turnDuration 是 run 终态后的轮次耗时行（模仿 TUI 的“已工作”收尾）。
  */
 export type FlowSegment =
   | { kind: "reasoning"; id: number; text: string; done: boolean }
   | { kind: "assistant"; id: number; text: string; done: boolean }
   | { kind: "tool"; item: ToolFlowItem }
   | { kind: "skill"; item: SkillFlowItem }
-  | { kind: "subtask"; item: SubtaskFlowItem };
+  | { kind: "subtask"; item: SubtaskFlowItem }
+  | { kind: "turnDuration"; id: number; durationMs: number; endedAt: number };
 
 /**
  * 子任务（spawn）组：suna 把子任务内工具事件的 id 命名为
