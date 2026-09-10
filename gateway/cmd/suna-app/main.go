@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	runtimelib "runtime"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -90,6 +91,8 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	logger.Info("suna-app gateway started", "version", buildVersion, "address", actualAddress)
+	// 监听通配地址时额外打印局域网 IP：手机/其他设备需要具体地址才能访问。
+	logLanAddresses(logger, actualAddress)
 
 	// .app / .desktop 双击启动时自动打开浏览器（SUNA_APP_OPEN_BROWSER=1 由启动脚本设置）。
 	// 手动命令行启动不设置该变量，避免每次重启都弹浏览器。
@@ -159,6 +162,68 @@ func isLoopbackAddress(address string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// lanIPv4Addresses 返回本机非 loopback 的 IPv4 地址（按字典序稳定输出）。
+// 只取 IPv4：手机场景下 IPv6 地址难以手动输入。
+func lanIPv4Addresses() []string {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+	addresses := []string{}
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			ip4 := ipNet.IP.To4()
+			if ip4 == nil || ip4.IsLoopback() || ip4.IsLinkLocalUnicast() {
+				continue
+			}
+			addresses = append(addresses, ip4.String())
+		}
+	}
+	sort.Strings(addresses)
+	return addresses
+}
+
+// logLanAddresses 在通配监听时打印局域网访问地址，方便手机等设备手动输入。
+func logLanAddresses(logger *slog.Logger, actualAddress string) {
+	host, _, err := net.SplitHostPort(actualAddress)
+	if err != nil {
+		return
+	}
+	ip := net.ParseIP(host)
+	if ip != nil && !ip.IsUnspecified() {
+		return // 绑定了具体地址，无需提示
+	}
+	lan := lanIPv4Addresses()
+	if len(lan) == 0 {
+		return
+	}
+	urls := make([]string, 0, len(lan))
+	for _, addr := range lan {
+		urls = append(urls, "http://"+addr+":"+portOf(actualAddress))
+	}
+	logger.Info("LAN access available", "urls", urls)
+}
+
+// portOf 从监听地址中提取端口；解析失败返回空字符串（调用处已保证格式合法）。
+func portOf(address string) string {
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return ""
+	}
+	return port
 }
 
 // listenWithFallback 在默认地址上监听；若端口被占用且 allowFallback 为真，

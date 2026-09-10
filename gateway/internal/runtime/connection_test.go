@@ -7,7 +7,10 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -57,6 +60,73 @@ func TestWithoutDaemonMode(t *testing.T) {
 	filtered := withoutDaemonMode([]string{"A=1", "SUNA_RUN_DAEMON=1", "B=2"})
 	if len(filtered) != 2 || filtered[0] != "A=1" || filtered[1] != "B=2" {
 		t.Fatalf("withoutDaemonMode() = %#v", filtered)
+	}
+}
+
+// withAugmentedPath 模拟 GUI 启动场景：PATH 极简时补充常见目录；目录已存在时
+// 不改变用户 PATH 优先级。
+func TestWithAugmentedPath(t *testing.T) {
+	// GUI 场景：PATH 极简，补充目录应追加到末尾。
+	env := withAugmentedPath([]string{"PATH=/usr/bin:/bin", "HOME=/home/u"}, "/home/u/go/bin/suna")
+	var got string
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "PATH=") {
+			got = strings.TrimPrefix(entry, "PATH=")
+		}
+	}
+	want := "/usr/bin:/bin:/home/u/go/bin:/home/u/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/sbin:/sbin"
+	if got != want {
+		t.Fatalf("augmented PATH = %q, want %q", got, want)
+	}
+
+	// shell 场景：已存在的目录不重复追加，但缺失的目录（如 sbin）仍会补齐。
+	env2 := withAugmentedPath([]string{"PATH=/opt/homebrew/bin:/usr/bin:/bin", "HOME=/home/u"}, "/opt/homebrew/bin/suna")
+	var got2 string
+	for _, entry := range env2 {
+		if strings.HasPrefix(entry, "PATH=") {
+			got2 = strings.TrimPrefix(entry, "PATH=")
+		}
+	}
+	want2 := "/opt/homebrew/bin:/usr/bin:/bin:/home/u/go/bin:/home/u/.local/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/sbin:/sbin"
+	if got2 != want2 {
+		t.Fatalf("augmented PATH = %q, want %q", got2, want2)
+	}
+}
+
+// discoverRuntimeBinary 应在 LookPath 失败（GUI PATH 极简）时探测常见安装位置。
+func TestDiscoverRuntimeBinaryFallsBackToWellKnownPaths(t *testing.T) {
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "suna")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	original := wellKnownRuntimePaths
+	t.Cleanup(func() { wellKnownRuntimePaths = original })
+	wellKnownRuntimePaths = func() []string { return []string{binary} }
+
+	// PATH 里没有 suna（模拟 GUI 启动）。
+	t.Setenv("PATH", t.TempDir())
+	if got := discoverRuntimeBinary(); got != binary {
+		t.Fatalf("discoverRuntimeBinary() = %q, want %q", got, binary)
+	}
+}
+
+// PATH 优先级最高：即使常见位置也有二进制，仍应返回裸名 "suna"。
+func TestDiscoverRuntimeBinaryPrefersPATH(t *testing.T) {
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "suna")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+
+	original := wellKnownRuntimePaths
+	t.Cleanup(func() { wellKnownRuntimePaths = original })
+	wellKnownRuntimePaths = func() []string { return []string{filepath.Join(t.TempDir(), "suna")} }
+
+	if got := discoverRuntimeBinary(); got != "suna" {
+		t.Fatalf("discoverRuntimeBinary() = %q, want bare \"suna\" from PATH", got)
 	}
 }
 func TestConnectionManagerConnectRequestAndNotification(t *testing.T) {

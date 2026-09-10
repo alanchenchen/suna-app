@@ -31,7 +31,7 @@ type CommandLauncher struct {
 }
 
 // runtimeBinaryPath 是 App 引导安装的 Runtime 二进制固定路径（约定，非配置文件）。
-// discovery 顺序：PATH 优先，其次该路径；都没有则返回 unavailable 触发引导安装。
+// discovery 顺序：PATH 优先，其次常见安装位置，最后该路径；都没有则返回 unavailable 触发引导安装。
 func runtimeBinaryPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -40,24 +40,54 @@ func runtimeBinaryPath() string {
 	return filepath.Join(home, ".suna-app", "runtime", "suna")
 }
 
-func (l CommandLauncher) Launch(ctx context.Context) (ServeResult, error) {
-	binary := strings.TrimSpace(l.Binary)
-	if binary == "" {
-		// 两级发现：系统 PATH 优先（用户手动安装），其次 App 引导安装的固定目录。
-		if _, err := exec.LookPath("suna"); err == nil {
-			binary = "suna"
-		} else if installed := runtimeBinaryPath(); installed != "" {
-			if info, statErr := os.Stat(installed); statErr == nil && !info.IsDir() {
-				binary = installed
-			}
+// wellKnownRuntimePaths 返回常见安装位置。macOS 双击 .app 启动时进程 PATH 极简
+// （仅 /usr/bin:/bin:/usr/sbin:/sbin），LookPath 看不到 ~/go/bin 等用户目录里的
+// Runtime，必须逐一探测这些固定位置才能发现用户手动安装的 Runtime。
+// 函数变量：测试可注入临时路径。
+var wellKnownRuntimePaths = func() []string {
+	paths := []string{}
+	if home, err := os.UserHomeDir(); err == nil && strings.TrimSpace(home) != "" {
+		paths = append(paths,
+			filepath.Join(home, "go", "bin", "suna"),     // go install 默认目录
+			filepath.Join(home, ".local", "bin", "suna"), // 用户本地 bin
+		)
+	}
+	return append(paths,
+		"/opt/homebrew/bin/suna", // Apple Silicon Homebrew
+		"/usr/local/bin/suna",    // Intel Homebrew / 手动安装
+	)
+}
+
+// discoverRuntimeBinary 按优先级定位 Runtime：PATH（shell 启动场景）→ 常见安装
+// 位置（GUI 启动场景的 PATH 补偿）→ App 引导安装目录。用户手动安装的优先于
+// App 托管的，与既有语义一致。
+func discoverRuntimeBinary() string {
+	if _, err := exec.LookPath("suna"); err == nil {
+		return "suna"
+	}
+	for _, candidate := range wellKnownRuntimePaths() {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
 		}
 	}
-	if strings.TrimSpace(binary) == "" {
+	if installed := runtimeBinaryPath(); installed != "" {
+		if info, err := os.Stat(installed); err == nil && !info.IsDir() {
+			return installed
+		}
+	}
+	return ""
+}
+
+func (l CommandLauncher) Launch(ctx context.Context) (ServeResult, error) {
+	binary := discoverRuntimeBinary()
+	if binary == "" {
 		return ServeResult{}, &Error{Kind: ErrorUnavailable, Reason: "not_installed", Err: fmt.Errorf("suna runtime is not installed")}
 	}
 	command := runCommand(ctx, binary, "serve", "--json")
 	command.Dir = runtimeCommandDirectory()
-	command.Env = withoutDaemonMode(os.Environ())
+	// GUI 启动时 PATH 极简，Runtime daemon 及其子进程（git/node 等）会找不到
+	// 工具；补充常见目录且不改变用户已有 PATH 的优先级。
+	command.Env = withAugmentedPath(withoutDaemonMode(os.Environ()), binary)
 	output, err := commandJSONOutput(ctx, command)
 	if err != nil {
 		return ServeResult{}, &Error{Kind: ErrorUnavailable, Err: fmt.Errorf("runtime is unavailable")}
@@ -114,6 +144,72 @@ func withoutDaemonMode(environment []string) []string {
 		}
 	}
 	return filtered
+}
+
+// augmentedPathDirs 返回需要补充进子进程 PATH 的目录：Runtime 二进制所在目录
+// 加上 GUI 环境下常缺失的用户与 Homebrew 目录。home 从传入 env 读取（与实际
+// 传给子进程的环境一致），读不到时跳过用户目录。
+func augmentedPathDirs(binary string, environment []string) []string {
+	dirs := []string{}
+	if dir := filepath.Dir(binary); dir != "" && dir != "." {
+		dirs = append(dirs, dir)
+	}
+	for _, entry := range environment {
+		if strings.HasPrefix(entry, "HOME=") {
+			home := strings.TrimPrefix(entry, "HOME=")
+			if home != "" {
+				dirs = append(dirs,
+					filepath.Join(home, "go", "bin"),
+					filepath.Join(home, ".local", "bin"),
+				)
+			}
+			break
+		}
+	}
+	return append(dirs,
+		"/opt/homebrew/bin",
+		"/opt/homebrew/sbin",
+		"/usr/local/bin",
+		"/usr/bin",
+		"/bin",
+		"/usr/sbin",
+		"/sbin",
+	)
+}
+
+// withAugmentedPath 把子进程 PATH 中缺失的目录追加到末尾：GUI 启动（PATH 极简）
+// 时补齐工具可见性；shell 启动时目录通常已存在，不改变用户 PATH 优先级。
+func withAugmentedPath(environment []string, binary string) []string {
+	current := ""
+	for _, entry := range environment {
+		if strings.HasPrefix(entry, "PATH=") {
+			current = strings.TrimPrefix(entry, "PATH=")
+		}
+	}
+	existing := make(map[string]bool)
+	for _, dir := range strings.Split(current, ":") {
+		if dir != "" {
+			existing[dir] = true
+		}
+	}
+	missing := []string{}
+	for _, dir := range augmentedPathDirs(binary, environment) {
+		if !existing[dir] {
+			missing = append(missing, dir)
+			existing[dir] = true
+		}
+	}
+	if len(missing) == 0 {
+		return environment
+	}
+	for i, entry := range environment {
+		if strings.HasPrefix(entry, "PATH=") {
+			environment[i] = "PATH=" + current + ":" + strings.Join(missing, ":")
+			return environment
+		}
+	}
+	// 环境里没有 PATH（如 env -i 启动）：补一个完整 PATH。
+	return append(environment, "PATH="+strings.Join(missing, ":"))
 }
 
 func runtimeCommandDirectory() string {
