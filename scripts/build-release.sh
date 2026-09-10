@@ -109,15 +109,12 @@ build_macos_app() {
 PLIST
 
   # 启动脚本：设置自动开浏览器标记后启动 gateway（双击入口）。
-  # LSUIElement 应用无 Dock 图标且 stderr 不可见，日志落到 ~/.suna-app/logs/
-  # （对齐 Runtime 的 ~/.suna/logs 约定）；每次启动轮换保留上一份，不无限增长。
+  # LSUIElement 应用无 Dock 图标；Suna App 不落盘任何日志，stderr 是唯一出口
+  # （GUI 启动时由系统丢弃）；排查问题用 CLI 启动即可在终端看到完整输出。
   cat > "$contents/MacOS/suna-app-launcher" <<'LAUNCH'
 #!/bin/sh
 DIR="$(cd "$(dirname "$0")" && pwd)"
-LOG_DIR="$HOME/.suna-app/logs"
-mkdir -p "$LOG_DIR"
-[ -f "$LOG_DIR/gateway.log" ] && mv -f "$LOG_DIR/gateway.log" "$LOG_DIR/gateway.log.1"
-exec env SUNA_APP_OPEN_BROWSER=1 "$DIR/suna-app" "$@" >> "$LOG_DIR/gateway.log" 2>&1
+SUNA_APP_OPEN_BROWSER=1 exec "$DIR/suna-app" "$@"
 LAUNCH
   chmod +x "$contents/MacOS/suna-app-launcher"
 
@@ -155,14 +152,10 @@ build_linux_desktop() {
     -ldflags "-s -w -X main.buildVersion=${VERSION}" \
     -o "$stage/suna-app" \
     "$PACKAGE"
-  # Linux 桌面启动同样无终端可见性，日志策略与 macOS .app 一致。
   cat > "$stage/suna-app-launcher" <<'LAUNCH'
 #!/bin/sh
 DIR="$(cd "$(dirname "$0")" && pwd)"
-LOG_DIR="$HOME/.suna-app/logs"
-mkdir -p "$LOG_DIR"
-[ -f "$LOG_DIR/gateway.log" ] && mv -f "$LOG_DIR/gateway.log" "$LOG_DIR/gateway.log.1"
-exec env SUNA_APP_OPEN_BROWSER=1 "$DIR/suna-app" "$@" >> "$LOG_DIR/gateway.log" 2>&1
+SUNA_APP_OPEN_BROWSER=1 exec "$DIR/suna-app" "$@"
 LAUNCH
   chmod +x "$stage/suna-app-launcher"
   cat > "$stage/Suna App.desktop" <<'DESKTOP'
