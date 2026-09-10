@@ -287,6 +287,50 @@ func TestOnIdleExitFiresAfterLastClientDisconnects(t *testing.T) {
 	}
 }
 
+// TestOnIdleExitFiresAfterRunTerminalState 验证：run 终态通知（done）到达后
+// run 计数归零，空闲断开恢复，OnIdleExit 正常触发。这是“run 结束后浏览器
+// 已全部关闭，gateway 应退出”的关键路径。
+func TestOnIdleExitFiresAfterRunTerminalState(t *testing.T) {
+	connection := newFakeConnection()
+	onIdleExit := make(chan struct{}, 1)
+	service, err := New(fakeConnector{connection}, Config{
+		Random:            zeroReader{},
+		ClientIdleTimeout: 20 * time.Millisecond,
+		OnIdleExit: func() {
+			select {
+			case onIdleExit <- struct{}{}:
+			default:
+			}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := service.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// run 进入 running：空闲断开被 run 保护阻塞。
+	connection.notifications <- runtime.Notification{Method: "agent.run", Params: json.RawMessage(`{"state":"running"}`)}
+	time.Sleep(50 * time.Millisecond)
+	if _, err := service.Request(context.Background(), id, "session.list", nil); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-onIdleExit:
+		t.Fatal("OnIdleExit fired while a run is active")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// run 终态到达后，空闲断开重新调度并触发自退。
+	connection.notifications <- runtime.Notification{Method: "agent.run", Params: json.RawMessage(`{"state":"done"}`)}
+	select {
+	case <-onIdleExit:
+	case <-time.After(time.Second):
+		t.Fatal("OnIdleExit was not fired after run reached a terminal state")
+	}
+}
+
 // TestOnIdleExitNotFiredWhileRunActive 验证：连接上有正在执行的 run 时，
 // 空闲断开不触发 OnIdleExit（防止 daemon 取消 run）。
 func TestOnIdleExitNotFiredWhileRunActive(t *testing.T) {
