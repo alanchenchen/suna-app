@@ -386,6 +386,11 @@ const DICT: Dict = {
     en: "Start a new task or join a running session",
   },
   "run.resume": { zh: "恢复执行", en: "Resume" },
+  "run.failed": { zh: "运行失败", en: "Run failed" },
+  "run.failedHint": {
+    zh: "模型/服务中断，可恢复未完成的回合",
+    en: "Model/service interrupted; the unfinished turn can be resumed",
+  },
   "run.retrying": {
     zh: "正在重试（{attempt}/{max}），{seconds} 秒后继续",
     en: "Retrying ({attempt}/{max}) in {seconds}s",

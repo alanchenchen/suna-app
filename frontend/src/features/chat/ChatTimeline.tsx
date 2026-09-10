@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
 import { Icon } from "../../components/Icon";
 import type {
+  AgentRunEvent,
   AskUserEvent,
   FlowSegment,
   GuardConfirmEvent,
@@ -115,6 +116,10 @@ type ChatTimelineProps = {
   onSuggestion?: (text: string) => void;
   /** 用户消息重发：把该消息内容重新发送（仅 user 消息显示）。 */
   onResend?: (content: string) => void;
+  /** 当前 run 的权威状态（失败且可恢复时显示“恢复执行”）。 */
+  run?: AgentRunEvent;
+  /** 恢复执行（agent.resumeRun）：不新增用户消息，重试未完成的 turn。 */
+  onResume?: () => void;
   /** attach 恢复时 run 在等待交互但详情未达：显示“等待详情”占位。 */
   waitingForInteraction?: boolean;
   /** 是否已配置模型：false 时空状态显示“去配置模型”引导。 */
@@ -140,6 +145,8 @@ export function ChatTimeline({
   loading = false,
   onSuggestion,
   onResend,
+  run,
+  onResume,
   waitingForInteraction = false,
   hasModels = true,
   onOpenSettings,
@@ -439,6 +446,31 @@ export function ChatTimeline({
               </div>
             </article>
           ))}
+        {!loading &&
+          run?.state === "failed" &&
+          run.resume_available &&
+          onResume && (
+            <section
+              aria-atomic="true"
+              aria-live="polite"
+              className="mb-6 flex max-w-[520px] items-center gap-2 border-l-2 border-rose py-1 pl-2.5 text-[11px]"
+              role="status"
+            >
+              <span className="shrink-0 font-extrabold text-rose">
+                {t("run.failed")}
+              </span>
+              <span className="min-w-0 truncate text-ink-muted">
+                {run.message || t("run.failedHint")}
+              </span>
+              <button
+                className="ml-auto shrink-0 cursor-pointer rounded-md border border-line bg-surface-raised px-2 py-0.5 text-[10.5px] font-bold text-ink transition-colors duration-150 hover:bg-surface-subtle"
+                onClick={onResume}
+                type="button"
+              >
+                {t("run.resume")}
+              </button>
+            </section>
+          )}
         {!loading && waitingForInteraction && (
           <section
             aria-atomic="true"

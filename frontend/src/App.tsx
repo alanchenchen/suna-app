@@ -421,6 +421,17 @@ function AppShell() {
                   ? undefined
                   : (content) => void send([{ type: "text", text: content }])
               }
+              run={active.run}
+              onResume={
+                // agent.resumeRun：协议为 run 失败准备的干净重试——不新增
+                // 用户消息，恢复未完成的 turn（与“重发”互补）。
+                observer || !canControl
+                  ? undefined
+                  : () =>
+                      void queueSessionOperation(() =>
+                        rpc("agent.resumeRun", {}),
+                      )
+              }
               pending={
                 active.pendingUsers.length > 0 || Boolean(active.awaitingRun)
               }
