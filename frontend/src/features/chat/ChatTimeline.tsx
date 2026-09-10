@@ -11,7 +11,6 @@ import {
   activityCopy,
   ActivityDots,
   ReasoningBlock,
-  StreamActivity,
   toneClasses,
 } from "./activity";
 import { DecisionCard } from "./decisionCard";
@@ -247,42 +246,32 @@ export function ChatTimeline({
       !segment.done,
   );
   const showActivityCard = Boolean((running || pending) && !hasStream);
-  const streamActivity = activityCopy(t, phase, false, activeTool);
   const activity = activityCopy(t, phase, pending, activeTool);
   const activityToneClass = toneClasses[activity.tone] ?? toneClasses.default;
 
-  /** 思考/回复段渲染（工具块之间的叙事内容，ZCode 平铺形态）。 */
+  /** 思考/回复段渲染（工具块之间的叙事内容，ZCode 平铺形态）。
+   * 思考链属于同一条消息：先思考块（可折叠），紧接正文，共享一个段落。 */
   const renderNarrative = (segment: FlowSegment) => {
-    if (segment.kind === "reasoning") {
-      return (
-        <div className="my-5" key={segment.id}>
-          <ReasoningBlock
-            done={segment.done}
-            running={running && !segment.done}
-            text={segment.text}
-          />
-        </div>
-      );
-    }
-    // 类型收窄：只剩 assistant 段。
+    if (segment.kind === "reasoning") return null; // 与后续 assistant 段合并渲染。
     if (segment.kind !== "assistant") return null;
     const streaming = !segment.done;
+    // 思考链：本条消息前面紧邻的 reasoning 段（未结束时展示思考中状态）。
+    const index = flow.indexOf(segment);
+    const reasoning =
+      index > 0 && flow[index - 1].kind === "reasoning"
+        ? flow[index - 1]
+        : undefined;
     return (
       <article className="mb-6" key={segment.id}>
-        <div className="mb-1.5 flex items-center gap-2 text-[11px] text-ink-muted">
-          {/* Suna 侧身份标记：主色圆点 + 名字，与用户消息的右对齐形态区分。 */}
-          <span
-            aria-hidden="true"
-            className="h-[14px] w-[14px] shrink-0 rounded-[5px] bg-blue"
-          />
-          <strong className="text-[11px] font-extrabold text-ink">Suna</strong>
-          {streaming && (running || pending) && (
-            <StreamActivity
-              label={t("chat.replying")}
-              detail={streamActivity.detail}
+        {reasoning && reasoning.kind === "reasoning" && (
+          <div className="mb-2">
+            <ReasoningBlock
+              done={reasoning.done}
+              running={running && !reasoning.done}
+              text={reasoning.text}
             />
-          )}
-        </div>
+          </div>
+        )}
         <div
           className={`min-w-0 max-w-[650px] text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] ${streaming ? "text-ink whitespace-pre-wrap" : "markdown-body text-ink"}`}
         >
@@ -418,12 +407,6 @@ export function ChatTimeline({
               <div
                 className={`mb-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted ${message.role === "user" ? "flex-row-reverse" : ""}`}
               >
-                {message.role === "assistant" && (
-                  <span
-                    aria-hidden="true"
-                    className="h-[14px] w-[14px] shrink-0 rounded-[5px] bg-blue"
-                  />
-                )}
                 <CopyButton text={message.content} />
                 {message.role === "user" && onResend && (
                   <button
@@ -435,11 +418,6 @@ export function ChatTimeline({
                     <Icon name="refresh" size={12} />
                   </button>
                 )}
-                <strong
-                  className={`text-[11px] font-extrabold ${message.role === "user" ? "text-blue-strong" : "text-ink"}`}
-                >
-                  {message.role === "user" ? t("chat.user") : "Suna"}
-                </strong>
               </div>
               <div
                 className={`min-w-0 text-[13px] leading-[1.82] tracking-tight [overflow-wrap:anywhere] max-[720px]:text-[12.5px] max-[720px]:leading-[1.76] ${message.role === "user" ? "max-w-[85%] rounded-[14px] rounded-br-[4px] border border-line bg-surface-raised px-3.5 py-2.5 text-ink" : "max-w-[650px] text-ink"}`}
@@ -483,20 +461,6 @@ export function ChatTimeline({
             onAskReply={onAskReply}
             onGuardReply={onGuardReply}
           />
-        )}
-        {!loading && showActivityCard && (
-          <section
-            aria-atomic="true"
-            aria-live="polite"
-            className={`mb-6 flex max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both] items-center gap-2 border-l-2 py-1 pl-2.5 text-[11px] ${activityToneClass}`}
-            role="status"
-          >
-            <span className="shrink-0 font-extrabold">{activity.label}</span>
-            <span className="min-w-0 flex-1 truncate text-ink-muted">
-              {activity.detail}
-            </span>
-            <ActivityDots />
-          </section>
         )}
         {!loading && flow.length > 0 && (
           <div aria-label={t("chat.processLabel")}>
@@ -573,6 +537,22 @@ export function ChatTimeline({
               return blocks;
             })()}
           </div>
+        )}
+        {/* 活动卡：渲染在叙事流之后（最新消息下方）——loading 的位置
+            应该跟随内容，而不是悬在时间线顶部与内容脱节。 */}
+        {!loading && showActivityCard && (
+          <section
+            aria-atomic="true"
+            aria-live="polite"
+            className={`mt-1 mb-6 flex max-w-[520px] items-center gap-2 border-l-2 py-1 pl-2.5 text-[11px] ${activityToneClass}`}
+            role="status"
+          >
+            <span className="shrink-0 font-extrabold">{activity.label}</span>
+            <span className="min-w-0 flex-1 truncate text-ink-muted">
+              {activity.detail}
+            </span>
+            <ActivityDots />
+          </section>
         )}
         {!loading &&
           flow.filter((segment) => segment.kind === "tool").length === 0 &&

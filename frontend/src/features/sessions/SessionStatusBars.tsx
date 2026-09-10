@@ -1,11 +1,9 @@
 import { Icon } from "../../components/Icon";
 import { useT } from "../../lib/i18n";
-import type { SessionInfo } from "../../lib/runtimeBridge";
 
 type SessionStatusBarsProps = {
   observer: boolean;
   handoffRole: "host" | "guest";
-  selected?: SessionInfo;
   error?: string;
   onCloseError: () => void;
 };
@@ -17,7 +15,6 @@ type SessionStatusBarsProps = {
 export function SessionStatusBars({
   observer,
   handoffRole,
-  selected,
   error,
   onCloseError,
 }: SessionStatusBarsProps) {
@@ -53,11 +50,6 @@ export function SessionStatusBars({
               </span>
             </span>
           </span>
-          {selected && selected.client_count > 1 && (
-            <span className="shrink-0 rounded-full border border-line bg-surface px-2.5 py-0.5 text-[10.5px] font-bold text-ink-soft">
-              {t("statusbar.clients", { count: selected.client_count })}
-            </span>
-          )}
         </div>
       )}
       {error && (

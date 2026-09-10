@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./components/Icon";
 import { ChatTimeline } from "./features/chat/ChatTimeline";
 import { Composer, type ComposerHandle } from "./features/chat/Composer";
-import { UsageBar } from "./features/chat/UsageBar";
 import { CommandPalette } from "./features/commands/CommandPalette";
 import { useRuntimeSession } from "./features/runtime/useRuntimeSession";
 import { SessionSidebar } from "./features/sessions/SessionSidebar";
@@ -292,7 +291,6 @@ function AppShell() {
           handoffRole={handoffRole}
           observer={observer}
           onCloseError={() => setError(undefined)}
-          selected={selected}
         />
         {/* 切换/恢复会话的过渡反馈：attach 串行队列执行期间显示。 */}
         {syncing && selectedId && (
@@ -439,7 +437,6 @@ function AppShell() {
                 setSettingsOpen(true);
               }}
             />
-            <UsageBar usage={active.usage} />
             <Composer
               activeModel={selected?.model_ref}
               canAttachImageUrl={Boolean(hello?.content_sources.image_url)}
@@ -450,9 +447,17 @@ function AppShell() {
               models={config?.models ?? []}
               onOpenCommands={() => setCommandOpen(true)}
               onRemoveSteering={removeSteering}
+              onStop={
+                // 运行中发送钮变停止钮（与 header 停止一致，走 agent.cancel）。
+                canControl && running
+                  ? () =>
+                      void queueSessionOperation(() => rpc("agent.cancel", {}))
+                  : undefined
+              }
               onSubmit={send}
               onSteer={steer}
               onUpdateModel={updateModel}
+              usage={active.usage}
               observer={observer}
               ref={composerRef}
               steering={steering}

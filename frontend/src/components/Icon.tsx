@@ -29,6 +29,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Square,
   Sun,
   TriangleAlert,
   User,
@@ -67,6 +68,7 @@ export type IconName =
   | "settings"
   | "shield"
   | "sparkle"
+  | "stop"
   | "sun"
   | "tool"
   | "user"
@@ -104,6 +106,7 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   settings: Settings,
   shield: Shield,
   sparkle: Sparkles,
+  stop: Square,
   sun: Sun,
   tool: Wrench,
   user: User,

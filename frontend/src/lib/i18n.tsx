@@ -167,6 +167,7 @@ const DICT: Dict = {
     en: "Fetching details…",
   },
   "chat.send": { zh: "发送消息", en: "Send message" },
+  "chat.stopRun": { zh: "停止当前任务", en: "Stop current run" },
   "chat.timelineLabel": { zh: "会话消息", en: "Session messages" },
   "chat.processLabel": { zh: "执行过程", en: "Activity" },
   "chat.empty.title": { zh: "开始一个任务", en: "Start a task" },
@@ -398,13 +399,11 @@ const DICT: Dict = {
     zh: "请在对话中处理此请求",
     en: "Handle this request in the chat",
   },
-  // UsageBar（输入区上方的轻量用量条，替代原右侧详情抽屉）。
-  "usage.inOut": {
-    zh: "{input} / {output} tok",
-    en: "{input} / {output} tok",
+  // UsageBadge（输入区工具行内嵌的上下文 badge）。
+  "usage.contextAria": {
+    zh: "上下文已用 {used} / {total} tokens",
+    en: "Context {used} / {total} tokens",
   },
-  "usage.cache": { zh: "缓存", en: "cache" },
-  "usage.context": { zh: "上下文", en: "context" },
   // Header
   "header.overview": { zh: "任务总览", en: "Tasks" },
   "header.running": { zh: "运行中", en: "Running" },

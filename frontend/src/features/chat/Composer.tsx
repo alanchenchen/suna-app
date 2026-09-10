@@ -7,8 +7,10 @@ import {
 } from "react";
 import { Icon } from "../../components/Icon";
 import { Select } from "../../components/ui/Select";
+import { UsageBadge } from "./UsageBar";
 import { useT } from "../../lib/i18n";
 import type {
+  AgentUsageEvent,
   ConfigModel,
   MessagePart,
   SteeringMessage,
@@ -40,6 +42,10 @@ type ComposerProps = {
   activeModel?: string;
   /** 切换会话模型。 */
   onUpdateModel?: (modelRef: string) => Promise<void>;
+  /** 运行中取消当前 run（发送钮的停止形态）。 */
+  onStop?: () => void;
+  /** 当前 run 用量：嵌入工具行的上下文 badge（替代独立用量条）。 */
+  usage?: AgentUsageEvent;
 };
 
 export type ComposerHandle = {
@@ -66,6 +72,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       models = [],
       activeModel,
       onUpdateModel,
+      onStop,
+      usage,
     },
     ref,
   ) {
@@ -208,7 +216,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
           className={`mx-auto w-[min(720px,100%)] rounded-[16px] border bg-surface-solid transition-colors duration-200 max-[720px]:rounded-[14px] ${observer ? "border-line bg-surface-subtle/50 opacity-80" : "border-line focus-within:border-blue/40"}`}
         >
           {observer && (
-            <div className="flex items-center gap-1.5 px-4 pt-2.5 text-[10.5px] font-semibold text-rose/80 max-[720px]:px-3">
+            <div className="flex items-center gap-1.5 px-4 pt-2.5 text-[10.5px] font-semibold text-ink-muted max-[720px]:px-3">
               <Icon name="eye" size={12} />
               {t("chat.observerNotice")}
             </div>
@@ -368,14 +376,14 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
             rows={1}
             value={draft}
           />
-          {/* 底部工具行：左侧附件入口，右侧模型选择 + 发送。 */}
+          {/* 底部工具行：左侧附件 + 模型 + 上下文 badge，右侧发送/停止。 */}
           <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 max-[720px]:px-2 max-[720px]:pb-2">
             <div className="flex min-w-0 items-center gap-1">
               {canAttachImageUrl && (
                 <button
                   aria-expanded={showImageInput}
                   aria-label={t("chat.imageUrl")}
-                  className={`grid h-8 w-8 cursor-pointer place-items-center rounded-[10px] transition-colors duration-150 max-[720px]:h-10 max-[720px]:w-10 ${showImageInput ? "bg-blue-soft text-blue-strong" : "text-ink-muted hover:bg-surface-subtle hover:text-ink"}`}
+                  className={`grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[10px] transition-colors duration-150 max-[720px]:h-10 max-[720px]:w-10 ${showImageInput ? "bg-blue-soft text-blue-strong" : "text-ink-muted hover:bg-surface-subtle hover:text-ink"}`}
                   disabled={disabled || sending}
                   onClick={() => setShowImageInput((value) => !value)}
                   type="button"
@@ -405,37 +413,51 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                   }
                 />
               )}
+              <UsageBadge usage={usage} />
             </div>
-            <button
-              aria-label={t("chat.send")}
-              className="group/send grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[10px] bg-blue text-white transition-colors duration-150 hover:bg-blue-strong active:scale-90 disabled:cursor-default disabled:opacity-40 max-[720px]:h-10 max-[720px]:w-10"
-              disabled={
-                (canSteer
-                  ? !draft.trim()
-                  : !draft.trim() &&
-                    !imageUrl.trim() &&
-                    imageUrls.length === 0) ||
-                disabled ||
-                sending
-              }
-              onClick={() => void submit()}
-              type="button"
-            >
-              {sending ? (
-                <Icon
-                  aria-hidden="true"
-                  className="animate-spin"
-                  name="loader"
-                  size={15}
-                />
-              ) : (
-                <Icon
-                  className="transition-transform duration-160 group-hover/send:animate-[icon-lift_240ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
-                  name="arrow-up"
-                  size={16}
-                />
-              )}
-            </button>
+            {/* 右下主按钮（ZCode 形态）：运行中且有停止能力时是红色停止钮；
+                其余时刻是发送钮（含 sending 转圈）。 */}
+            {canSteer && onStop ? (
+              <button
+                aria-label={t("chat.stopRun")}
+                className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[10px] bg-rose text-white transition-colors duration-150 hover:bg-rose/85 active:scale-90 max-[720px]:h-10 max-[720px]:w-10"
+                onClick={onStop}
+                type="button"
+              >
+                <Icon name="stop" size={14} />
+              </button>
+            ) : (
+              <button
+                aria-label={t("chat.send")}
+                className="group/send grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[10px] bg-blue text-white transition-colors duration-150 hover:bg-blue-strong active:scale-90 disabled:cursor-default disabled:opacity-40 max-[720px]:h-10 max-[720px]:w-10"
+                disabled={
+                  (canSteer
+                    ? !draft.trim()
+                    : !draft.trim() &&
+                      !imageUrl.trim() &&
+                      imageUrls.length === 0) ||
+                  disabled ||
+                  sending
+                }
+                onClick={() => void submit()}
+                type="button"
+              >
+                {sending ? (
+                  <Icon
+                    aria-hidden="true"
+                    className="animate-spin"
+                    name="loader"
+                    size={15}
+                  />
+                ) : (
+                  <Icon
+                    className="transition-transform duration-160 group-hover/send:animate-[icon-lift_240ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+                    name="arrow-up"
+                    size={16}
+                  />
+                )}
+              </button>
+            )}
           </div>
         </div>
         {/* 提示行仅桌面显示（窄屏空间有限且用户熟悉触屏输入）。 */}

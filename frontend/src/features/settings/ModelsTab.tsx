@@ -375,12 +375,12 @@ export function ModelsTab({
           const active = ref === activeRef;
           return (
             <div
-              className="flex items-center justify-between gap-3 border-b border-line py-2.5 text-[13px]"
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line py-2.5 text-[13px]"
               key={ref}
             >
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5">
-                  <strong className="truncate text-ink">{ref}</strong>
+              <span className="min-w-0 flex-1 basis-48">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <strong className="min-w-0 break-all text-ink">{ref}</strong>
                   {active && (
                     <span className="rounded-sm bg-green-soft px-1.5 py-px text-[10px] font-bold text-green">
                       {t("models.inUse")}

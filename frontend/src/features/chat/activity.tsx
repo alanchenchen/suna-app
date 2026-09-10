@@ -133,7 +133,6 @@ export function ReasoningBlock({
         <span className="grid h-[21px] w-[21px] place-items-center rounded-[7px] bg-amber-soft text-amber">
           <Icon name="brain" size={13} />
         </span>
-        <strong className="text-ink">Suna</strong>
         <span className="ml-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-amber">
           <Icon
             className={`transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}

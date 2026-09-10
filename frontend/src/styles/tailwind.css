@@ -586,6 +586,10 @@ button {
          开销大（低端机抽屉滑动掉帧），且实色背景本就不需要模糊。 */
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
+      /* iOS Safari 地址栏收缩时 bottom:0 的 fixed 元素可能落在
+         可视区之外：dvh 显式约束高度，并给底部留安全区。 */
+      height: 100dvh;
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
       transform: translateX(-105%);
       transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
       box-shadow: var(--shadow-lg);
@@ -652,6 +656,9 @@ button {
       right: 12px;
       top: 64px;
       width: auto;
+      /* 移动端高度约束到视口内（含底部导航与安全区），
+         内容区自身滚动——否则面板底部被 tabbar 逆住无法触达。 */
+      max-height: calc(100dvh - 64px - 62px - env(safe-area-inset-bottom));
     }
   }
 

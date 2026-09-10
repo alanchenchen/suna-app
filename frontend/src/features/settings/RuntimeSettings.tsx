@@ -128,7 +128,7 @@ export function RuntimeSettings({
   return (
     <section
       aria-label={t("settings.title")}
-      className={`runtime-settings overflow-hidden rounded-2xl border border-line bg-surface-solid shadow-lg ${
+      className={`runtime-settings flex flex-col overflow-hidden rounded-2xl border border-line bg-surface-solid shadow-lg ${
         closing
           ? "pointer-events-none animate-[panel-out_180ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
           : "animate-[panel-pop_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
@@ -171,7 +171,10 @@ export function RuntimeSettings({
           );
         })}
       </div>
-      <div className="max-h-[calc(100vh-190px)] overflow-auto p-4">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 max-[720px]:p-3"
+        style={{ maxHeight: "inherit" }}
+      >
         {error && (
           <p className="mb-3 text-[12px] font-semibold text-rose">{error}</p>
         )}
