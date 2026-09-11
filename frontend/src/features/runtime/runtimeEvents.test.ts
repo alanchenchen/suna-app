@@ -344,7 +344,7 @@ describe("createNotificationHandler", () => {
         method: "agent.tool_end",
         params: { id: "t5", tool: "exec", result: "ok" },
       });
-      // usage 先到（Runtime 权威总耗时 12s）。
+      // usage 先到（单次 LLM 请求耗时 12s——不用于轮次计时）。
       send({
         method: "agent.usage",
         params: {
@@ -364,7 +364,9 @@ describe("createNotificationHandler", () => {
           s.kind === "turnDuration",
       );
       expect(rows).toHaveLength(1);
-      expect(rows[0].durationMs).toBe(12000);
+      // 与 TUI 一致：从 run 开始（10:00:00）计到终态（10:01:00）= 60s，
+      // 而不是 usage.duration_ms（单次请求 12s）。
+      expect(rows[0].durationMs).toBe(60000);
     } finally {
       vi.useRealTimers();
     }

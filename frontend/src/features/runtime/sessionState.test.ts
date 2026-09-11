@@ -18,7 +18,7 @@ describe("blankActive", () => {
 });
 
 describe("flowFromSnapshot", () => {
-  it("recovers reasoning and assistant buffers as unfinished segments", () => {
+  it("recovers reasoning and assistant buffers as finished segments", () => {
     const snapshot: SessionSnapshot = {
       session: {
         id: "s1",
@@ -39,17 +39,19 @@ describe("flowFromSnapshot", () => {
       },
     };
     const flow = flowFromSnapshot(snapshot);
-    // 顺序：reasoning 在前、assistant 在后；都是未结束段（运行中 Join 恢复用）。
+    // 顺序：reasoning 在前、assistant 在后。buffer 是已生成的完整内容：
+    // 标记 done，避免恢复后“查看思考过程”卡在“思考中”。后续 live delta
+    // 会新开段继续流式（见 useDeltaQueue）。
     expect(flow).toHaveLength(2);
     expect(flow[0]).toMatchObject({
       kind: "reasoning",
       text: "正在分析问题…",
-      done: false,
+      done: true,
     });
     expect(flow[1]).toMatchObject({
       kind: "assistant",
       text: "好的，我来处理。",
-      done: false,
+      done: true,
     });
   });
 
@@ -73,7 +75,11 @@ describe("flowFromSnapshot", () => {
     };
     const flow = flowFromSnapshot(snapshot);
     expect(flow).toHaveLength(1);
-    expect(flow[0]).toMatchObject({ kind: "reasoning", text: "思考中…" });
+    expect(flow[0]).toMatchObject({
+      kind: "reasoning",
+      text: "思考中…",
+      done: true,
+    });
   });
 
   it("returns an empty flow when there is no active run buffer", () => {

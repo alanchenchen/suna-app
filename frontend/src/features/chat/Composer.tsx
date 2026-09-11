@@ -7,7 +7,8 @@ import {
 } from "react";
 import { Icon } from "../../components/Icon";
 import { Select } from "../../components/ui/Select";
-import { UsageBadge } from "./UsageBar";
+import { UsageRing } from "./UsageRing";
+import { ActivityStrip } from "./activity";
 import { useT } from "../../lib/i18n";
 import type {
   AgentUsageEvent,
@@ -44,8 +45,14 @@ type ComposerProps = {
   onUpdateModel?: (modelRef: string) => Promise<void>;
   /** 运行中取消当前 run（发送钮的停止形态）。 */
   onStop?: () => void;
-  /** 当前 run 用量：嵌入工具行的上下文 badge（替代独立用量条）。 */
+  /** 当前 run 用量：嵌入工具行的上下文环（hover/点按显示明细）。 */
   usage?: AgentUsageEvent;
+  /** 运行活动（等待模型/工具执行等）：显示在输入卡上方，loading 跟随输入焦点。 */
+  activity?: {
+    phase?: string;
+    pending?: boolean;
+    activeTool?: { tool: string; intent?: string; status?: string };
+  };
 };
 
 export type ComposerHandle = {
@@ -74,6 +81,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       onUpdateModel,
       onStop,
       usage,
+      activity,
     },
     ref,
   ) {
@@ -195,16 +203,18 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
 
     return (
       <footer className="composer-area">
-        {(waiting || error) && (
-          <div className="mx-auto mb-2 flex w-[min(720px,100%)] items-center justify-between">
-            {waiting && (
-              <span className="inline-flex min-h-[27px] animate-[slide-up_240ms_cubic-bezier(0.2,0.8,0.2,1)_both] items-center gap-1.5 rounded-full border border-amber/20 bg-amber-soft px-2 py-1 text-[10px] font-extrabold text-amber">
+        {(activity || waiting || error) && (
+          <div className="mx-auto mb-2 grid w-[min(720px,100%)] gap-1.5">
+            {activity ? (
+              <ActivityStrip {...activity} />
+            ) : waiting ? (
+              <span className="inline-flex w-fit min-h-[27px] items-center gap-1.5 rounded-full border border-amber/20 bg-amber-soft px-2 py-1 text-[10px] font-extrabold text-amber">
                 <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-amber/15">
                   <Icon name="warning" size={13} />
                 </span>
                 {t("chat.waitingReply")}
               </span>
-            )}
+            ) : null}
             {error && (
               <span className="text-[12px] font-semibold text-rose">
                 {error}
@@ -418,7 +428,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                   }
                 />
               )}
-              <UsageBadge usage={usage} />
+              <UsageRing usage={usage} />
             </div>
             {/* 右下主按钮（主流 agent 形态）：运行中时发送钮原地变为同色圆形停止钮；
                 其余时刻是发送钮（含 sending 转圈）。 */}

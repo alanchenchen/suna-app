@@ -51,12 +51,17 @@ export type ActiveData = {
   waitingForInteraction?: boolean;
   /**
    * 当前 run 的本地计时起点（解析层收到首个非终态 run 事件的时刻）。
-   * run 终态时结合 hadToolCall 结算“已工作”耗时行；Runtime 权威的
-   * usage.duration_ms 存在时优先于本地计时。
+   * run 终态时结合 hadToolCall 结算“已工作”耗时行——与 TUI 一致，
+   * 从 run 开始计到终态（usage.duration_ms 是单次 LLM 请求耗时，不用于轮次计时）。
    */
   runStartedAt?: number;
   /** 本轮 run 是否调用过工具：终态时决定是否显示“已工作”行（与 TUI 一致）。 */
   hadToolCall?: boolean;
+  /**
+   * 工具摘要是否来自 attach 恢复（打开历史会话时展示一次）。
+   * 新回合开始（发送 / 收到 run 事件）即清除，避免每轮对话重复展示。
+   */
+  restoredToolSummary?: boolean;
 };
 
 export const blankActive = (): ActiveData => ({
@@ -78,7 +83,10 @@ export function flowFromSnapshot(snapshot: SessionSnapshot): FlowSegment[] {
       kind: "reasoning",
       id: Date.now(),
       text: snapshot.current_run.reasoning_buffer,
-      done: false,
+      // 快照 buffer 是已生成的完整内容（恢复时模型早已输出过）：
+      // 标记为已结束，避免“查看思考过程”卡在“思考中”状态。
+      // 若模型仍在输出，后续 agent.delta 会新开一段继续流式。
+      done: true,
     });
   }
   if (snapshot.current_run?.assistant_buffer) {
@@ -86,7 +94,7 @@ export function flowFromSnapshot(snapshot: SessionSnapshot): FlowSegment[] {
       kind: "assistant",
       id: Date.now() + 1,
       text: snapshot.current_run.assistant_buffer,
-      done: false,
+      done: true,
     });
   }
   return flow;
@@ -137,6 +145,16 @@ export function interactionsFromSnapshot(snapshot: SessionSnapshot): {
     };
   }
   return { restoredPhase };
+}
+
+/** 工具摘要是否应恢复展示：历史快照有汇总、无进行中 run、无流式 buffer。 */
+export function shouldRestoreToolSummary(
+  snapshot: SessionSnapshot,
+  flow: FlowSegment[],
+): boolean {
+  return Boolean(
+    snapshot.tool_summary?.total && flow.length === 0 && !snapshot.current_run,
+  );
 }
 
 export function messageId() {

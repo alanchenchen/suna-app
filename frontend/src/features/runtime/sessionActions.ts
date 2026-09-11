@@ -3,7 +3,11 @@ import type { MessagePart, SessionInfo } from "../../lib/runtimeBridge";
 import type { SteeringMessage } from "../../lib/runtimeBridge";
 import { t } from "../../lib/i18n";
 import type { useRuntimeBridge } from "./useRuntimeBridge";
-import { flowFromSnapshot, messageId } from "./sessionState";
+import {
+  flowFromSnapshot,
+  messageId,
+  shouldRestoreToolSummary,
+} from "./sessionState";
 import type { ActiveData, Scope } from "./sessionState";
 
 type Rpc = ReturnType<typeof useRuntimeBridge>["rpc"];
@@ -108,6 +112,8 @@ export function createSessionActions({
       // 进入“等待模型”窗口：pendingUsers 会被 user_message 确认清空，
       // 而 running 要等 agent.run 才置位，用 awaitingRun 填补空档期。
       awaitingRun: true,
+      // 新回合开始：恢复态的工具摘要不再展示（只属于 attach 恢复场景）。
+      restoredToolSummary: false,
     }));
     try {
       await queueSessionOperation(async () => {
@@ -137,6 +143,7 @@ export function createSessionActions({
           // 发送前的 run 属于旧快照；由新的权威 current_run 决定控制权。
           run: undefined,
           toolSummary: snapshot.tool_summary ?? value.toolSummary,
+          restoredToolSummary: false,
         }));
         mergeSession(snapshot.session);
       });
@@ -318,10 +325,15 @@ export function createSessionActions({
             runId: snapshot.current_run?.run_id,
           };
           setSelectedId(snapshot.session.id);
+          const restoredFlow = flowFromSnapshot(snapshot);
           setActive({
             snapshot,
-            flow: flowFromSnapshot(snapshot),
+            flow: restoredFlow,
             toolSummary: snapshot.tool_summary,
+            restoredToolSummary: shouldRestoreToolSummary(
+              snapshot,
+              restoredFlow,
+            ),
             pendingUsers: [],
           });
           mergeSession(snapshot.session);

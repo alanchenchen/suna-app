@@ -49,7 +49,16 @@ export type SessionInfo = {
   client_count: number;
 };
 
-export type SnapshotMessage = { role: string; content: string };
+/**
+ * 快照消息：role 表达对话结构（谁说的），kind 表达消息性质。
+ * kind=media 是媒体引用摘要（如 [image: name, mime, size, source=...]），
+ * 由 Runtime 确定性生成并标记，UI 应展示为媒体样式而非普通对话文本。
+ */
+export type SnapshotMessage = {
+  role: string;
+  content: string;
+  kind?: "text" | "media";
+};
 export type ToolSummaryItem = {
   tool: string;
   status: string;

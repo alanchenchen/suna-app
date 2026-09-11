@@ -262,6 +262,8 @@ const DICT: Dict = {
     zh: "https://example.com/image.png",
     en: "https://example.com/image.png",
   },
+  // 媒体引用摘要（kind=media）的友好展示。
+  "chat.mediaImage": { zh: "图片", en: "Image" },
   "chat.waitingReply": { zh: "等待你的回答", en: "Waiting for you" },
   "chat.observerNotice": {
     zh: "其他客户端正在运行此会话，任务结束后可在此输入",
@@ -403,11 +405,15 @@ const DICT: Dict = {
     zh: "请在对话中处理此请求",
     en: "Handle this request in the chat",
   },
-  // UsageBadge（输入区工具行内嵌的上下文 badge）。
+  // UsageRing（输入区工具行内嵌的上下文环）。
   "usage.contextAria": {
     zh: "上下文已用 {used} / {total} tokens",
     en: "Context {used} / {total} tokens",
   },
+  "usage.context": { zh: "上下文", en: "Context" },
+  "usage.input": { zh: "输入", en: "Input" },
+  "usage.output": { zh: "输出", en: "Output" },
+  "usage.cacheHit": { zh: "缓存命中", en: "Cache hit" },
   // Header
   "header.overview": { zh: "任务总览", en: "Tasks" },
   "header.running": { zh: "运行中", en: "Running" },

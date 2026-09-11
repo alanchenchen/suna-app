@@ -17,6 +17,7 @@ import {
   blankActive,
   flowFromSnapshot,
   interactionsFromSnapshot,
+  shouldRestoreToolSummary,
 } from "./sessionState";
 import type { ActiveData } from "./sessionState";
 
@@ -262,10 +263,13 @@ export function useRuntimeSession() {
         setSelectedId(id);
         // 判断当前会话中我的身份：我创建过的会话是 host，否则视为 guest。
         setHandoffRole(hostSessionIdsRef.current.has(id) ? "host" : "guest");
+        const restoredFlow = flowFromSnapshot(snapshot);
         setActive({
           snapshot,
-          flow: flowFromSnapshot(snapshot),
+          flow: restoredFlow,
           toolSummary: snapshot.tool_summary,
+          // 工具摘要只在恢复历史会话时展示一次（无进行中 run 且无 buffer）。
+          restoredToolSummary: shouldRestoreToolSummary(snapshot, restoredFlow),
           pendingUsers: [],
           // attach 恢复 daemon 已接受但未应用的引导消息（重连/刷新后
           // 保持 steer 列表可见且可撤回，与文档 §5.4 pending_steering 一致）。

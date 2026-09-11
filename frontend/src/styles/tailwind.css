@@ -512,41 +512,37 @@ button {
     }
   }
 
-  /* 中间工作区：顶部栏 / 状态条（observer、error）/ 滚动时间线 / 输入区。
-     也是详情抽屉（absolute overlay）的定位基准。 */
+  /* 中间工作区：顶部栏 / 状态条（observer、error、syncing、waiting 通知条）/
+     滚动时间线 / 输入区。也是详情抽屉（absolute overlay）的定位基准。
+     用 flex column 而不是固定行数的 grid：通知条按条件渲染、数量可变，
+     grid 固定行模板会被额外子元素挤进隐式行（时间线掉出 1fr 行、输入区
+     被 overflow:hidden 裁掉——“输入框消失”的根源）；flex 下唯一的
+     flex:1 滚动区吸收全部伸缩，任意数量的 auto 通知条都安全。 */
   .workspace {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     position: relative;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
   }
-  /* 移动端：flex 纵向布局，聊天区占剩余空间，输入区固定在底部。
-     不能用 block——conversation 的 height:100% 会撑满整个容器，
-     把 composer 挤出视口。 */
-  @media (max-width: 720px) {
-    .workspace {
-      display: flex;
-      flex-direction: column;
-      /* 父级 app-shell 已是 flex column：这里不再设 height:100%
-         （会与 flex 收缩冲突），由 app-shell > .workspace 的
-         flex:1 + min-height:0 决定实际高度。 */
-      min-height: 0;
-    }
-    .workspace > .conversation-wrap {
-      flex: 1 1 auto;
-      height: auto;
-      min-height: 0;
-    }
+  /* 直接子元素默认不收缩：header / 状态条 / 输入区 / 通知条保持内容高度，
+     高度压力全部由滚动区（flex:1 + min-height:0）吸收。 */
+  .workspace > * {
+    flex-shrink: 0;
+  }
+  .workspace > .conversation-wrap,
+  .workspace > .task-overview {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
-  /* 聊天滚动容器。 */
+  /* 聊天滚动容器：workspace 的 flex:1 子元素，高度由 flex 分配
+     （不设 height:100%——flex item 上百分比高度与伸缩计算冲突）。 */
   .conversation-wrap {
     position: relative;
     min-width: 0;
     min-height: 0;
-    height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;

@@ -298,57 +298,61 @@ function AppShell() {
           observer={observer}
           onCloseError={() => setError(undefined)}
         />
-        {/* 切换/恢复会话的过渡反馈：attach 串行队列执行期间显示。 */}
-        {syncing && selectedId && (
-          <div
-            aria-live="polite"
-            className="flex items-center gap-2 border-b border-blue/20 bg-blue-soft/40 px-3 py-1.5"
-            role="status"
-          >
-            <Icon
-              aria-hidden="true"
-              className="animate-spin text-blue-strong"
-              name="loader"
-              size={13}
-            />
-            <span className="text-[12px] font-bold text-blue-strong">
-              {t("chat.restoring")}
-            </span>
-          </div>
-        )}
-        {visibleWaiting.length > 0 && (
-          <div className="relative z-30 flex items-center gap-2 border-b border-amber/25 bg-amber-soft/70 px-3 py-2">
-            <Icon className="shrink-0 text-amber" name="warning" size={14} />
-            <span className="min-w-0 flex-1 truncate text-[12px] font-bold text-ink">
-              {t("waiting.notice", { count: visibleWaiting.length })}
-            </span>
-            <button
-              className="shrink-0 cursor-pointer rounded-md bg-surface-solid px-2 py-1 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:text-ink disabled:opacity-45"
-              disabled={syncing}
-              onClick={() => {
-                const first = visibleWaiting[0];
-                if (first) void attach(first.id);
-              }}
-              type="button"
+        {/* 通知条区：包在稳定 wrapper 里——workspace 是 flex column，
+            条件渲染的子元素显隐不改变其他子元素的布局角色；
+            wrapper 自身 flex-shrink:0，不参与高度分配。 */}
+        <div className="flex shrink-0 flex-col">
+          {syncing && selectedId && (
+            <div
+              aria-live="polite"
+              className="flex items-center gap-2 border-b border-blue/20 bg-blue-soft/40 px-3 py-1.5"
+              role="status"
             >
-              {t("waiting.go")}
-            </button>
-            <button
-              aria-label={t("waiting.dismiss")}
-              className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
-              onClick={() =>
-                setDismissedWaiting((value) => {
-                  const next = new Set(value);
-                  for (const session of visibleWaiting) next.add(session.id);
-                  return next;
-                })
-              }
-              type="button"
-            >
-              <Icon name="close" size={13} />
-            </button>
-          </div>
-        )}
+              <Icon
+                aria-hidden="true"
+                className="animate-spin text-blue-strong"
+                name="loader"
+                size={13}
+              />
+              <span className="text-[12px] font-bold text-blue-strong">
+                {t("chat.restoring")}
+              </span>
+            </div>
+          )}
+          {visibleWaiting.length > 0 && (
+            <div className="relative z-30 flex items-center gap-2 border-b border-amber/25 bg-amber-soft/70 px-3 py-2">
+              <Icon className="shrink-0 text-amber" name="warning" size={14} />
+              <span className="min-w-0 flex-1 truncate text-[12px] font-bold text-ink">
+                {t("waiting.notice", { count: visibleWaiting.length })}
+              </span>
+              <button
+                className="shrink-0 cursor-pointer rounded-md bg-surface-solid px-2 py-1 text-[11px] font-bold text-ink-soft transition-colors duration-150 hover:text-ink disabled:opacity-45"
+                disabled={syncing}
+                onClick={() => {
+                  const first = visibleWaiting[0];
+                  if (first) void attach(first.id);
+                }}
+                type="button"
+              >
+                {t("waiting.go")}
+              </button>
+              <button
+                aria-label={t("waiting.dismiss")}
+                className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
+                onClick={() =>
+                  setDismissedWaiting((value) => {
+                    const next = new Set(value);
+                    for (const session of visibleWaiting) next.add(session.id);
+                    return next;
+                  })
+                }
+                type="button"
+              >
+                <Icon name="close" size={13} />
+              </button>
+            </div>
+          )}
+        </div>
         {settingsOpen && (
           <>
             <button
@@ -442,6 +446,7 @@ function AppShell() {
               running={running}
               sessionId={active.snapshot?.session.id}
               toolSummary={active.toolSummary}
+              restoredToolSummary={active.restoredToolSummary}
               hasModels={Boolean(config && config.models.length > 0)}
               onOpenSettings={() => {
                 setSettingsInitialTab("models");
@@ -469,6 +474,21 @@ function AppShell() {
               onSteer={steer}
               onUpdateModel={updateModel}
               usage={active.usage}
+              activity={
+                // 运行活动条：显示在输入卡上方（loading 跟随输入焦点）。
+                running || active.pendingUsers.length > 0 || active.awaitingRun
+                  ? {
+                      phase:
+                        active.run?.phase ??
+                        current?.phase ??
+                        active.restoredPhase,
+                      pending:
+                        active.pendingUsers.length > 0 ||
+                        Boolean(active.awaitingRun),
+                      activeTool: active.activeTool,
+                    }
+                  : undefined
+              }
               observer={observer}
               ref={composerRef}
               steering={steering}

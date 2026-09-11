@@ -53,6 +53,10 @@ export function useDeltaQueue({
       return;
     // 把到达顺序的 delta 逐段写入统一叙事流：与末尾同 kind 且未结束的段
     // 合并（继续流式累积），否则新开一段——思考→工具→回复可交替出现。
+    // 新开段时把此前所有叙事段（reasoning/assistant）收口为 done：
+    // 新段意味着模型已进入新的输出阶段，旧段必然已结束。否则恢复场景下
+    // （快照段 done=true 后紧跟新 delta）会出现两个“未结束”段，
+    // 两个思考块同时显示“思考中”。
     setActive((value) => {
       let flow = value.flow;
       for (const item of pending.items) {
@@ -69,7 +73,11 @@ export function useDeltaQueue({
           ];
         } else {
           flow = [
-            ...flow,
+            ...flow.map((segment) =>
+              segment.kind === "assistant" || segment.kind === "reasoning"
+                ? { ...segment, done: true }
+                : segment,
+            ),
             {
               kind: item.kind,
               id: Date.now() + Math.random(),

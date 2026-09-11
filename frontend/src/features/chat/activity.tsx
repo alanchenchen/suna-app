@@ -81,11 +81,42 @@ export { activityCopy };
 
 export function ActivityDots() {
   return (
-    <span aria-hidden="true" className="inline-flex items-center gap-[3px]">
+    <span
+      aria-hidden="true"
+      className="activity-dots inline-flex items-center gap-[3px]"
+    >
       <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current" />
       <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current [animation-delay:140ms]" />
       <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current [animation-delay:280ms]" />
     </span>
+  );
+}
+
+/** 运行活动条：位于输入框上方（loading 跟随输入焦点，不再悬在时间线中）。
+ * 呼吸点在文案左侧紧邻，避免旧布局中点被推到行尾、与文案脱节。 */
+export function ActivityStrip({
+  phase,
+  pending,
+  activeTool,
+}: {
+  phase?: string;
+  pending?: boolean;
+  activeTool?: { tool: string; intent?: string; status?: string };
+}) {
+  const t = useT();
+  const activity = activityCopy(t, phase, pending, activeTool);
+  const toneClass = toneClasses[activity.tone] ?? toneClasses.default;
+  return (
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      className={`flex min-w-0 items-center gap-1.5 border-l-2 py-1 pl-2.5 text-[11px] ${toneClass}`}
+      role="status"
+    >
+      <ActivityDots />
+      <span className="shrink-0 font-extrabold">{activity.label}</span>
+      <span className="min-w-0 truncate text-ink-muted">{activity.detail}</span>
+    </div>
   );
 }
 
@@ -123,6 +154,8 @@ export function ReasoningBlock({
 }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
+  // 空思考段不渲染：恢复/收尾瞬间可能出现空文本（无内容却显示“思考中”）。
+  if (!text.trim()) return null;
   return (
     <article className="animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
       <button

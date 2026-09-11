@@ -173,7 +173,7 @@ export function TaskOverview({
   );
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[680px] flex-col overflow-y-auto px-6 pt-5 pb-8 max-[720px]:px-4 max-[720px]:pt-4">
+    <div className="task-overview mx-auto flex w-full max-w-[680px] flex-col overflow-y-auto px-6 pt-5 pb-8 max-[720px]:px-4 max-[720px]:pt-4">
       {/* 顶部操作行：连接状态一句话 + 新建任务主按钮。
           页面标题只出现在工作区 header（ZCode：标题全局唯一，
           正文不再重复大图标 + 大标题区）。 */}

@@ -85,6 +85,48 @@ describe("useDeltaQueue", () => {
     expect(flow[1]).toMatchObject({ kind: "assistant", text: "回复" });
   });
 
+  it("closes earlier narrative segments when a new segment starts", async () => {
+    const h = createHarness();
+    // 预置恢复场景：快照段已 done（flowFromSnapshot 的产物）。
+    h.getActive().flow.push({
+      kind: "reasoning",
+      id: 1,
+      text: "恢复的思考",
+      done: true,
+    });
+    await act(async () => {
+      h.result.current.queueDelta("reasoning", "继续思考", "run-1");
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+
+    const flow = h.getActive().flow;
+    // 快照段保持 done；新 delta 开新段继续流式，而不是并入快照段
+    // （否则两段内容混在一起，且“思考中”状态会错误地叠加）。
+    expect(flow).toHaveLength(2);
+    expect(flow[0]).toMatchObject({ text: "恢复的思考", done: true });
+    expect(flow[1]).toMatchObject({ text: "继续思考", done: false });
+  });
+
+  it("marks earlier segments done when new reasoning follows finished assistant", async () => {
+    const h = createHarness();
+    // 预置：快照恢复了 reasoning+assistant 两段（均 done=true）。
+    h.getActive().flow.push(
+      { kind: "reasoning", id: 1, text: "快照思考", done: true },
+      { kind: "assistant", id: 2, text: "快照回复", done: true },
+    );
+    await act(async () => {
+      h.result.current.queueDelta("reasoning", "新一轮思考", "run-1");
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+
+    const flow = h.getActive().flow;
+    // 前面的叙事段全部收口，只有末尾新段是未结束：避免双“思考中”。
+    expect(flow).toHaveLength(3);
+    expect(flow[0]).toMatchObject({ kind: "reasoning", done: true });
+    expect(flow[1]).toMatchObject({ kind: "assistant", done: true });
+    expect(flow[2]).toMatchObject({ kind: "reasoning", done: false });
+  });
+
   it("rejects deltas from a different run after scope is bound", async () => {
     const h = createHarness();
     h.setScopeValue({ attach: 1, sessionId: "s1", runId: "run-1" });

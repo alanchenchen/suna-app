@@ -267,7 +267,8 @@ export const SkillCard = SkillRow;
 /** 子任务组：折叠行显示任务目标 + 模型 + 工具数 + 状态，展开后内嵌工具行。
  * 由 spawn 工具的 tool_start/end 创建与结算，组内工具来自
  * `spawn:<spawnID>:<toolID>` 命名空间（suna 协议透传）。
- * 展开区固定高度、内部滚动：长子任务不再撑爆主时间线。 */
+ * 信息布局：任务目标独占首行（可两行截断），模型/工具数/状态收在第二行——
+ * 避免旧版“模型在上、工具数在下”的散落感。展开区固定高度、内部滚动。 */
 export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
@@ -293,45 +294,53 @@ export function SubtaskCard({ item }: { item: SubtaskFlowItem }) {
   // 模型 ref 只取 model 名（provider 前缀省略），节省折叠行宽度。
   const modelName = item.model?.split("/").pop();
   return (
-    <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-transparent transition-colors duration-150 hover:border-line hover:bg-surface-subtle/60">
+    <article className="overflow-hidden rounded-[10px] border border-transparent transition-colors duration-150 hover:border-line hover:bg-surface-subtle/60">
       <button
         aria-expanded={expanded}
-        className="flex w-full min-w-0 cursor-pointer items-center gap-2 px-2 py-[5px] text-left"
+        className="flex w-full min-w-0 cursor-pointer items-start gap-2 px-2 py-1.5 text-left"
         onClick={() => setExpanded((value) => !value)}
         type="button"
       >
         <Icon
-          className={`shrink-0 text-ink-muted transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+          className={`mt-[3px] shrink-0 text-ink-muted transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
           name="chevron-right"
           size={12}
         />
         <span
           aria-hidden="true"
-          className={`h-[6px] w-[6px] shrink-0 rounded-full ${statusMeta.dot}`}
+          className={`mt-[6px] h-[6px] w-[6px] shrink-0 rounded-full ${statusMeta.dot}`}
         />
         <span
-          className={`grid h-[19px] w-[19px] shrink-0 place-items-center rounded-md ${iconTone}`}
+          className={`mt-px grid h-[19px] w-[19px] shrink-0 place-items-center rounded-md ${iconTone}`}
         >
           <Icon name="users" size={11} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-ink">
-          {item.task || t("chat.subtask")}
-        </span>
-        {modelName && (
-          <span
-            className="hidden max-w-[130px] shrink-0 truncate rounded-full bg-surface-raised px-1.5 py-px font-mono text-[9.5px] font-semibold text-ink-muted sm:inline-block"
-            title={item.model}
-          >
-            {modelName}
+        <span className="min-w-0 flex-1">
+          {/* 任务目标：独占首行，最多两行（移动端长任务不再被单行截断）。 */}
+          <span className="line-clamp-2 block text-[11px] leading-[1.5] font-bold text-ink">
+            {item.task || t("chat.subtask")}
           </span>
-        )}
-        <span className="shrink-0 text-[10px] font-semibold text-ink-muted">
-          {toolCount > 0 ? t("chat.subtaskTools", { count: toolCount }) : ""}
-        </span>
-        <span
-          className={`shrink-0 text-[10px] font-extrabold ${statusMeta.text}`}
-        >
-          {statusMeta.label}
+          {/* 元信息行：模型 + 工具数 + 状态全部收在任务下方，不再散落两端。 */}
+          <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+            {modelName && (
+              <span
+                className="max-w-[130px] shrink-0 truncate rounded-full bg-surface-raised px-1.5 py-px font-mono text-[9.5px] font-semibold text-ink-muted"
+                title={item.model}
+              >
+                {modelName}
+              </span>
+            )}
+            {toolCount > 0 && (
+              <span className="shrink-0 text-[10px] font-semibold text-ink-muted">
+                {t("chat.subtaskTools", { count: toolCount })}
+              </span>
+            )}
+            <span
+              className={`shrink-0 text-[10px] font-extrabold ${statusMeta.text}`}
+            >
+              {statusMeta.label}
+            </span>
+          </span>
         </span>
       </button>
       {expanded && (

@@ -8,12 +8,7 @@ import type {
   SnapshotMessage,
   ToolSummary,
 } from "../../lib/runtimeBridge";
-import {
-  activityCopy,
-  ActivityDots,
-  ReasoningBlock,
-  toneClasses,
-} from "./activity";
+import { ReasoningBlock } from "./activity";
 import { DecisionCard } from "./decisionCard";
 import { LONG_MESSAGE_THRESHOLD, LongMessage } from "./longMessage";
 import {
@@ -23,6 +18,7 @@ import {
   formatTurnDuration,
 } from "./toolCards";
 import { LazyMarkdown } from "./LazyMarkdown";
+import { MediaSummary } from "./mediaSummary";
 import { useT } from "../../lib/i18n";
 
 type ActiveTool = {
@@ -99,8 +95,10 @@ type ChatTimelineProps = {
   pending?: boolean;
   /** 当前正在执行的 Runtime 工具（由应用壳提供时）。 */
   activeTool?: ActiveTool;
-  /** 当前会话的工具执行汇总。 */
+  /** 当前会话的工具执行汇总（仅 attach 恢复时展示）。 */
   toolSummary?: ToolSummary;
+  /** 工具摘要是否来自 attach 恢复：只在恢复历史会话时展示一次。 */
+  restoredToolSummary?: boolean;
   /** 待处理的用户决策，内嵌渲染在时间线中。 */
   ask?: AskUserEvent;
   guard?: GuardConfirmEvent;
@@ -134,6 +132,7 @@ export function ChatTimeline({
   pending,
   activeTool,
   toolSummary,
+  restoredToolSummary = false,
   ask,
   guard,
   onAskReply,
@@ -153,7 +152,10 @@ export function ChatTimeline({
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const nearBottomRef = useRef(true);
+  // 跟随开关：只有用户主动滚离底部才关闭，滚回底部（含点“回到最新”）才恢复。
+  // 内容更新绝不改写它——流式期间用户上滑后自动跟随保持关闭，
+  // 彻底消除“强制滚底 vs 用户上滑”的拉锯抽搐。
+  const followRef = useRef(true);
   const lastContentKeyRef = useRef("");
   const historyAnchorRef = useRef<{ height: number; top: number } | undefined>(
     undefined,
@@ -162,14 +164,16 @@ export function ChatTimeline({
     const element = scrollRef.current;
     if (!element) return;
     element.scrollTo({ top: element.scrollHeight, behavior });
-    nearBottomRef.current = true;
+    followRef.current = true;
     setShowJumpToLatest(false);
   };
   const onScroll = (event: UIEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
     const nearBottom =
       element.scrollHeight - element.scrollTop - element.clientHeight < 96;
-    nearBottomRef.current = nearBottom;
+    // 程序化滚动（scrollToLatest）同样触发 scroll 事件：距离底部 96px 内
+    // 一律视为“在底部”，避免平滑滚动中途被误判为用户上滑而关掉跟随。
+    followRef.current = nearBottom;
     setShowJumpToLatest(!nearBottom);
   };
   // 会话切换时保存/恢复滚动位置：localStorage 按 sessionId 记忆，
@@ -191,7 +195,7 @@ export function ChatTimeline({
     prevSessionIdRef.current = sessionId;
     // 不同的会话可能恰好包含相同数量的消息：重置时间线而不是继承
     // 上一个会话的滚动位置。
-    nearBottomRef.current = true;
+    followRef.current = true;
     setShowJumpToLatest(false);
     setHistoryWindow(80);
     requestAnimationFrame(() => {
@@ -230,9 +234,10 @@ export function ChatTimeline({
     const key = `${sessionId ?? "none"}:${messages.length}:${flow.length}:${flow.map((s) => (s.kind === "tool" ? "t" : s.kind === "skill" ? `sk${s.item.name}:${s.item.status}` : s.kind === "subtask" ? `st${s.item.id}:${s.item.status}:${s.item.tools.length}` : s.kind === "turnDuration" ? `td${s.durationMs}` : `${s.kind[0]}${s.text.length}${s.done ? "d" : ""}`)).join(",")}:${running}:${pending}:${phase ?? ""}:${activeTool?.id ?? ""}:${activeTool?.status ?? ""}`;
     if (lastContentKeyRef.current === key) return;
     lastContentKeyRef.current = key;
-    // 只在读者已经位于最新边缘时保持活跃对话锚定；浏览历史时绝不能被
-    // 强制滚动离开。
-    if (nearBottomRef.current) scrollToLatest("auto");
+    // 只在用户仍处于跟随模式时锚定；一旦上滑（followRef=false），内容更新
+    // 不再滚动——用户滚回底部或点“回到最新”才恢复跟随。（此前“内容更新时
+    // 按 nearBottom 强制滚底”与用户上滑互相拉锯，是流式期间抽搐的根源。）
+    if (followRef.current) scrollToLatest("auto");
   }, [
     activeTool?.id,
     activeTool?.status,
@@ -243,15 +248,6 @@ export function ChatTimeline({
     running,
     sessionId,
   ]);
-
-  const hasStream = flow.some(
-    (segment) =>
-      (segment.kind === "reasoning" || segment.kind === "assistant") &&
-      !segment.done,
-  );
-  const showActivityCard = Boolean((running || pending) && !hasStream);
-  const activity = activityCopy(t, phase, pending, activeTool);
-  const activityToneClass = toneClasses[activity.tone] ?? toneClasses.default;
 
   /** 思考/回复段渲染（工具块之间的叙事内容，ZCode 平铺形态）。
    * 思考链属于同一条消息：先思考块（可折叠），紧接正文，共享一个段落。 */
@@ -284,10 +280,14 @@ export function ChatTimeline({
           {streaming ? (
             <>
               {segment.text}
-              <span
-                aria-hidden="true"
-                className="ml-[3px] inline-block h-[1em] w-[2px] animate-[stream-blink_1s_steps(1)_infinite] rounded-[1px] bg-blue align-[-0.15em]"
-              />
+              {/* 光标只在段内有内容时显示：空段（等待首个 delta）不渲染，
+                  避免“空气泡 + 孤光标”。 */}
+              {segment.text.trim() !== "" && (
+                <span
+                  aria-hidden="true"
+                  className="ml-[3px] inline-block h-[1em] w-[2px] animate-[stream-blink_1s_steps(1)_infinite] rounded-[1px] bg-blue align-[-0.15em]"
+                />
+              )}
             </>
           ) : (
             <LazyMarkdown>{segment.text}</LazyMarkdown>
@@ -323,7 +323,8 @@ export function ChatTimeline({
         {!loading &&
           messages.length === 0 &&
           flow.length === 0 &&
-          !showActivityCard && (
+          !running &&
+          !pending && (
             <div className="flex min-h-[300px] animate-[message-in_440ms_cubic-bezier(0.2,0.8,0.2,1)_both] flex-col items-center justify-center text-center">
               <span className="grid h-12 w-12 animate-[float-y_5s_ease-in-out_infinite] place-items-center rounded-2xl bg-blue text-white">
                 <Icon name="sparkle" size={22} />
@@ -424,6 +425,10 @@ export function ChatTimeline({
                       <LazyMarkdown>{message.content}</LazyMarkdown>
                     </div>
                   )
+                ) : message.kind === "media" ? (
+                  // 媒体引用摘要（Runtime 标记 kind=media）：展示为媒体卡，
+                  // 而不是把含 source= 的原始摘要文本丢给用户（与 TUI 对齐）。
+                  <MediaSummary content={message.content} />
                 ) : (
                   // 用户消息：浅色圆角气泡 + 右对齐（ZCode/Linear 惯例），
                   // 与 Suna 的平铺形态一眼区分。
@@ -575,24 +580,8 @@ export function ChatTimeline({
             })()}
           </div>
         )}
-        {/* 活动卡：渲染在叙事流之后（最新消息下方）——loading 的位置
-            应该跟随内容，而不是悬在时间线顶部与内容脱节。 */}
-        {!loading && showActivityCard && (
-          <section
-            aria-atomic="true"
-            aria-live="polite"
-            className={`mt-1 mb-6 flex max-w-[520px] items-center gap-2 border-l-2 py-1 pl-2.5 text-[11px] ${activityToneClass}`}
-            role="status"
-          >
-            <span className="shrink-0 font-extrabold">{activity.label}</span>
-            <span className="min-w-0 flex-1 truncate text-ink-muted">
-              {activity.detail}
-            </span>
-            <ActivityDots />
-          </section>
-        )}
         {!loading &&
-          flow.filter((segment) => segment.kind === "tool").length === 0 &&
+          restoredToolSummary &&
           toolSummary &&
           toolSummary.total > 0 && (
             <section className="mb-7 max-w-[520px] animate-[message-in_360ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
@@ -638,18 +627,23 @@ export function ChatTimeline({
           )}
         <div ref={endRef} />
       </section>
-      {showJumpToLatest && (
-        <div className="pointer-events-none sticky bottom-4 z-10 -mt-9 mb-4 flex justify-center">
-          <button
-            className="pointer-events-auto flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface-solid px-3 py-2 text-[11px] font-extrabold text-ink shadow-sm transition-[transform,background] duration-160 hover:bg-surface-subtle hover:-translate-y-px"
-            onClick={() => scrollToLatest()}
-            type="button"
-          >
-            <Icon name="arrow-down" size={14} />
-            {t("chat.backToLatest")}
-          </button>
-        </div>
-      )}
+      {/* “回到最新”：absolute 覆盖层，不占布局流。此前是 sticky + 负 margin
+          ——显隐会增减 scrollHeight，触发 onScroll 翻转跟随状态，再反过来
+          控制显隐，形成自激振荡（流式期间滚动抽搐的另一根源）。 */}
+      <div
+        aria-hidden={!showJumpToLatest}
+        className={`pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center transition-[opacity,transform] duration-200 ${showJumpToLatest ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
+      >
+        <button
+          className={`flex w-fit cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface-solid px-3 py-2 text-[11px] font-extrabold text-ink shadow-md transition-[transform,background] duration-160 hover:bg-surface-subtle hover:-translate-y-px ${showJumpToLatest ? "pointer-events-auto" : "pointer-events-none"}`}
+          onClick={() => scrollToLatest()}
+          tabIndex={showJumpToLatest ? 0 : -1}
+          type="button"
+        >
+          <Icon name="arrow-down" size={14} />
+          {t("chat.backToLatest")}
+        </button>
+      </div>
     </div>
   );
 }

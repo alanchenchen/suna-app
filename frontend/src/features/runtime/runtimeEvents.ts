@@ -115,16 +115,13 @@ export function createNotificationHandler({
           event.params.state === "cancelled" ||
           event.params.state === "failed";
         // 轮次耗时行（模仿 TUI）：run 终态且本轮调用过工具时，在叙事流
-        // 末尾追加“已工作”行。Runtime 权威 usage.duration_ms 优先
-        // （含模型等待与全部工具执行），本地计时仅在缺失时兑底。
+        // 末尾追加“已工作”行。计时与 TUI 一致：从 run 开始（首个非终态
+        // run 事件）计到终态；usage.duration_ms 是单次 LLM 请求耗时，
+        // 不用于轮次计时（否则只反映最后一次请求，与 TUI 差距大）。
         let flow = value.flow;
-        if (terminal && value.hadToolCall) {
-          const durationMs =
-            value.usage?.duration_ms ??
-            (value.runStartedAt != null
-              ? receivedAt - value.runStartedAt
-              : undefined);
-          if (durationMs != null && durationMs >= 0) {
+        if (terminal && value.hadToolCall && value.runStartedAt != null) {
+          const durationMs = receivedAt - value.runStartedAt;
+          if (durationMs >= 0) {
             flow = [
               ...flow,
               {
@@ -145,6 +142,8 @@ export function createNotificationHandler({
             ? undefined
             : (value.runStartedAt ?? receivedAt),
           hadToolCall: terminal ? false : value.hadToolCall,
+          // run 事件到达即离开“恢复展示”状态：工具摘要只属于 attach 恢复。
+          restoredToolSummary: false,
           // 收到权威 run 事件（含终态）即结束“等待模型”窗口。
           awaitingRun: false,
           // 终态对账：daemon 对 session.user_message 通知屏蔽发送者本人
