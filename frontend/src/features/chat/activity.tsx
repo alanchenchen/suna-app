@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
 import { useT, type Translate } from "../../lib/i18n";
 import { LazyMarkdown } from "./LazyMarkdown";
@@ -185,6 +185,27 @@ export function ReasoningBlock({
 }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // 流式时展开：自动滚到思考链末尾（最新思考在底部，与 TUI 一致）；
+  // 用户在内部滚动后不再拽动（回到底部才恢复跟随），避免阅读被流式打断。
+  const followBodyRef = useRef(true);
+  const lastLenRef = useRef(0);
+  useEffect(() => {
+    if (!expanded || !running) return;
+    const element = bodyRef.current;
+    if (!element) return;
+    if (followBodyRef.current) {
+      element.scrollTop = element.scrollHeight;
+    }
+    lastLenRef.current = text.length;
+  }, [expanded, running, text.length]);
+  const onBodyScroll = () => {
+    const element = bodyRef.current;
+    if (!element) return;
+    const nearBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight < 24;
+    followBodyRef.current = nearBottom;
+  };
   // 空思考段不渲染：恢复/收尾瞬间可能出现空文本（无内容却显示“思考中”）。
   if (!text.trim()) return null;
   return (
@@ -213,7 +234,18 @@ export function ReasoningBlock({
         {running && !done && <StreamActivity label="" />}
       </button>
       {expanded && (
-        <div className="markdown-body min-w-0 max-w-[650px] animate-[panel-pop_180ms_cubic-bezier(0.2,0.8,0.2,1)_both] border-l-2 border-amber/50 py-1 pl-3 text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]">
+        <div
+          className="markdown-body min-w-0 max-w-[650px] animate-[panel-pop_180ms_cubic-bezier(0.2,0.8,0.2,1)_both] border-l-2 border-amber/50 py-1 pl-3 text-[13px] leading-[1.82] text-ink-soft [overflow-wrap:anywhere]"
+          ref={bodyRef}
+          onScroll={onBodyScroll}
+          style={{
+            maxHeight: "min(360px, 45vh)",
+            overflowY: "auto",
+            overscrollBehavior: "contain",
+            // 长思考链在内部滚动，时间线布局不再被顶动；
+            // scrollbar-width 由全局 thin 风格统一。
+          }}
+        >
           <LazyMarkdown>{text}</LazyMarkdown>
         </div>
       )}
