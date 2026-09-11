@@ -7,6 +7,7 @@ import type {
   SessionInfo,
   ToolFlowItem,
 } from "../../lib/runtimeBridge";
+import { isTerminalRun } from "../../lib/runtimeTypes";
 import { t } from "../../lib/i18n";
 import type { ActiveData, Scope } from "./sessionState";
 
@@ -45,6 +46,8 @@ export type NotificationDeps = {
   markSessionIdle: (sessionId?: string) => void;
   mergeMcp: (server: MCPServerInfo) => void;
   getScope: () => Scope | undefined;
+  /** 绑定/更新当前 attach 作用域（steering 通知携带新 run_id 时）。 */
+  setScope: (scope: Scope) => void;
   isSyncing: () => boolean;
   getSelectedId: () => string | undefined;
 };
@@ -68,6 +71,7 @@ export function createNotificationHandler({
   markSessionIdle,
   mergeMcp,
   getScope,
+  setScope,
   isSyncing,
   getSelectedId,
 }: NotificationDeps) {
@@ -321,6 +325,11 @@ export function createNotificationHandler({
     if (event.method === "agent.tool_guard") {
       const subtaskMatch =
         event.params.tool_call_id.match(/^spawn:([^:]+):(.+)$/);
+      // decision 语义（Runtime guard.go）：approve/reject 是 guard 自动
+      // 审查（static/LLM）的最终结论，不需要用户；只有 confirm 才真的
+      // 等待用户授权。把 approve 也标成“等待授权”会让 smart 模式的
+      // LLM 审查期被误显示为卡在授权（用户实测：等很久→立马成功）。
+      const awaitingUser = event.params.decision === "confirm";
       setActive((value) => {
         // 子任务内部工具的 guard：更新组内对应工具状态。
         if (subtaskMatch) {
@@ -335,7 +344,12 @@ export function createNotificationHandler({
                       ...segment.item,
                       tools: segment.item.tools.map((tool) =>
                         tool.id === event.params.tool_call_id
-                          ? { ...tool, status: "guard" as const }
+                          ? {
+                              ...tool,
+                              status: awaitingUser
+                                ? ("guard" as const)
+                                : tool.status,
+                            }
                           : tool,
                       ),
                     },
@@ -348,14 +362,21 @@ export function createNotificationHandler({
           ...value,
           activeTool:
             value.activeTool?.id === event.params.tool_call_id
-              ? { ...value.activeTool, status: "guard" }
+              ? awaitingUser
+                ? { ...value.activeTool, status: "guard" }
+                : value.activeTool
               : value.activeTool,
           flow: value.flow.map((segment) =>
             segment.kind === "tool" &&
             segment.item.id === event.params.tool_call_id
               ? {
                   ...segment,
-                  item: { ...segment.item, status: "guard" as const },
+                  item: {
+                    ...segment.item,
+                    status: awaitingUser
+                      ? ("guard" as const)
+                      : segment.item.status,
+                  },
                 }
               : segment,
           ),
@@ -567,8 +588,13 @@ export function createNotificationHandler({
       const scope = getScope();
       if (isSyncing() || !scope || scope.sessionId !== getSelectedId()) return;
       // daemon 直接以 SteeringMessage 作为 params 下发（协议 §5.6）。
+      // 广播语义：steering 发给会话所有连接（含 guest），run_id 过滤
+      // 与 acceptsRun 同语义——scope 未绑定 runId（attach 到空闲会话
+      // 后其他客户端才发起 run）时接受并绑定，否则只接受当前 run。
       const message = event.params;
-      if (message.run_id !== scope.runId) return;
+      if (scope.runId && message.run_id !== scope.runId) return;
+      if (message.run_id && !scope.runId)
+        setScope({ ...scope, runId: message.run_id });
       setActive((value) => {
         const current = value.steering ?? [];
         const exists = current.some((item) => item.id === message.id);
@@ -612,6 +638,26 @@ export function createNotificationHandler({
         const pendingIndex = value.pendingUsers.findIndex(
           (item) => item.content === content,
         );
+        // 注入位置：run 活跃时 steering 是插在当前内容流中间的（模型
+        // 下一轮才消费），必须进 flow 末尾（与 TUI 形态一致）——append
+        // 进快照会把它排到历史区末尾，出现在上一条用户消息之后、本轮
+        // 全部 run 内容之前（用户实测：steering 卡在“继续”后面）。
+        // run 不活跃（发送新消息的回显/对账）才走快照 append。
+        const runActive = Boolean(value.run && !isTerminalRun(value.run.state));
+        if (runActive) {
+          const alreadyInFlow = value.flow.some(
+            (segment) => segment.kind === "user" && segment.text === content,
+          );
+          return alreadyInFlow
+            ? value
+            : {
+                ...value,
+                flow: [
+                  ...value.flow,
+                  { kind: "user" as const, id: Date.now(), text: content },
+                ],
+              };
+        }
         return {
           ...value,
           pendingUsers:

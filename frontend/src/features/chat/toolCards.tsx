@@ -57,6 +57,8 @@ export function ToolRow({ item }: { item: ToolFlowItem }) {
     },
     guard: {
       dot: "bg-amber animate-pulse",
+      /* Runtime 语义：只有 decision=confirm 的 guard 才真的等用户；
+         文案用“待确认”而非“等待授权”（smart 模式多数调用是自动审查）。 */
       label: t("tool.guard"),
       text: "text-amber",
     },
@@ -105,8 +107,10 @@ export function ToolRow({ item }: { item: ToolFlowItem }) {
             {target}
           </span>
         )}
+        {/* ml-auto：无 target 摘要时耗时/状态仍右对齐（有摘要时 flex-1 已撑满，
+            ml-auto 无空闲空间可分配，两种行右侧元素位置一致）。 */}
         {duration && (
-          <time className="shrink-0 font-mono text-[10px] text-ink-muted">
+          <time className="ml-auto shrink-0 font-mono text-[10px] text-ink-muted">
             {duration}
           </time>
         )}

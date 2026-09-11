@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Icon, IconButton } from "../../components/Icon";
 import { useT } from "../../lib/i18n";
 import { Tooltip } from "../../components/ui/Tooltip";
@@ -8,36 +7,22 @@ type SessionHeaderProps = {
   selected?: SessionInfo;
   handoffRole: "host" | "guest";
   resolvedTheme: "light" | "dark";
-  running: boolean;
-  canControl: boolean;
-  syncing: boolean;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
-  onStop: () => void;
   onOpenMobileMenu: () => void;
 };
 
-/** 工作区顶部栏：会话标题、状态徽章与高频操作（主题/设置/停止）。 */
+/** 工作区顶部栏：会话标题、状态徽章与主题/设置操作。
+ * 停止操作只保留输入框内的蓝色圆停止钮（单一入口，避免双停止钮）。 */
 export function SessionHeader({
   selected,
   handoffRole,
   resolvedTheme,
-  running,
-  canControl,
-  syncing,
   onToggleTheme,
   onOpenSettings,
-  onStop,
   onOpenMobileMenu,
 }: SessionHeaderProps) {
   const t = useT();
-  // 停止两段式：第一次点击进入 3 秒确认窗口，再点才真正取消，防误触。
-  const [stopArming, setStopArming] = useState(false);
-  useEffect(() => {
-    if (!stopArming) return;
-    const timer = window.setTimeout(() => setStopArming(false), 3000);
-    return () => window.clearTimeout(timer);
-  }, [stopArming]);
   return (
     <header className="relative flex min-h-[60px] items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3 max-[720px]:min-h-[56px] max-[720px]:gap-2.5 max-[720px]:px-3.5 max-[720px]:pt-[max(10px,env(safe-area-inset-top))] max-[720px]:pb-2.5">
       <div className="flex min-w-0 items-center gap-2.5">
@@ -109,30 +94,6 @@ export function SessionHeader({
             <Icon name="settings" />
           </IconButton>
         </Tooltip>
-        {running && canControl && !syncing && (
-          <button
-            aria-live="polite"
-            className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-colors duration-150 active:scale-95 max-[720px]:h-8 max-[720px]:px-2 ${
-              stopArming
-                ? "bg-rose text-white shadow-[0_4px_10px_rgba(212,92,103,0.35)]"
-                : "bg-rose/10 text-rose hover:bg-rose/15"
-            }`}
-            onClick={() => {
-              if (stopArming) {
-                setStopArming(false);
-                onStop();
-              } else {
-                setStopArming(true);
-              }
-            }}
-            type="button"
-          >
-            <Icon name="pause" size={15} />
-            <span className="max-[390px]:hidden">
-              {stopArming ? t("header.confirmStop") : t("header.stop")}
-            </span>
-          </button>
-        )}
       </div>
     </header>
   );

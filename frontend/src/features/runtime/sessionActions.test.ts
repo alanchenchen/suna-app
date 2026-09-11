@@ -248,7 +248,7 @@ describe("createSessionActions", () => {
 
     expect(h.rpc).toHaveBeenCalledWith("session.detach", {});
     expect(h.setSelectedId).toHaveBeenCalledWith(undefined);
-    expect(h.toast).toHaveBeenCalledWith("info", "已离开当前会话");
+    expect(h.toast).toHaveBeenCalledWith("info", "已退出当前会话");
   });
 
   it("removes a session and attaches to the next one (confirm handled by UI)", async () => {

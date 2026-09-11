@@ -199,11 +199,20 @@ export function SessionSidebar({
           </span>
           <input
             aria-label={t("sidebar.search")}
-            className="w-full rounded-lg border border-line bg-surface-raised py-1.5 pr-2.5 pl-8 text-[12px] text-ink placeholder:text-ink-muted focus:border-blue/50 focus:outline-none"
+            className="w-full rounded-lg border border-line bg-surface-raised py-1.5 pr-14 pl-8 text-[12px] text-ink placeholder:text-ink-muted focus:border-blue/50 focus:outline-none"
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("sidebar.search")}
             value={query}
           />
+          {/* 命令面板入口提示：搜索框本身也可直达面板（⌘K / Ctrl+K）。
+              inset-y-0 会拉伸 kbd 高度（变形感），改为垂直居中的自然高度。 */}
+          <kbd
+            aria-label={t("sidebar.openCommands")}
+            title={t("sidebar.openCommands")}
+            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-line bg-surface px-1.5 py-0.5 text-[10px] leading-none font-bold text-ink-muted"
+          >
+            {navigator.platform.startsWith("Mac") ? "⌘K" : "Ctrl K"}
+          </kbd>
         </div>
       </div>
       <nav aria-label={t("sidebar.recent")} className="session-list">

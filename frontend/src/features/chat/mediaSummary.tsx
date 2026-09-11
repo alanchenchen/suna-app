@@ -42,7 +42,7 @@ export function MediaSummary({ content }: { content: string }) {
   const t = useT();
   const { name, size } = parseMediaSummary(content);
   return (
-    <span className="inline-flex min-w-0 items-center gap-2 rounded-[10px] border border-line bg-surface-raised px-2.5 py-1.5">
+    <span className="inline-flex min-w-0 items-center gap-2 rounded-[10px] bg-surface-subtle/80 px-2.5 py-1.5">
       <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md bg-blue-soft text-blue-strong">
         <Icon name="image" size={12} />
       </span>

@@ -13,7 +13,9 @@ import {
   Ellipsis,
   Eye,
   Folder,
+  Gauge,
   Image,
+  Layers,
   LayoutGrid,
   Link,
   Loader2,
@@ -32,10 +34,12 @@ import {
   Square,
   Sun,
   TriangleAlert,
+  Upload,
   User,
   Users,
   Wrench,
   X,
+  Zap,
   type LucideProps,
 } from "lucide-react";
 
@@ -54,7 +58,9 @@ export type IconName =
   | "ellipsis"
   | "eye"
   | "folder"
+  | "gauge"
   | "image"
+  | "layers"
   | "grid"
   | "link"
   | "loader"
@@ -71,11 +77,13 @@ export type IconName =
   | "stop"
   | "sun"
   | "tool"
+  | "upload"
   | "user"
   | "users"
   | "warning"
   | "plug"
-  | "refresh";
+  | "refresh"
+  | "zap";
 
 const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   "arrow-down": ArrowDown,
@@ -92,7 +100,9 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   ellipsis: Ellipsis,
   eye: Eye,
   folder: Folder,
+  gauge: Gauge,
   image: Image,
+  layers: Layers,
   grid: LayoutGrid,
   link: Link,
   loader: Loader2,
@@ -109,11 +119,13 @@ const icons: Record<IconName, React.ComponentType<LucideProps>> = {
   stop: Square,
   sun: Sun,
   tool: Wrench,
+  upload: Upload,
   user: User,
   users: Users,
   warning: TriangleAlert,
   plug: Plug,
   refresh: RefreshCw,
+  zap: Zap,
 };
 
 export function Icon({

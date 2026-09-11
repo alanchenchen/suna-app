@@ -145,6 +145,9 @@ export function useRuntimeSession() {
         markSessionIdle,
         mergeMcp,
         getScope: () => scopeRef.current,
+        setScope: (scope) => {
+          scopeRef.current = scope;
+        },
         isSyncing: () => syncingRef.current,
         getSelectedId: () => selectedIdRef.current,
       }),

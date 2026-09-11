@@ -72,7 +72,18 @@ export function SessionRow({
             {joining ? t("sidebar.opening") : t(statusLabels[session.status])}
           </span>
         </span>
-        <time className="text-[10px] text-ink-muted">
+        {/* 右上角时间与 ⋯ 菜单同位交叉淡入（只动 opacity，无布局位移）：
+            hover/选中/菜单展开时时间让位给会话菜单；running 未选中行
+            hover 时让位给「加入」胶囊（⋯ 仅键盘聚焦时浮现）。 */}
+        <time
+          className={`text-[10px] text-ink-muted transition-opacity duration-150 ${
+            selected || menuFor
+              ? "opacity-0"
+              : canJoin
+                ? "group-focus-within:opacity-0"
+                : "group-hover:opacity-0 group-focus-within:opacity-0"
+          }`}
+        >
           {t(relativeTime(session.updated_at))}
         </time>
       </button>
@@ -86,32 +97,36 @@ export function SessionRow({
           {t("sidebar.join")}
         </button>
       )}
-      {selected && (onDetach || onDelete || onRename || onTogglePin) && (
+      {(onDetach || onDelete || onRename || onTogglePin) && (
         <div className="absolute top-1 right-1.5" ref={menuRef}>
           <button
             aria-expanded={menuFor}
             aria-label={t("sidebar.sessionActions")}
-            className={`grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-ink-muted transition-[opacity,background] duration-150 hover:bg-surface-muted hover:text-ink focus:opacity-100 ${
-              /* 选中行的操作入口常显：藏进 hover 会让“分离/重命名/删除”
-                 几乎不可发现（用户从未见过该菜单）；非选中行仍随 hover 浮现，
-                 避免整个列表噪声化。移动端不受影响（本就常显）。 */
-              selected
+            className={`grid h-6 w-6 cursor-pointer place-items-center rounded-md border border-line bg-surface-raised text-ink-soft shadow-sm transition-[opacity,background-color,border-color] duration-150 hover:bg-surface-subtle hover:text-ink focus-visible:opacity-100 ${
+              /* 可发现性：⋯ 与右上角时间同位交叉淡入——选中行（含移动端）
+                 常显，其余行 hover/键盘聚焦时浮现；running 未选中行把 hover
+                 让给「加入」胶囊（两者同在右侧会重叠）。隐藏态必须
+                 pointer-events-none，避免透明按钮挡住时间区域的点击。 */
+              selected || menuFor
                 ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100 max-[720px]:opacity-100"
+                : canJoin
+                  ? "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+                  : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 max-[720px]:invisible"
             }`}
+            disabled={disabled || joining}
             onClick={(event) => {
               event.stopPropagation();
               setMenuFor((value) => !value);
             }}
             type="button"
           >
-            <Icon name="ellipsis" size={15} />
+            <Icon name="ellipsis" size={13} />
           </button>
           {menuFor && (
-            <div className="absolute top-8 right-0 z-10 w-36 animate-[panel-pop_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-xl border border-line bg-surface-solid py-1 shadow-lg">
+            <div className="absolute top-7 right-0 z-10 w-32 animate-[panel-pop_160ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-xl border border-line bg-surface-solid py-1 shadow-lg">
               {onTogglePin && (
                 <button
-                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                  className="block w-full cursor-pointer px-2.5 py-1.5 text-left text-[11.5px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
                   onClick={(event) => {
                     event.stopPropagation();
                     setMenuFor(false);
@@ -124,7 +139,7 @@ export function SessionRow({
               )}
               {onRename && (
                 <button
-                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                  className="block w-full cursor-pointer px-2.5 py-1.5 text-left text-[11.5px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
                   onClick={(event) => {
                     event.stopPropagation();
                     setMenuFor(false);
@@ -135,9 +150,11 @@ export function SessionRow({
                   {t("sidebar.rename")}
                 </button>
               )}
-              {onDetach && (
+              {/* 退出会话只对当前 attach 的会话有意义：其他会话没加入过，
+                  无从退出（onDetach 仅在选中行有值，见 App.tsx 传参）。 */}
+              {selected && onDetach && (
                 <button
-                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
+                  className="block w-full cursor-pointer px-2.5 py-1.5 text-left text-[11.5px] font-semibold text-ink-soft transition-colors duration-100 hover:bg-surface-subtle hover:text-ink"
                   onClick={(event) => {
                     event.stopPropagation();
                     setMenuFor(false);
@@ -145,12 +162,12 @@ export function SessionRow({
                   }}
                   type="button"
                 >
-                  {t("sidebar.detach")}
+                  {t("sidebar.leave")}
                 </button>
               )}
               {onDelete && (
                 <button
-                  className="block w-full cursor-pointer px-3 py-2 text-left text-[12px] font-semibold text-rose transition-colors duration-100 hover:bg-rose/10"
+                  className="block w-full cursor-pointer px-2.5 py-1.5 text-left text-[11.5px] font-semibold text-rose transition-colors duration-100 hover:bg-rose/10"
                   onClick={(event) => {
                     event.stopPropagation();
                     setMenuFor(false);

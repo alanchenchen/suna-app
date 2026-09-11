@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Icon } from "../../components/Icon";
 import { Select } from "../../components/ui/Select";
-import { UsageRing } from "./UsageRing";
+import { UsageMeter } from "./UsageRing";
 import { ActivityStrip } from "./activity";
 import { useT } from "../../lib/i18n";
 import type {
@@ -52,6 +52,8 @@ type ComposerProps = {
     phase?: string;
     pending?: boolean;
     activeTool?: { tool: string; intent?: string; status?: string };
+    /** 流式输出阶段：thinking=reasoning 流，replying=assistant 流。 */
+    streaming?: "thinking" | "replying";
   };
 };
 
@@ -205,6 +207,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
       <footer className="composer-area">
         {(activity || waiting || error) && (
           <div className="mx-auto mb-2 grid w-[min(720px,100%)] gap-1.5">
+            {/* 活动状态条：细分等待模型/思考中/正在回复/工具执行等阶段。
+                位于输入卡上方（loading 跟随输入焦点）；run 开始/结束
+                各一次出现/消失，不会逐帧顶动输入卡。 */}
             {activity ? (
               <ActivityStrip {...activity} />
             ) : waiting ? (
@@ -225,12 +230,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
         <div
           className={`mx-auto w-[min(720px,100%)] rounded-[16px] border bg-surface-solid transition-colors duration-200 max-[720px]:rounded-[14px] ${observer ? "border-line bg-surface-subtle/50 opacity-80" : "border-line focus-within:border-blue/40"}`}
         >
-          {observer && (
-            <div className="flex items-center gap-1.5 px-4 pt-2.5 text-[10.5px] font-semibold text-ink-muted max-[720px]:px-3">
-              <Icon name="eye" size={12} />
-              {t("chat.observerNotice")}
-            </div>
-          )}
           {showImageInput && (
             <div className="grid gap-1.5 px-4 pt-3 max-[720px]:px-3">
               <label className="grid gap-1 text-[10px] font-bold text-ink-muted">
@@ -293,8 +292,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
               )}
             </div>
           )}
-          {/* 运行中引导消息列表：已注入的 steer 消息，可逐条撤回。 */}
-          {canSteer && steering.length > 0 && (
+          {/* 运行中引导消息列表：已注入的 steer 消息。可见性不依赖本端控制权——
+              guest 也要能看到 owner（如 TUI）排队的引导消息；撤回按钮仅对
+              can_control 的条目显示，无控制权时只读展示。 */}
+          {steering.length > 0 && (
             <div className="flex flex-col gap-1 px-4 pt-3 max-[720px]:px-3">
               {steering.map((item) => (
                 <div
@@ -312,14 +313,16 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                       .map((part) => part.text)
                       .join(" ")}
                   </span>
-                  <button
-                    aria-label={t("chat.removeSteering")}
-                    className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
-                    onClick={() => void onRemoveSteering?.(item.id)}
-                    type="button"
-                  >
-                    <Icon name="close" size={12} />
-                  </button>
+                  {item.can_control && (
+                    <button
+                      aria-label={t("chat.removeSteering")}
+                      className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-subtle hover:text-ink"
+                      onClick={() => void onRemoveSteering?.(item.id)}
+                      type="button"
+                    >
+                      <Icon name="close" size={12} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -377,9 +380,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                 : canSteer
                   ? t("chat.steerPlaceholder")
                   : disabled
-                    ? observer
-                      ? t("chat.observerPlaceholder")
-                      : t("chat.selectSessionFirst")
+                    ? // 观察态的说明已由状态条（SessionStatusBars）承担，
+                      // 占位符不再重复一遍——只提示这里为什么不可输入。
+                      t("chat.viewOnlyPlaceholder")
                     : t("chat.sendPlaceholder")
             }
             ref={textareaRef}
@@ -428,7 +431,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(
                   }
                 />
               )}
-              <UsageRing usage={usage} />
+              <UsageMeter usage={usage} />
             </div>
             {/* 右下主按钮（主流 agent 形态）：运行中时发送钮原地变为同色圆形停止钮；
                 其余时刻是发送钮（含 sending 转圈）。 */}

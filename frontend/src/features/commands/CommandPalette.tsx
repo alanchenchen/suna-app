@@ -27,6 +27,8 @@ type Command = {
   detail?: string;
   icon: IconName;
   kind: "session" | "action";
+  /** 全局快捷键提示（如 ⌘N）：仅展示，执行仍走 run。 */
+  shortcut?: string;
   run: () => void;
 };
 
@@ -48,6 +50,9 @@ export function CommandPalette({
   const t = useT();
   const locale = useLocale();
   const changeLocale = useChangeLocale();
+  // 快捷键提示按平台展示（macOS ⌘ / 其他 Ctrl）。
+  const isMac =
+    typeof navigator !== "undefined" && navigator.platform.startsWith("Mac");
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +102,7 @@ export function CommandPalette({
         label: t("cmd.newTask"),
         icon: "plus" as const,
         kind: "action" as const,
+        shortcut: isMac ? "⌘N" : "Ctrl N",
         run: onCreateTask,
       },
       ...(running
@@ -126,6 +132,7 @@ export function CommandPalette({
         label: t("cmd.settings"),
         icon: "settings" as const,
         kind: "action" as const,
+        shortcut: isMac ? "⌘," : "Ctrl ,",
         run: onOpenSettings,
       },
       {
@@ -150,6 +157,7 @@ export function CommandPalette({
   }, [
     canCompact,
     changeLocale,
+    isMac,
     locale,
     onCompact,
     onCreateTask,
@@ -242,6 +250,11 @@ export function CommandPalette({
                     {t("cmd.current")}
                   </span>
                 )}
+              {command.shortcut && (
+                <kbd className="shrink-0 rounded-md border border-line bg-surface-raised px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">
+                  {command.shortcut}
+                </kbd>
+              )}
             </button>
           );
         })}

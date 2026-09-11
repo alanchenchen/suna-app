@@ -123,6 +123,12 @@ export type AgentRunEvent = {
   resume_available?: boolean;
 };
 export type SteeringState = "queued" | "applied" | "removed" | "rejected";
+/** run 终态：flow 中的注入消息不再新增，后续 user_message 走快照 append。 */
+export function isTerminalRun(
+  state: AgentRunEvent["state"] | undefined,
+): boolean {
+  return state === "done" || state === "failed" || state === "cancelled";
+}
 export type SteeringMessage = {
   session_id?: string;
   id: string;
@@ -209,6 +215,7 @@ export type SkillFlowItem = {
 export type FlowSegment =
   | { kind: "reasoning"; id: number; text: string; done: boolean }
   | { kind: "assistant"; id: number; text: string; done: boolean }
+  | { kind: "user"; id: number; text: string }
   | { kind: "tool"; item: ToolFlowItem }
   | { kind: "skill"; item: SkillFlowItem }
   | { kind: "subtask"; item: SubtaskFlowItem }

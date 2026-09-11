@@ -96,9 +96,14 @@ const DICT: Dict = {
   "sidebar.pin": { zh: "置顶会话", en: "Pin session" },
   "sidebar.unpin": { zh: "取消置顶", en: "Unpin session" },
   "sidebar.rename": { zh: "重命名会话", en: "Rename session" },
-  "sidebar.detach": { zh: "分离会话", en: "Detach session" },
+  "sidebar.detach": { zh: "退出会话", en: "Leave session" },
+  "sidebar.leave": { zh: "退出会话", en: "Leave session" },
   "sidebar.delete": { zh: "删除会话", en: "Delete session" },
   "sidebar.sessionActions": { zh: "会话操作", en: "Session actions" },
+  "sidebar.openCommands": {
+    zh: "打开命令面板（⌘K）",
+    en: "Open command palette (⌘K)",
+  },
   "sidebar.untitled": { zh: "未命名会话", en: "Untitled session" },
   "sidebar.opening": { zh: "正在打开…", en: "Opening…" },
   "sidebar.join": { zh: "加入", en: "Join" },
@@ -273,6 +278,12 @@ const DICT: Dict = {
     zh: "其他客户端正在运行此会话，当前仅可查看…",
     en: "Another client is running this session — view only…",
   },
+  // 观察态占位符：状态条已说明“谁在跑/何时可接管”，这里只补一句
+  // 为什么输入框不可用，避免同一句话出现两遍。
+  "chat.viewOnlyPlaceholder": {
+    zh: "任务结束后可在此输入…",
+    en: "You can type here once the run finishes…",
+  },
   "chat.selectSessionFirst": {
     zh: "请先选择一个会话…",
     en: "Select a session first…",
@@ -293,7 +304,9 @@ const DICT: Dict = {
   // 决策卡
   "guard.approve": { zh: "批准", en: "Approve" },
   "guard.reject": { zh: "拒绝", en: "Reject" },
-  "guard.title": { zh: "需要你的授权", en: "Approval needed" },
+  // guard 语义：decision=confirm 才真的等用户授权（smart 模式多数是
+  // 自动审查，不该用“等待授权”吓用户）；confirm 卡才是真正的授权入口。
+  "guard.title": { zh: "需要你的确认", en: "Your confirmation needed" },
   "ask.title": { zh: "Suna 有一个问题", en: "Suna has a question" },
   "ask.replyToContinue": { zh: "请回复后继续", en: "Reply to continue" },
   "ask.inputPlaceholder": { zh: "输入你的回答", en: "Type your answer" },
@@ -313,10 +326,13 @@ const DICT: Dict = {
     zh: "工具执行未完成",
     en: "Tool execution incomplete",
   },
-  "activity.guard": { zh: "等待你确认操作", en: "Waiting for your approval" },
+  "activity.guard": {
+    zh: "等待你确认操作",
+    en: "Waiting for your confirmation",
+  },
   "activity.guardDetail": {
-    zh: "此操作需要授权后继续",
-    en: "This action needs your approval to continue",
+    zh: "此操作需要你确认后继续",
+    en: "This action needs your confirmation to continue",
   },
   "activity.compact": { zh: "正在整理上下文", en: "Compacting context" },
   "activity.compactDetail": {
@@ -329,6 +345,19 @@ const DICT: Dict = {
     en: "Loading capabilities for this task",
   },
   "activity.toolRunning": { zh: "正在执行工具", en: "Running tool" },
+  "activity.toolRunningDetail": {
+    zh: "正在执行 {tool}",
+    en: "Running {tool}",
+  },
+  "activity.replying": { zh: "正在回复", en: "Responding" },
+  "activity.thinkingDetail": {
+    zh: "Suna 正在梳理思路",
+    en: "Suna is reasoning through the task",
+  },
+  "activity.replyingDetail": {
+    zh: "Suna 正在生成回复",
+    en: "Suna is writing the response",
+  },
   "activity.toolPreparing": { zh: "正在准备工具操作", en: "Preparing tool" },
   "activity.toolDetail": {
     zh: "正在处理任务中的下一步",
@@ -351,7 +380,7 @@ const DICT: Dict = {
   },
   // 工具行
   "tool.running": { zh: "执行中", en: "Running" },
-  "tool.guard": { zh: "等待授权", en: "Awaiting approval" },
+  "tool.guard": { zh: "待确认", en: "Needs confirmation" },
   "tool.success": { zh: "完成", en: "Done" },
   "tool.failed": { zh: "失败", en: "Failed" },
   "skill.loading": { zh: "加载中", en: "Loading" },
@@ -414,6 +443,17 @@ const DICT: Dict = {
   "usage.input": { zh: "输入", en: "Input" },
   "usage.output": { zh: "输出", en: "Output" },
   "usage.cacheHit": { zh: "缓存命中", en: "Cache hit" },
+  "usage.cacheRead": { zh: "缓存读取", en: "Cache read" },
+  "usage.cacheWrite": { zh: "缓存写入", en: "Cache write" },
+  "usage.inputDetail": {
+    zh: "输入 tokens（含缓存读取 {cache}）",
+    en: "Input tokens (incl. {cache} cached)",
+  },
+  "usage.speed": { zh: "速度", en: "Speed" },
+  "usage.tpsHint": {
+    zh: "模型输出速度（tokens/秒，最近一次请求）",
+    en: "Output speed (tokens/sec, last request)",
+  },
   // Header
   "header.overview": { zh: "任务总览", en: "Tasks" },
   "header.running": { zh: "运行中", en: "Running" },
@@ -796,10 +836,10 @@ const DICT: Dict = {
     zh: "无法更新会话标题。",
     en: "Failed to update session title.",
   },
-  "action.detached": { zh: "已离开当前会话", en: "Left the current session" },
+  "action.detached": { zh: "已退出当前会话", en: "Left the current session" },
   "action.detachFailed": {
-    zh: "无法分离会话。",
-    en: "Failed to detach session.",
+    zh: "无法退出会话。",
+    en: "Failed to leave session.",
   },
   "action.deleteConfirm": {
     zh: "删除此会话？",

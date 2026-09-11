@@ -8,6 +8,7 @@ function activityCopy(
   phase?: string,
   pending?: boolean,
   activeTool?: { tool: string; intent?: string; status?: string },
+  streaming?: "thinking" | "replying",
 ) {
   if (phase === "ask") {
     return {
@@ -47,13 +48,27 @@ function activityCopy(
   }
   if (activeTool || phase === "tool") {
     return {
-      label:
-        activeTool?.status === "running"
-          ? t("activity.toolRunning")
-          : t("activity.toolPreparing"),
-      detail:
-        activeTool?.intent || activeTool?.tool || t("activity.toolDetail"),
+      label: activeTool?.tool
+        ? t("activity.toolRunningDetail", { tool: activeTool.tool })
+        : t("activity.toolRunning"),
+      detail: activeTool?.intent || t("activity.toolDetail"),
       tone: "tool",
+    };
+  }
+  // 流式输出阶段比 phase=model 更精确：reasoning 流=思考中、
+  // assistant 流=正在回复（协议 agent.delta kind 可推导）。
+  if (streaming === "thinking") {
+    return {
+      label: t("chat.thinking"),
+      detail: t("activity.thinkingDetail"),
+      tone: "model",
+    };
+  }
+  if (streaming === "replying") {
+    return {
+      label: t("activity.replying"),
+      detail: t("activity.replyingDetail"),
+      tone: "model",
     };
   }
   if (pending) {
@@ -79,6 +94,50 @@ function activityCopy(
 
 export { activityCopy };
 
+/**
+ * 运行活动条：位于输入框上方（loading 跟随输入焦点）。
+ * 状态细分（协议可推导）：等待模型（无 delta）/ 思考中（reasoning 流）/
+ * 正在回复（assistant 流）/ 工具执行（含工具名）/ 待确认 / 提问 / 压缩 / 技能。
+ * run 开始/结束各一次出现/消失，非逐帧位移。
+ */
+export function ActivityStrip({
+  phase,
+  pending,
+  activeTool,
+  streaming,
+}: {
+  phase?: string;
+  pending?: boolean;
+  activeTool?: { tool: string; intent?: string; status?: string };
+  /** 流式输出阶段：thinking=reasoning 流，replying=assistant 流。 */
+  streaming?: "thinking" | "replying";
+}) {
+  const t = useT();
+  const activity = activityCopy(t, phase, pending, activeTool, streaming);
+  const toneClass = toneClasses[activity.tone] ?? toneClasses.default;
+  return (
+    /* 极简文本行：呼吸点 + 状态词 + 次要 detail。无边框无底色，
+       与时间线的安静气质一致（胶囊底色反而显得笨重）。 */
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      className={`flex min-w-0 items-center gap-1.5 py-0.5 pl-0.5 text-[10.5px] ${toneClass}`}
+      role="status"
+    >
+      <ActivityDots />
+      <span className="shrink-0 font-semibold">{activity.label}</span>
+      {activity.detail && (
+        <span
+          className="min-w-0 truncate font-mono text-[10px] text-ink-muted"
+          title={activity.detail}
+        >
+          {activity.detail}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function ActivityDots() {
   return (
     <span
@@ -89,34 +148,6 @@ export function ActivityDots() {
       <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current [animation-delay:140ms]" />
       <i className="h-1 w-1 animate-[activity-dot_1.15s_ease-in-out_infinite_both] rounded-full bg-current [animation-delay:280ms]" />
     </span>
-  );
-}
-
-/** 运行活动条：位于输入框上方（loading 跟随输入焦点，不再悬在时间线中）。
- * 呼吸点在文案左侧紧邻，避免旧布局中点被推到行尾、与文案脱节。 */
-export function ActivityStrip({
-  phase,
-  pending,
-  activeTool,
-}: {
-  phase?: string;
-  pending?: boolean;
-  activeTool?: { tool: string; intent?: string; status?: string };
-}) {
-  const t = useT();
-  const activity = activityCopy(t, phase, pending, activeTool);
-  const toneClass = toneClasses[activity.tone] ?? toneClasses.default;
-  return (
-    <div
-      aria-atomic="true"
-      aria-live="polite"
-      className={`flex min-w-0 items-center gap-1.5 border-l-2 py-1 pl-2.5 text-[11px] ${toneClass}`}
-      role="status"
-    >
-      <ActivityDots />
-      <span className="shrink-0 font-extrabold">{activity.label}</span>
-      <span className="min-w-0 truncate text-ink-muted">{activity.detail}</span>
-    </div>
   );
 }
 
@@ -191,9 +222,8 @@ export function ReasoningBlock({
 }
 
 export const toneClasses: Record<string, string> = {
-  guard: "border-amber [&_.activity-dots]:text-amber",
-  failed:
-    "border-rose [&_.activity-dots]:text-rose [&_.font-extrabold]:text-rose",
-  default:
-    "border-blue [&_.activity-dots]:text-blue [&_.font-extrabold]:text-blue-strong",
+  guard: "text-amber [&_.activity-dots]:text-amber",
+  failed: "text-rose [&_.activity-dots]:text-rose",
+  ask: "text-blue-strong [&_.activity-dots]:text-blue",
+  default: "text-ink-soft [&_.activity-dots]:text-blue",
 };

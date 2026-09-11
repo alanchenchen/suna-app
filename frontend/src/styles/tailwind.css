@@ -139,17 +139,17 @@ body {
 /* 统一键盘焦点环：按钮/链接等可交互元素保持一致的可视焦点。
    表单域（input/textarea/select）除外：它们的焦点反馈由组件
    自身的边框变色表达（如 Composer 容器 focus-within），叠加
-   ring 会形成“双层边框 + 阴影”的观感。 */
+   ring 会形成“双层边框 + 阴影”的观感。
+   注意：不得在此强设 border-radius——box-shadow 本就跟随元素
+   自身圆角；强设小圆角会把圆角输入框 focus 时压成方形。 */
 :focus-visible {
   outline: none;
   box-shadow: var(--ring-blue);
-  border-radius: var(--radius-xs);
 }
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   box-shadow: none;
-  border-radius: inherit;
 }
 
 /* 统一细滚动条。 */
@@ -532,13 +532,21 @@ button {
     flex-shrink: 0;
   }
   .workspace > .conversation-wrap,
+  .workspace > .conversation-host,
   .workspace > .task-overview {
     flex: 1 1 auto;
     min-height: 0;
   }
 
-  /* 聊天滚动容器：workspace 的 flex:1 子元素，高度由 flex 分配
-     （不设 height:100%——flex item 上百分比高度与伸缩计算冲突）。 */
+  /* 聊天滚动容器：conversation-host（flex:1 宿主）的填充子元素，高度
+     由宿主 flex 分配（不设 height:100%——flex item 上百分比高度与
+     伸缩计算冲突）。宿主层承载“回到最新”absolute 覆盖层：滚动容器
+     内的 absolute 锚定的是内容盒底部而非可视区，长会话里按钮永远
+     滚不进视口。 */
+  .conversation-host > .conversation-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
   .conversation-wrap {
     position: relative;
     min-width: 0;

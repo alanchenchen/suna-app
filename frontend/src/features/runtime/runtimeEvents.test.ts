@@ -38,6 +38,7 @@ function createHarness(
     flushDeltas: vi.fn(),
     acceptsRun: vi.fn(() => overrides.acceptsRun ?? true),
     acceptsSession: vi.fn(() => overrides.acceptsSession ?? true),
+    setScope: vi.fn(),
     mergeSession: vi.fn(),
     markSessionIdle: vi.fn(),
     mergeMcp: vi.fn(),
@@ -49,7 +50,16 @@ function createHarness(
   const handler = createNotificationHandler(deps);
   const send = (event: RuntimeNotification, receivedAt?: number) =>
     handler(event, receivedAt);
-  return { deps, send, getActive: () => active, getConfig: () => config };
+  const setActive = (value: ActiveData) => {
+    active = value;
+  };
+  return {
+    deps,
+    send,
+    getActive: () => active,
+    getConfig: () => config,
+    setActive,
+  };
 }
 
 function snapshotSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
@@ -133,6 +143,7 @@ describe("createNotificationHandler", () => {
           segment.kind === "skill" ||
           segment.kind === "subtask" ||
           segment.kind === "turnDuration" ||
+          segment.kind === "user" ||
           segment.done,
       ),
     ).toBe(true);
@@ -210,7 +221,7 @@ describe("createNotificationHandler", () => {
         tool_call_id: "t1",
         tool: "readfile",
         readonly: true,
-        decision: "ask",
+        decision: "confirm",
         source: "guard",
       },
     });
@@ -219,6 +230,7 @@ describe("createNotificationHandler", () => {
       (s): s is Extract<FlowSegment, { kind: "tool" }> =>
         s.kind === "tool" && s.item.id === "t1",
     );
+    // decision=confirm 才进入等待授权状态；approve/reject 是自动审查结论。
     expect(guarded?.item.status).toBe("guard");
 
     send({
@@ -316,6 +328,57 @@ describe("createNotificationHandler", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("does not mark guard state for auto-approved guard decisions", () => {
+    const { send, getActive } = createHarness();
+    send({
+      method: "agent.tool_start",
+      params: { id: "t6", tool: "exec", params: {}, intent: "跑命令" },
+    });
+    // Runtime 语义（guard.go）：approve 是 guard 自动审查的最终结论
+    // （static/LLM），不需要用户；只有 confirm 才真的等用户授权。
+    // 误标会让 smart 模式的 LLM 审查期显示成“等待授权”。
+    send({
+      method: "agent.tool_guard",
+      params: {
+        tool_call_id: "t6",
+        tool: "exec",
+        readonly: false,
+        decision: "approve",
+        source: "llm",
+      },
+    });
+    const segment = getActive().flow.find(
+      (s): s is Extract<FlowSegment, { kind: "tool" }> =>
+        s.kind === "tool" && s.item.id === "t6",
+    );
+    expect(segment?.item.status).toBe("running");
+    expect(getActive().activeTool?.status).toBe("running");
+  });
+
+  it("marks guard state only for confirm decisions", () => {
+    const { send, getActive } = createHarness();
+    send({
+      method: "agent.tool_start",
+      params: { id: "t7", tool: "exec", params: {}, intent: "跑命令" },
+    });
+    send({
+      method: "agent.tool_guard",
+      params: {
+        tool_call_id: "t7",
+        tool: "exec",
+        readonly: false,
+        decision: "confirm",
+        source: "rule",
+      },
+    });
+    const segment = getActive().flow.find(
+      (s): s is Extract<FlowSegment, { kind: "tool" }> =>
+        s.kind === "tool" && s.item.id === "t7",
+    );
+    expect(segment?.item.status).toBe("guard");
+    expect(getActive().activeTool?.status).toBe("guard");
   });
 
   it("appends a turn duration row on terminal run when tools were called", () => {
@@ -939,5 +1002,159 @@ describe("createNotificationHandler", () => {
       },
     });
     expect(h.getActive().steering ?? []).toEqual([]);
+  });
+
+  it("accepts steering from other clients when scope has no runId and binds it", () => {
+    // 场景：App attach 到空闲会话（scope.runId=undefined），TUI 随后发起
+    // run 并排队引导消息。广播发给会话所有连接，App 必须接受并绑定 runId，
+    // 否则 TUI 的 steering 队列对 App 完全不可见。
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: undefined,
+    });
+    h.send({
+      method: "agent.steering",
+      params: {
+        id: "s1",
+        run_id: "run-from-tui",
+        state: "queued",
+        sequence: 1,
+        can_control: false,
+        parts: [{ type: "text", text: "from tui" }],
+      },
+    });
+    const steering = h.getActive().steering ?? [];
+    expect(steering).toHaveLength(1);
+    expect(steering[0]?.parts[0]).toEqual({ type: "text", text: "from tui" });
+    expect(steering[0]?.can_control).toBe(false);
+    // 接受通知的同时绑定 scope.runId，后续同 run 的事件不再被丢弃。
+    expect(h.deps.setScope).toHaveBeenCalledWith({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-from-tui",
+    });
+  });
+
+  it("appends other client's steering as user message on applied broadcast", () => {
+    // 场景：TUI 的引导消息注入模型时，daemon 广播 session.user_message
+    // （ownerID 为空，不排除任何客户端）。App 必须把它 append 进快照，
+    // 时间线才能显示这条用户消息——否则只能看到 assistant 回复，
+    // 用户补充的上下文凭空消失。
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-1",
+    });
+    h.setActive({
+      ...blankActive(),
+      snapshot: {
+        session: {
+          id: "s1",
+          cwd: "/tmp",
+          message_count: 1,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+          status: "running",
+          client_count: 2,
+        },
+        messages: [{ role: "user", content: "original task" }],
+      },
+    });
+    h.send({
+      method: "session.user_message",
+      params: {
+        session_id: "s1",
+        run_id: "run-1",
+        parts: [{ type: "text", text: "steering from tui" }],
+      },
+    });
+    const messages = h.getActive().snapshot?.messages ?? [];
+    expect(messages).toHaveLength(2);
+    expect(messages[1]).toEqual({
+      role: "user",
+      content: "steering from tui",
+    });
+  });
+
+  it("inserts applied steering into flow when run is active", () => {
+    // 场景：run 进行中，TUI 的引导消息注入模型。注入点在当前内容流
+    // 中间（模型下一轮才消费），必须进 flow 末尾——append 进快照会
+    // 把它排到历史区末尾，出现在上一条用户消息之后、本轮全部 run
+    // 内容之前（用户实测：steering 卡在“继续”后面）。
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-1",
+    });
+    h.setActive({
+      ...blankActive(),
+      run: {
+        run_id: "run-1",
+        state: "running",
+        can_control: false,
+      },
+      flow: [{ kind: "assistant", id: 1, text: "正在处理…", done: false }],
+      snapshot: {
+        session: {
+          id: "s1",
+          cwd: "/tmp",
+          message_count: 1,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+          status: "running",
+          client_count: 2,
+        },
+        messages: [{ role: "user", content: "original task" }],
+      },
+    });
+    h.send({
+      method: "session.user_message",
+      params: {
+        session_id: "s1",
+        run_id: "run-1",
+        parts: [{ type: "text", text: "steering from tui" }],
+      },
+    });
+    const active = h.getActive();
+    // 进了 flow 末尾，且不污染快照（终态对账时由权威快照接管）。
+    const userSegment = active.flow.find((segment) => segment.kind === "user");
+    expect(userSegment).toEqual({
+      kind: "user",
+      id: expect.any(Number),
+      text: "steering from tui",
+    });
+    expect(active.flow[active.flow.length - 1]).toBe(userSegment);
+    expect(active.snapshot?.messages).toHaveLength(1);
+  });
+
+  it("does not duplicate injected steering already present in flow", () => {
+    // applied 广播可能重复到达（重连窗口），同文本的 user 段已存在时
+    // 不能再插一条。
+    const h = createHarness();
+    h.deps.getScope.mockReturnValue({
+      attach: 1,
+      sessionId: "s1",
+      runId: "run-1",
+    });
+    h.setActive({
+      ...blankActive(),
+      run: { run_id: "run-1", state: "running", can_control: false },
+      flow: [{ kind: "user", id: 7, text: "steering from tui" }],
+    });
+    h.send({
+      method: "session.user_message",
+      params: {
+        session_id: "s1",
+        run_id: "run-1",
+        parts: [{ type: "text", text: "steering from tui" }],
+      },
+    });
+    expect(
+      h.getActive().flow.filter((segment) => segment.kind === "user"),
+    ).toHaveLength(1);
   });
 });

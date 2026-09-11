@@ -266,18 +266,12 @@ function AppShell() {
       />{" "}
       <section className="workspace">
         <SessionHeader
-          canControl={canControl}
           handoffRole={handoffRole}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen((value) => !value)}
-          onStop={() =>
-            void queueSessionOperation(() => rpc("agent.cancel", {}))
-          }
           onToggleTheme={toggleTheme}
           resolvedTheme={resolvedTheme}
-          running={running}
           selected={selected}
-          syncing={syncing}
         />
         <SessionDialogs
           createOpen={createOpen}
@@ -475,7 +469,9 @@ function AppShell() {
               onUpdateModel={updateModel}
               usage={active.usage}
               activity={
-                // 运行活动条：显示在输入卡上方（loading 跟随输入焦点）。
+                // 运行阶段指示：收在工具行内（发送钮左侧，零位移）。
+                // streaming 从叙事流末段推导：未结束 reasoning=思考中、
+                // 未结束 assistant=正在回复（比 phase=model 更精确）。
                 running || active.pendingUsers.length > 0 || active.awaitingRun
                   ? {
                       phase:
@@ -486,6 +482,20 @@ function AppShell() {
                         active.pendingUsers.length > 0 ||
                         Boolean(active.awaitingRun),
                       activeTool: active.activeTool,
+                      streaming: (() => {
+                        const last = active.flow[active.flow.length - 1];
+                        if (!last) return undefined;
+                        if (
+                          (last.kind === "reasoning" ||
+                            last.kind === "assistant") &&
+                          !last.done
+                        ) {
+                          return last.kind === "reasoning"
+                            ? ("thinking" as const)
+                            : ("replying" as const);
+                        }
+                        return undefined;
+                      })(),
                     }
                   : undefined
               }
