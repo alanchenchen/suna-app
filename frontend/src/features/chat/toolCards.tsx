@@ -41,6 +41,28 @@ export function toolTarget(item: ToolFlowItem) {
   return typeof found === "string" ? found : undefined;
 }
 
+/** exec 工具形态：前台 run / 后台启动 / 查询 job / 停止 job。
+ * 协议语义（Runtime exec_schema）：background=true 启动后台 job；
+ * action=status/stop 管理 job（需 job_id）；省略 action 即前台 run。
+ * 前台 run 是多数场景，不标徽章保持安静；后台/管理操作是少数且
+ * 语义完全不同，必须一眼区分。 */
+export function execMode(
+  item: ToolFlowItem,
+): "foreground" | "background" | "status" | "stop" {
+  if (item.tool !== "exec") return "foreground";
+  const params = item.params ?? {};
+  const action = typeof params.action === "string" ? params.action : "";
+  if (action === "status") return "status";
+  if (action === "stop") return "stop";
+  return params.background === true ? "background" : "foreground";
+}
+
+/** 从 exec 后台启动的 result 提取 job_id（"Exec started background job <id>."）。 */
+export function execJobId(item: ToolFlowItem): string | undefined {
+  const match = item.result?.match(/^Exec started background job (\S+)\./);
+  return match?.[1];
+}
+
 /** 工具行：单行状态 + 工具名 + 目标摘要 + 耗时，点击展开参数与结果。
  * 紧凑形态是主流 agent UI 的共识（Claude Code / Cursor / OpenHands），
  * 一屏可扫读更多工具，展开才看细节。 */
@@ -81,6 +103,22 @@ export function ToolRow({ item }: { item: ToolFlowItem }) {
   }[status];
   const target = toolTarget(item);
   const duration = formatDuration(item.durationMs);
+  // exec 形态徽章：后台/查询/停止三种少数形态一眼区分；前台 run 不标。
+  // 主题是单一靛蓝主色（不新造装饰色）：后台用中性色，status/stop
+  // 复用语义色（blue=查询、rose=停止）。
+  const mode = execMode(item);
+  const modeBadge =
+    mode === "background"
+      ? {
+          label: t("tool.execBackground"),
+          cls: "bg-surface-subtle text-ink-soft",
+        }
+      : mode === "status"
+        ? { label: t("tool.execStatus"), cls: "bg-blue-soft text-blue-strong" }
+        : mode === "stop"
+          ? { label: t("tool.execStop"), cls: "bg-rose/12 text-rose" }
+          : undefined;
+  const jobId = execJobId(item);
   return (
     <article className="animate-[message-in_320ms_cubic-bezier(0.2,0.8,0.2,1)_both] overflow-hidden rounded-[10px] border border-transparent transition-colors duration-150 hover:border-line hover:bg-surface-subtle/60">
       <button
@@ -102,6 +140,13 @@ export function ToolRow({ item }: { item: ToolFlowItem }) {
         <code className="shrink-0 font-mono text-[11px] font-bold text-ink">
           {item.tool}
         </code>
+        {modeBadge && (
+          <span
+            className={`shrink-0 rounded px-1 py-px text-[9px] font-extrabold ${modeBadge.cls}`}
+          >
+            {modeBadge.label}
+          </span>
+        )}
         {target && (
           <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-ink-muted">
             {target}
@@ -129,6 +174,17 @@ export function ToolRow({ item }: { item: ToolFlowItem }) {
       </button>
       {expanded && hasDetail && (
         <div className="mx-2 mb-2 space-y-2 rounded-lg border border-line/70 bg-surface-raised/60 px-2.5 py-2">
+          {/* 后台 job 标识：可复制的 job_id，与 result 首行文案互为补充。 */}
+          {jobId && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">
+                {t("tool.execJobId")}
+              </span>
+              <code className="min-w-0 flex-1 truncate rounded-md bg-surface-raised px-2 py-1 font-mono text-[10.5px] text-ink">
+                {jobId}
+              </code>
+            </div>
+          )}
           {item.params && Object.keys(item.params).length > 0 && (
             <div>
               <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">

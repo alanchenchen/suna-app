@@ -383,6 +383,11 @@ const DICT: Dict = {
   "tool.guard": { zh: "待确认", en: "Needs confirmation" },
   "tool.success": { zh: "完成", en: "Done" },
   "tool.failed": { zh: "失败", en: "Failed" },
+  // exec 形态徽章：后台启动/查询 job/停止 job（前台 run 不标，保持安静）。
+  "tool.execBackground": { zh: "后台", en: "Background" },
+  "tool.execStatus": { zh: "查询", en: "Status" },
+  "tool.execStop": { zh: "停止", en: "Stop" },
+  "tool.execJobId": { zh: "Job ID", en: "Job ID" },
   "skill.loading": { zh: "加载中", en: "Loading" },
   "skill.reviewing": { zh: "校验中", en: "Reviewing" },
   "skill.loaded": { zh: "已加载", en: "Loaded" },
