@@ -100,7 +100,8 @@ func main() {
 		go openBrowser(actualAddress)
 	}
 
-	// 空闲自退：所有浏览器连接都关闭且无 run 后，gateway 优雅退出。
+	// 空闲自退：所有浏览器连接都关闭后，gateway 优雅退出。断开 Runtime
+	// 连接不取消 run（daemon detach 语义），run 终态前 daemon 由 Lifecycle 常驻。
 	// 二次确认 ActiveClients()==0 防"计时到点瞬间用户重开浏览器"竞态；
 	// 安装进行中挂起（不中断下载/校验）。
 	idleExitCh := make(chan struct{}, 1)

@@ -271,7 +271,7 @@ func (zeroReader) Read(p []byte) (int, error) {
 }
 
 // TestOnIdleExitFiresAfterLastClientDisconnects 验证：无订阅者 + 空闲超时后
-// 断开最后一个连接时触发 OnIdleExit（且无 run 在跑）。
+// 断开最后一个连接时触发 OnIdleExit。
 func TestOnIdleExitFiresAfterLastClientDisconnects(t *testing.T) {
 	connection := newFakeConnection()
 	onIdleExit := make(chan struct{}, 1)
@@ -300,50 +300,6 @@ func TestOnIdleExitFiresAfterLastClientDisconnects(t *testing.T) {
 	case <-onIdleExit:
 	case <-time.After(time.Second):
 		t.Fatal("OnIdleExit was not fired after idle disconnect")
-	}
-}
-
-// TestOnIdleExitFiresAfterRunTerminalState 验证：run 终态通知（done）到达后
-// run 计数归零，空闲断开恢复，OnIdleExit 正常触发。这是“run 结束后浏览器
-// 已全部关闭，gateway 应退出”的关键路径。
-func TestOnIdleExitFiresAfterRunTerminalState(t *testing.T) {
-	connection := newFakeConnection()
-	onIdleExit := make(chan struct{}, 1)
-	service, err := New(fakeConnector{connection}, Config{
-		Random:            zeroReader{},
-		ClientIdleTimeout: 20 * time.Millisecond,
-		OnIdleExit: func() {
-			select {
-			case onIdleExit <- struct{}{}:
-			default:
-			}
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	id, _, err := service.Connect(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	// run 进入 running：空闲断开被 run 保护阻塞。
-	connection.notifications <- runtime.Notification{Method: "agent.run", Params: json.RawMessage(`{"state":"running"}`)}
-	time.Sleep(50 * time.Millisecond)
-	if _, err := service.Request(context.Background(), id, "session.list", nil); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-onIdleExit:
-		t.Fatal("OnIdleExit fired while a run is active")
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	// run 终态到达后，空闲断开重新调度并触发自退。
-	connection.notifications <- runtime.Notification{Method: "agent.run", Params: json.RawMessage(`{"state":"done"}`)}
-	select {
-	case <-onIdleExit:
-	case <-time.After(time.Second):
-		t.Fatal("OnIdleExit was not fired after run reached a terminal state")
 	}
 }
 
@@ -459,14 +415,16 @@ func TestOnIdleExitEvaluationCancelledByReconnect(t *testing.T) {
 	}
 }
 
-// TestOnIdleExitNotFiredWhileRunActive 验证：连接上有正在执行的 run 时，
-// 空闲断开不触发 OnIdleExit（防止 daemon 取消 run）。
-func TestOnIdleExitNotFiredWhileRunActive(t *testing.T) {
+// TestOnIdleExitFiresWhileRunActive 验证：连接上有正在执行的 run 时，
+// 空闲断开照常触发 OnIdleExit。Runtime 的 detach 语义（A1）保证断开
+// Runtime 连接不取消 run（结果照常落库），run 终态前 daemon 由 Lifecycle
+// 常驻（hasActiveRun）；gateway 无需镜像 run 状态。
+func TestOnIdleExitFiresWhileRunActive(t *testing.T) {
 	connection := newFakeConnection()
 	onIdleExit := make(chan struct{}, 1)
 	service, err := New(fakeConnector{connection}, Config{
 		Random:            zeroReader{},
-		ClientIdleTimeout: 200 * time.Millisecond,
+		ClientIdleTimeout: 50 * time.Millisecond,
 		OnIdleExit: func() {
 			select {
 			case onIdleExit <- struct{}{}:
@@ -481,22 +439,16 @@ func TestOnIdleExitNotFiredWhileRunActive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 先让 pump 消费 agent.run 通知：running 状态使连接保持活跃。
+	// run 进行中（agent.run running 通知已发出）也照常空闲断开。
 	connection.notifications <- runtime.Notification{Method: "agent.run", Params: json.RawMessage(`{"state":"running"}`)}
-	// 等待 pump 消费通知并更新 running 计数，再触发空闲计时。
-	time.Sleep(50 * time.Millisecond)
 	if _, err := service.Request(context.Background(), id, "session.list", nil); err != nil {
 		t.Fatal(err)
 	}
+
 	select {
 	case <-onIdleExit:
-		t.Fatal("OnIdleExit fired while a run is active")
-	case <-time.After(300 * time.Millisecond):
-		// 预期：不触发（run 保护使 idle 断开不执行）
-	}
-	// run 保护生效后连接应仍然可用。
-	if _, err := service.Request(context.Background(), id, "session.list", nil); err != nil {
-		t.Fatalf("connection was disconnected despite active run: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("OnIdleExit was not fired although runtime keeps detached runs alive")
 	}
 }
 

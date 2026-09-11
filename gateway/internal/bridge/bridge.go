@@ -88,10 +88,12 @@ type Config struct {
 	// AllowedMethod returns true only for exact public Runtime methods exposed to browsers.
 	// Nil uses the v0.3 browser bridge method allowlist.
 	AllowedMethod func(string) bool
-	// OnIdleExit 在所有浏览器连接都消失、且无 run 在跑时调用。
-	// gateway 用它实现"用户关闭浏览器后自动退出"。空闲超时路径同步触发；
-	// 主动 Disconnect 与 Runtime 被动断开不同步触发，但会延迟评估（见
-	// scheduleIdleExitEvaluation），否则 pagehide DELETE 后 gateway 永不退出。
+	// OnIdleExit 在所有浏览器连接都消失时调用。
+	// gateway 用它实现"用户关闭浏览器后自动退出"。断开 Runtime 连接不取消
+	// run（daemon detach 语义 A1），run 终态前 daemon 由 Lifecycle 常驻。
+	// 空闲超时路径同步触发；主动 Disconnect 与 Runtime 被动断开不同步触发，
+	// 但会延迟评估（见 scheduleIdleExitEvaluation），否则 pagehide DELETE
+	// 后 gateway 永不退出。
 	OnIdleExit func()
 }
 
@@ -118,9 +120,6 @@ type client struct {
 	closed      bool
 	subscribers map[chan runtime.Notification]struct{}
 	idleTimer   *time.Timer
-	// running 是该连接上正在执行的 run 数（由 agent.run 通知驱动）。
-	// 空闲自退决策依赖它：有 run 时不能断开 Runtime 连接（否则 daemon 会取消 run）。
-	running int
 }
 
 // New creates a bridge service. A connector is required because a Bridge must
@@ -390,22 +389,15 @@ func (s *Service) disconnectIfCurrent(id string, expected *client) {
 		s.mu.Unlock()
 		return
 	}
-	c.mu.Lock()
-	running := c.hasRunning()
-	c.mu.Unlock()
-	if running {
-		// 有 run 在跑：不能断开（否则 daemon 会取消 run）。保持连接不动，
-		// 等 run 终态通知到达后由 trackRun 重新调度空闲断开。
-		s.mu.Unlock()
-		return
-	}
 	delete(s.clients, id)
 	noClients := len(s.clients) == 0
 	s.mu.Unlock()
 	c.closeSubscribers()
 	_ = c.connection.Close()
-	// 所有浏览器连接都已因空闲超时断开、且无任何 run 在跑时，通知 gateway 自退。
-	// 仅在空闲断开路径触发（显式 Disconnect/Close 不调用本函数）。
+	// 所有浏览器连接都已因空闲超时断开时，通知 gateway 自退。
+	// 断开 Runtime 连接不取消 run：daemon 的 detach 语义（A1）保证 run
+	// 继续执行且结果落库，run 终态前 daemon 由 Lifecycle 常驻
+	// （hasActiveRun），gateway 无需镜像维护 run 状态。
 	if noClients && s.onIdleExit != nil {
 		s.onIdleExit()
 	}
@@ -441,8 +433,6 @@ func (s *Service) pump(id string, c *client) {
 			}
 			c.mu.Lock()
 			if !c.closed {
-				// 跟踪 agent.run 生命周期：决定空闲自退时能否安全断开 Runtime 连接。
-				c.trackRun(notification)
 				for subscriber := range c.subscribers {
 					// SSE 客户端的积压意味着无法保证状态完整性。关闭此订阅，
 					// 让浏览器通过 reconnect + attach 获取 Runtime 权威快照。
@@ -457,8 +447,8 @@ func (s *Service) pump(id string, c *client) {
 			noSubscribers := !c.closed && len(c.subscribers) == 0
 			c.mu.Unlock()
 			if noSubscribers {
-				// 无订阅者时重新调度空闲断开：run 期间 timer 已触发过（非 nil），
-				// 必须先清掉再调度，否则 run 结束后不会再次进入空闲断开流程。
+				// 无订阅者时重新调度空闲断开：浏览器关闭后 timer 到点把最后
+				// 一个连接移除，进而触发空闲自退评估。
 				c.mu.Lock()
 				c.cancelIdleLocked()
 				c.mu.Unlock()
@@ -501,34 +491,6 @@ func (c *client) closeSubscribers() {
 		close(subscriber)
 		delete(c.subscribers, subscriber)
 	}
-}
-
-// trackRun 根据 agent.run 通知维护该连接上的 run 计数。
-// running/retrying 进入 +1；终态（done/failed/cancelled）或取消中 -1（下限 0）。
-// 调用方必须持有 c.mu。
-func (c *client) trackRun(n runtime.Notification) {
-	if n.Method != "agent.run" {
-		return
-	}
-	var params struct {
-		State string `json:"state"`
-	}
-	if err := json.Unmarshal(n.Params, &params); err != nil {
-		return
-	}
-	switch params.State {
-	case "running", "retrying":
-		c.running++
-	case "done", "failed", "cancelled", "cancelling":
-		if c.running > 0 {
-			c.running--
-		}
-	}
-}
-
-// hasRunning 报告该连接上是否有正在执行的 run。调用方必须持有 c.mu。
-func (c *client) hasRunning() bool {
-	return c.running > 0
 }
 
 func defaultAllowedMethod(method string) bool {
