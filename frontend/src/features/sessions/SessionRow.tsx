@@ -91,7 +91,14 @@ export function SessionRow({
           <button
             aria-expanded={menuFor}
             aria-label={t("sidebar.sessionActions")}
-            className="grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-ink-muted opacity-0 transition-[opacity,background] duration-150 hover:bg-surface-subtle hover:text-ink focus:opacity-100 group-hover:opacity-100 max-[720px]:opacity-100"
+            className={`grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-ink-muted transition-[opacity,background] duration-150 hover:bg-surface-muted hover:text-ink focus:opacity-100 ${
+              /* 选中行的操作入口常显：藏进 hover 会让“分离/重命名/删除”
+                 几乎不可发现（用户从未见过该菜单）；非选中行仍随 hover 浮现，
+                 避免整个列表噪声化。移动端不受影响（本就常显）。 */
+              selected
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 max-[720px]:opacity-100"
+            }`}
             onClick={(event) => {
               event.stopPropagation();
               setMenuFor((value) => !value);
